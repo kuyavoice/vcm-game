@@ -1237,6 +1237,14 @@ export class GameScene extends Phaser.Scene {
       level: this.xp.level,
       choices,
       onPick: (c: Choice) => this.applyChoice(c),
+      reroll: () => this.up.buildChoices(3),
+      skip: () => this.player.heal(this.player.maxHp * 0.1),
+      ban: (c: Choice) => {
+        this.up.banned.add(`${c.kind}:${c.id}`);
+        const keep = choices.filter((x) => x !== c);
+        const extra = this.up.buildChoices(6).filter((x) => !keep.some((k) => k.id === x.id && k.kind === x.kind) && !(x.kind === c.kind && x.id === c.id));
+        return [...keep, ...extra].slice(0, 3);
+      },
     };
     AudioBus.play('se_levelup');
     this.vo('levelup', 4000);

@@ -40,6 +40,13 @@ export const PERMANENT: PermUpgradeDef[] = [
   },
 ];
 
+/** レベルアップ時の便利アイテム（エールで回数を購入。ラン中に消費） */
+export const CONSUMABLES: { id: 'reroll' | 'skip' | 'ban'; name: string; desc: string; cost: number }[] = [
+  { id: 'reroll', name: 'リロール', desc: 'レベルアップの選択肢を引き直す', cost: 40 },
+  { id: 'skip', name: 'スキップ', desc: '選択を1回飛ばす（HPを少し回復）', cost: 25 },
+  { id: 'ban', name: '除外', desc: '選んだ候補をそのプレイ中は二度と出さない', cost: 60 },
+];
+
 /** 宝箱 */
 export const CHEST = {
   /** 大当たり（報酬3つ）の基本確率。幸運で倍率 */

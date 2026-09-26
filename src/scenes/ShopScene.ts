@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { CHARACTERS, CHARACTER_ORDER } from '../data/characters';
-import { PERMANENT } from '../data/shop';
+import { PERMANENT, CONSUMABLES } from '../data/shop';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, writeSave } from '../utils/storage';
 import { makeButton } from '../ui/Button';
@@ -116,6 +116,21 @@ export class ShopScene extends Phaser.Scene {
           }, `${up.name} Lv${lv + 1}`);
         }, { width: 160, height: 46, fontSize: 20, primary: save.totalYell >= cost });
       }
+      y += rowH + 10;
+    }
+
+    // ── 便利アイテム（レベルアップ時） ──
+    y += 12;
+    section('ITEMS');
+    for (const it of CONSUMABLES) {
+      const have = save.consumables[it.id];
+      const rowH = 64;
+      this.add.rectangle(left, y, rowW, rowH, 0x111a3a, 0.9).setOrigin(0).setStrokeStyle(2, 0x3a4a8a, 0.7);
+      this.add.text(left + 18, y + 9, `${it.name}　×${have}`, { fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.white, fontStyle: '700' });
+      this.add.text(left + 18, y + 38, it.desc, { fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.dim });
+      makeButton(this, left + rowW - 16 - 80, y + rowH / 2, `★ ${it.cost}`, () => {
+        buy(it.cost, (sv) => { sv.consumables[it.id]++; }, `${it.name} +1`);
+      }, { width: 160, height: 46, fontSize: 20, primary: save.totalYell >= it.cost });
       y += rowH + 10;
     }
 

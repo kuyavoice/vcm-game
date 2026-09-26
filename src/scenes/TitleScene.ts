@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave } from '../utils/storage';
 import { AudioBus } from '../utils/audio';
+import { makeButton } from '../ui/Button';
 
 export class TitleScene extends Phaser.Scene {
   constructor() {
@@ -60,6 +61,9 @@ export class TitleScene extends Phaser.Scene {
     this.add.text(W / 2, H - 40, 'ファンゲーム（IF・お祭り枠）　M1 build', {
       fontFamily: FONT_JP, fontSize: '16px', color: COLOR_HEX.dim,
     }).setOrigin(0.5);
+
+    // 図鑑（ボタンは pointerdown を止めるので TAP TO START と干渉しない）
+    makeButton(this, W - 24 - 90, Math.max(H * 0.06, 50), '図鑑', () => this.scene.start('Codex'), { width: 160, height: 52, fontSize: 22 });
 
     let started = false;
     const start = () => {

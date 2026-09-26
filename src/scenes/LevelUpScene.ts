@@ -2,11 +2,17 @@ import Phaser from 'phaser';
 import type { Choice } from '../systems/Upgrades';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { SelectGuard } from '../ui/SelectGuard';
+import { loadSave, writeSave } from '../utils/storage';
+import { makeButton } from '../ui/Button';
 
 export interface LevelUpData {
   level: number;
   choices: Choice[];
   onPick: (c: Choice) => void;
+  /** 便利アイテム（エールで購入した回数）。使うと消費 */
+  reroll?: () => Choice[];
+  skip?: () => void;
+  ban?: (c: Choice) => Choice[];
 }
 
 /** レベルアップ3択（Game をポーズして上に重ねる） */
@@ -37,7 +43,11 @@ export class LevelUpScene extends Phaser.Scene {
 
     // 誤タップ対策：全指が離れる＋0.3秒待ち＋押し始めと離した位置が同じカード
     const guard = new SelectGuard(this);
+    let picked = false;
+    const cards: Phaser.GameObjects.Rectangle[] = [];
     const decide = (c: Choice, cont: Phaser.GameObjects.Container) => {
+      if (picked) return;
+      picked = true;
       this.tweens.add({
         targets: cont, scaleX: 1.04, scaleY: 1.04, duration: 90, yoyo: true,
         onComplete: () => {
@@ -70,6 +80,7 @@ export class LevelUpScene extends Phaser.Scene {
       cont.setAlpha(0).setX(W / 2 + 40);
       this.tweens.add({ targets: cont, alpha: 1, x: W / 2, duration: 220, delay: 60 * i, ease: 'Cubic.out' });
 
+      cards.push(bg);
       bg.setInteractive({ useHandCursor: true });
       bg.on('pointerover', () => bg.setStrokeStyle(3, 0xffffff, 1));
       bg.on('pointerout', () => bg.setStrokeStyle(2, 0x87ceeb, 0.5));
@@ -79,9 +90,55 @@ export class LevelUpScene extends Phaser.Scene {
       });
       bg.on('pointerup', () => {
         cont.setScale(1);
+        if (banMode) return;
         if (guard.release(bg)) decide(c, cont);
       });
       y += cardH + gap;
+    });
+
+    // 便利アイテム（リロール／スキップ／除外）
+    const sv = loadSave();
+    const cnt = sv.consumables;
+    let banMode = false;
+    const banHint = this.add.text(W / 2, H * 0.14 + 84, '', { fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.danger, fontStyle: '700' }).setOrigin(0.5);
+    const useItem = (key: 'reroll' | 'skip' | 'ban') => {
+      const s2 = loadSave();
+      if (s2.consumables[key] <= 0) return false;
+      s2.consumables[key]--;
+      writeSave(s2);
+      return true;
+    };
+    const by = Math.min(H - 110, y + 10);
+    if (data.reroll) {
+      makeButton(this, W / 2 - 220, by, `リロール ${cnt.reroll}`, () => {
+        if (picked || !useItem('reroll')) return;
+        this.scene.restart({ ...data, choices: data.reroll!() });
+      }, { width: 200, height: 56, fontSize: 20, primary: cnt.reroll > 0 });
+    }
+    if (data.skip) {
+      makeButton(this, W / 2, by, `スキップ ${cnt.skip}`, () => {
+        if (picked || !useItem('skip')) return;
+        picked = true;
+        data.skip!();
+        this.scene.stop();
+        this.scene.resume('Game');
+      }, { width: 200, height: 56, fontSize: 20, primary: cnt.skip > 0 });
+    }
+    if (data.ban) {
+      makeButton(this, W / 2 + 220, by, `除外 ${cnt.ban}`, () => {
+        if (picked || cnt.ban <= 0) return;
+        banMode = !banMode;
+        banHint.setText(banMode ? '除外する候補をタップ' : '');
+      }, { width: 200, height: 56, fontSize: 20, primary: cnt.ban > 0 });
+    }
+    // 除外モード中はカードのタップで除外→その枠だけ引き直し
+    this.input.on('gameobjectup', (_p: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
+      if (!banMode || picked) return;
+      const idx = cards.indexOf(obj as Phaser.GameObjects.Rectangle);
+      if (idx < 0) return;
+      if (!useItem('ban')) return;
+      picked = true;
+      this.scene.restart({ ...data, choices: data.ban!(data.choices[idx]) });
     });
 
     // PC：1〜3キーでも選べる（同じく0.3秒は無効）

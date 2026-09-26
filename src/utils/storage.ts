@@ -21,6 +21,10 @@ export interface SaveData {
   unlockedCharacters: string[];
   /** 永続強化のLv（キー = shop.ts の id） */
   permanent: Record<string, number>;
+  /** 図鑑：発見したアーツID（進化は `id:evo`） */
+  codex: string[];
+  /** レベルアップ時の便利アイテムの所持数（エールで購入） */
+  consumables: { reroll: number; skip: number; ban: number };
 }
 
 const DEFAULT: SaveData = {
@@ -31,6 +35,8 @@ const DEFAULT: SaveData = {
   totalYell: 0,
   unlockedCharacters: [],
   permanent: {},
+  codex: [],
+  consumables: { reroll: 0, skip: 0, ban: 0 },
 };
 
 export function loadSave(): SaveData {
@@ -46,6 +52,8 @@ export function loadSave(): SaveData {
       cleared: [...(parsed.cleared ?? [])],
       unlockedCharacters: [...(parsed.unlockedCharacters ?? [])],
       permanent: { ...(parsed.permanent ?? {}) },
+      codex: [...(parsed.codex ?? [])],
+      consumables: { ...DEFAULT.consumables, ...(parsed.consumables ?? {}) },
     };
     // 旧形式の移行：best → bests[1]
     if (data.best && !data.bests['1']) {
@@ -64,6 +72,15 @@ export function writeSave(data: SaveData): void {
   } catch {
     /* プライベートモード等では保存しない */
   }
+}
+
+/** 図鑑に登録（重複なし）。返り値: 新規なら true */
+export function recordCodex(id: string): boolean {
+  const sv = loadSave();
+  if (sv.codex.includes(id)) return false;
+  sv.codex.push(id);
+  writeSave(sv);
+  return true;
 }
 
 export function isStageUnlocked(data: SaveData, unlockAfter?: number): boolean {

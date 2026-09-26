@@ -5,6 +5,7 @@ import { CHEST, PERMANENT } from '../data/shop';
 import { FUSIONS, type FusionDef } from '../data/fusions';
 import type { Weapon } from './WeaponSystem';
 import { createWeapon } from './arts';
+import { recordCodex } from '../utils/storage';
 
 export type ChoiceKind = 'weapon' | 'passive' | 'heal';
 
@@ -58,6 +59,8 @@ export class UpgradeState {
   permanent: Record<string, number> = {};
   /** 操作キャラID（合体レシピの requiredChara） */
   characterId = 'kuya';
+  /** 『除外』でそのプレイ中は出さないID（weapon:xxx / passive:xxx） */
+  banned = new Set<string>();
 
   get weapons(): Weapon[] {
     return [this.main, ...this.arts];
@@ -93,7 +96,7 @@ export class UpgradeState {
     }
     if (this.arts.length < CONFIG.weaponSlots) {
       for (const id of ART_IDS) {
-        if (this.excluded.has(id)) continue;
+        if (this.excluded.has(id) || this.banned.has(`weapon:${id}`)) continue;
         if (this.arts.some((w) => w.def.id === id)) continue;
         const d = WEAPONS[id];
         pool.push({ kind: 'weapon', id, title: d.name, owner: d.owner, tag: 'NEW', desc: d.desc, color: d.color });
@@ -105,6 +108,7 @@ export class UpgradeState {
       const lv = this.passives.get(p.id) ?? 0;
       if (lv === 0 && !slotsFree) continue;
       if (lv >= p.maxLevel) continue;
+      if (lv === 0 && this.banned.has(`passive:${p.id}`)) continue;
       pool.push({
         kind: 'passive', id: p.id, title: p.name, owner: p.owner,
         tag: lv === 0 ? 'NEW' : `Lv ${lv} → ${lv + 1}`, desc: p.desc, color: p.color,
@@ -136,6 +140,7 @@ export class UpgradeState {
       else {
         newWeapon = createWeapon(c.id);
         this.arts.push(newWeapon);
+        recordCodex(c.id);
       }
     } else if (c.kind === 'passive') {
       this.passives.set(c.id, (this.passives.get(c.id) ?? 0) + 1);
@@ -189,6 +194,7 @@ export class UpgradeState {
       this.arts = this.arts.filter((w) => w !== wa && w !== wb);
       const fused = createWeapon(f.id);
       this.arts.push(fused);
+      recordCodex(f.id);
       return {
         kind: 'fusion', title: fused.name, sub: `『${wa.name}』×『${wb.name}』`, color: fused.def.color,
         owner: fused.def.owner, weapon: fused, owners: [wa.def.owner, wb.def.owner], fromNames: [wa.name, wb.name], desc: fused.def.desc,
@@ -200,6 +206,7 @@ export class UpgradeState {
       const w = evolvable[Math.floor(Math.random() * evolvable.length)];
       const fromName = w.name;
       w.evolve();
+      recordCodex(`${w.def.id}:evo`);
       return { kind: 'evolve', title: w.name, sub: `『${fromName}』が進化した！`, color: 0xffd700, owner: w.def.owner, weapon: w, fromName, desc: w.def.evolution?.desc };
     }
     type Cand = { kind: 'weapon'; weapon: Weapon } | { kind: 'passive'; id: string };
