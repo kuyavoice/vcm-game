@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { CHARACTERS, DEFAULT_CHARACTER } from '../data/characters';
 import { STAGES, type StageDef } from '../data/stages';
+import { SCORE_STAGE } from '../data/score';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, isStageUnlocked } from '../utils/storage';
 import { SelectGuard } from '../ui/SelectGuard';
@@ -35,14 +36,16 @@ export class StageSelectScene extends Phaser.Scene {
     const characterId = CHARACTERS[save.settings.character] ? save.settings.character : DEFAULT_CHARACTER;
     const guard = new SelectGuard(this);
     const cardW = Math.min(640, W - 40);
-    const cardH = 200;
-    const gap = 24;
-    const total = STAGES.length * cardH + (STAGES.length - 1) * gap;
+    const cardH = 176;
+    const gap = 16;
+    const allStages = [...STAGES, SCORE_STAGE];
+    const total = allStages.length * cardH + (allStages.length - 1) * gap;
     let y = H / 2 - total / 2 + cardH / 2 - 10;
 
-    STAGES.forEach((st, i) => {
-      const unlocked = isStageUnlocked(save, st.unlockAfter);
-      const cont = this.buildCard(st, unlocked, save.bests[String(st.id)], cardW, cardH);
+    allStages.forEach((st, i) => {
+      const unlocked = st.scoreMode ? STAGES.every((x) => save.cleared.includes(x.id)) : isStageUnlocked(save, st.unlockAfter);
+      const best = st.scoreMode ? (save.scoreRanking[0] ? { kills: save.scoreRanking[0].kills, timeSec: save.scoreRanking[0].timeSec, cleared: save.scoreRanking[0].cleared, score: save.scoreRanking[0].score } : undefined) : save.bests[String(st.id)];
+      const cont = this.buildCard(st, unlocked, best, cardW, cardH);
       cont.setPosition(W / 2 + 40, y).setAlpha(0);
       this.tweens.add({ targets: cont, alpha: 1, x: W / 2, duration: 220, delay: 60 * i, ease: 'Cubic.out' });
 
@@ -67,13 +70,14 @@ export class StageSelectScene extends Phaser.Scene {
     // PC：1〜3キー
     this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
       const n = parseInt(ev.key, 10);
-      const st = STAGES[n - 1];
-      if (!st || !isStageUnlocked(save, st.unlockAfter) || !guard.confirm()) return;
+      const st = [...STAGES, SCORE_STAGE][n - 1];
+      const ok = st && (st.scoreMode ? STAGES.every((x) => save.cleared.includes(x.id)) : isStageUnlocked(save, st.unlockAfter));
+      if (!ok || !guard.confirm()) return;
       this.scene.start('Game', { characterId, stageId: st.id });
     });
   }
 
-  private buildCard(st: StageDef, unlocked: boolean, best: { kills: number; timeSec: number; cleared: boolean } | undefined, cardW: number, cardH: number): Phaser.GameObjects.Container {
+  private buildCard(st: StageDef, unlocked: boolean, best: { kills: number; timeSec: number; cleared: boolean; score?: number } | undefined, cardW: number, cardH: number): Phaser.GameObjects.Container {
     const cont = this.add.container(0, 0);
     const shadow = this.add.rectangle(6, 6, cardW, cardH, 0x000000, 0.5);
     const bg = this.add.rectangle(0, 0, cardW, cardH, 0x111a3a, 1).setStrokeStyle(2, unlocked ? st.color : 0x3a4a8a, unlocked ? 0.9 : 0.5);
@@ -97,13 +101,13 @@ export class StageSelectScene extends Phaser.Scene {
       if (best) {
         const mm = Math.floor(best.timeSec / 60).toString().padStart(2, '0');
         const ss = Math.floor(best.timeSec % 60).toString().padStart(2, '0');
-        const bestText = this.add.text(cardW / 2 - 20, cardH / 2 - 16, `BEST  ✕ ${best.kills}  ${mm}:${ss}${best.cleared ? '  CLEAR' : ''}`, {
+        const bestText = this.add.text(cardW / 2 - 20, cardH / 2 - 16, best.score !== undefined ? `BEST  ${best.score.toLocaleString()} pt  ${mm}:${ss}` : `BEST  ✕ ${best.kills}  ${mm}:${ss}${best.cleared ? '  CLEAR' : ''}`, {
           fontFamily: FONT_EN, fontSize: '16px', color: best.cleared ? COLOR_HEX.gold : COLOR_HEX.accent, fontStyle: '700',
         }).setOrigin(1, 1);
         cont.add(bestText);
       }
     } else {
-      const lock = this.add.text(-cardW / 2 + 32, -cardH / 2 + 100, `STAGE ${st.unlockAfter} をクリアで解放`, {
+      const lock = this.add.text(-cardW / 2 + 32, -cardH / 2 + 100, st.scoreMode ? '全ステージをクリアで解放' : `STAGE ${st.unlockAfter} をクリアで解放`, {
         fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.dim,
       });
       const icon = this.add.text(cardW / 2 - 24, -cardH / 2 + 14, 'LOCKED', {

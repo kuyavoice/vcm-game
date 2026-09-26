@@ -12,10 +12,12 @@ export class Spawner {
   private ambushTimer = 0;
   private speakerTimer = ITEMS.speaker.intervalSec * 0.5;
   private lastBand?: WaveBand;
-  bossSpawned = false;
+  /** ボスを出した帯 */
+  private bossBands = new Set<WaveBand>();
+  /** ボスが生きている間は true（スピーカーを置かない） */
+  bossActive = false;
+  onBossSpawn?: (boss: Enemy, hpMul: number) => void;
   onBandChange?: (band: WaveBand) => void;
-  onBossSpawn?: (boss: Enemy) => void;
-
   constructor(
     private scene: Phaser.Scene,
     private enemies: Phaser.GameObjects.Group,
@@ -28,7 +30,11 @@ export class Spawner {
   }
 
   update(dt: number, t: number): void {
-    const band = bandAt(t);
+    const band = bandAt(t, this.stage.waves);
+    const ramp = this.stage.ramp;
+    const min = t / 60;
+    const rampHp = ramp ? 1 + ramp.hpPerMin * min : 1;
+    const rampSpawn = ramp ? 1 + ramp.spawnPerMin * min : 1;
     if (band !== this.lastBand) {
       this.lastBand = band;
       this.ambushTimer = band.ambush ? band.ambush.everySec * 0.5 : 0;
@@ -36,9 +42,9 @@ export class Spawner {
     }
 
     const p = Phaser.Math.Clamp((t - band.from) / Math.max(1, band.to - band.from), 0, 1);
-    let rate = Phaser.Math.Linear(band.spawnPerSecStart, band.spawnPerSecEnd, p) * this.stage.spawnMul;
+    let rate = Phaser.Math.Linear(band.spawnPerSecStart, band.spawnPerSecEnd, p) * this.stage.spawnMul * rampSpawn;
     if (band.fullMoon) rate *= CONFIG.fullMoon.spawnMul;
-    const hpMul = band.hpMul * this.stage.enemyHpMul;
+    const hpMul = band.hpMul * this.stage.enemyHpMul * rampHp;
     this.acc += rate * dt;
     while (this.acc >= 1) {
       this.acc -= 1;
@@ -55,16 +61,20 @@ export class Spawner {
       }
     }
 
-    // ボス
-    if (band.boss && !this.bossSpawned) {
-      this.bossSpawned = true;
-      const pos = this.ringPoint();
-      const boss = this.spawnOne(this.stage.bossId ?? band.boss, pos.x, pos.y, 1);
-      if (boss) this.onBossSpawn?.(boss);
+    // ボス（帯ごとに一度。数と帯のHP倍率）
+    if (band.boss && !this.bossBands.has(band)) {
+      this.bossBands.add(band);
+      const n = band.bossCount ?? 1;
+      for (let i = 0; i < n; i++) {
+        const pos = this.ringPoint();
+        const id = band.boss === 'king' && this.stage.bossId && !this.stage.waves ? this.stage.bossId : band.boss;
+        const boss = this.spawnOne(id, pos.x, pos.y, 1);
+        if (boss) { this.bossActive = true; this.onBossSpawn?.(boss, band.bossHpMul ?? 1); }
+      }
     }
 
     // 壊れたスピーカー（ボス戦中は置かない）
-    if (!this.bossSpawned) {
+    if (!this.bossActive) {
       this.speakerTimer += dt;
       if (this.speakerTimer >= ITEMS.speaker.intervalSec) {
         this.speakerTimer = 0;

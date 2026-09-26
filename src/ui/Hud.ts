@@ -8,6 +8,8 @@ export interface HudState {
   /** 必殺ゲージ 0〜1 と発動中か */
   soul: number; soulActive: boolean;
   boss?: { name: string; hp: number; maxHp: number } | null;
+  /** スコアアタック：スコアと連撃倍率 */
+  score?: { score: number; combo: number } | null;
 }
 
 /** 上部HUD：HPバー／経験値バー（全幅）／経過時間／撃破数／エール／Lv。右下：必殺ボタン */
@@ -22,6 +24,7 @@ export class Hud {
   private bandText: Phaser.GameObjects.Text;
   private bossText: Phaser.GameObjects.Text;
   private debugText: Phaser.GameObjects.Text;
+  private scoreText: Phaser.GameObjects.Text;
   private pauseBtn: Phaser.GameObjects.Container;
   private speedBtn: Phaser.GameObjects.Container;
   private speedText: Phaser.GameObjects.Text;
@@ -49,6 +52,7 @@ export class Hud {
     this.bandText = scene.add.text(0, 0, '', { fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.dim }).setOrigin(0.5, 0);
     this.bossText = scene.add.text(0, 0, '', { fontFamily: FONT_JP, fontSize: '18px', color: '#FF4D6D', fontStyle: '700' }).setOrigin(0.5, 0).setVisible(false);
     this.debugText = scene.add.text(0, 0, '', { fontFamily: FONT_EN, fontSize: '16px', color: '#00FF88', backgroundColor: '#000000aa', padding: { x: 4, y: 2 } }).setOrigin(0, 0).setVisible(false);
+    this.scoreText = scene.add.text(0, 0, '', en(22, COLOR_HEX.gold)).setOrigin(1, 0).setVisible(false);
 
     // ポーズボタン
     const pbg = scene.add.rectangle(0, 0, 56, 44, 0x111a3a, 0.9).setStrokeStyle(2, 0x87ceeb, 0.6);
@@ -79,7 +83,7 @@ export class Hud {
       onSoul();
     });
 
-    this.container.add([this.bars, this.timeText, this.killText, this.yellText, this.lvText, this.hpText, this.bandText, this.bossText, this.debugText, this.pauseBtn, this.speedBtn, this.soulBtn]);
+    this.container.add([this.bars, this.timeText, this.killText, this.yellText, this.lvText, this.hpText, this.bandText, this.bossText, this.debugText, this.scoreText, this.pauseBtn, this.speedBtn, this.soulBtn]);
     // 入力の当たり判定は子要素自身の scrollFactor を見るので、入れ子の末端まで 0 を設定する
     const fix = (obj: Phaser.GameObjects.GameObject) => {
       (obj as unknown as Phaser.GameObjects.Components.ScrollFactor).setScrollFactor?.(0);
@@ -106,6 +110,7 @@ export class Hud {
     this.bandText.setPosition(this.w / 2, t + 54);
     this.bossText.setPosition(this.w / 2, t + 118);
     this.debugText.setPosition(24, t + 100);
+    this.scoreText.setPosition(this.w - 24, t + 64);
     this.pauseBtn.setPosition(this.w - 24 - 28, t + 100);
     this.speedBtn.setPosition(this.w - 24 - 56 - 10 - 36, t + 100);
     this.soulBtn.setPosition(this.w - 24 - this.soulRadius, this.h - this.bottom - this.soulRadius);
@@ -160,6 +165,8 @@ export class Hud {
     this.killText.setText(`✕ ${d.kills}`);
     this.yellText.setText(`★ ${d.yell}`);
     this.lvText.setText(`Lv ${d.level}`);
+    if (d.score) this.scoreText.setText(`${d.score.score.toLocaleString()} pt${d.score.combo > 1 ? `  ×${d.score.combo.toFixed(1)}` : ''}`).setVisible(true);
+    else this.scoreText.setVisible(false);
     this.bandText.setText(d.boss ? '' : d.band).setPosition(this.w / 2, xpY + 14);
 
     // 必殺ボタン

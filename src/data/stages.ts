@@ -1,4 +1,5 @@
 import type { EnemyId } from './enemies';
+import type { WaveBand } from './waves';
 
 // ステージ定義。前のステージをクリアすると次が解放される。数値は初期値。
 
@@ -30,6 +31,12 @@ export interface StageDef {
   enemyOutline?: boolean;
   /** 降雪などの天候演出 */
   weather?: 'snow';
+  /** 独自の時間帯（既定は WAVES） */
+  waves?: WaveBand[];
+  /** 時間経過で上昇する倍率（1分ごとの加算率） */
+  ramp?: { hpPerMin: number; spawnPerMin: number; speedPerMin: number };
+  /** スコアアタック */
+  scoreMode?: boolean;
 }
 
 export const STAGES: StageDef[] = [
@@ -59,5 +66,9 @@ export const STAGES: StageDef[] = [
 ];
 
 export function stageById(id: number): StageDef {
+  if (id === 99) return SCORE_STAGE_REF.value;
   return STAGES.find((s) => s.id === id) ?? STAGES[0];
 }
+
+/** 循環importを避けるため score.ts 側から登録する */
+export const SCORE_STAGE_REF: { value: StageDef } = { value: STAGES[0] };

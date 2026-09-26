@@ -6,6 +6,7 @@ import { makeButton } from '../ui/Button';
 import { loadSave, writeSave } from '../utils/storage';
 import { AudioBus } from '../utils/audio';
 import { renderShareCard, shareOrDownload, buildPostText, openXPost } from '../utils/shareCard';
+import { SCORE } from '../data/score';
 
 export interface RunResult {
   characterId: string;
@@ -17,6 +18,9 @@ export interface RunResult {
   /** プレイ時のゲーム速度（表示のみ。記録はゲーム内時間基準なので倍率に依存しない） */
   speed: number;
   stageId: number;
+  /** スコアアタック */
+  score?: number;
+  timeUp?: boolean;
   /** 所持していたアーツ（共有画像・ポスト用） */
   arts?: { name: string; level: number; color: number; evolved: boolean; fusion: boolean }[];
 }
@@ -43,6 +47,15 @@ export class ResultScene extends Phaser.Scene {
     const isBest = !prev || score(r) > score(prev);
     if (isBest) save.bests[key] = { kills: r.kills, timeSec: r.timeSec, level: r.level, yell: r.yell, cleared: r.cleared || !!prev?.cleared };
     else if (r.cleared && !prev.cleared) save.bests[key] = { ...prev, cleared: true };
+    // スコアアタックのランキング（端末内ベスト10）
+    let rank = 0;
+    if (stage.scoreMode && r.score !== undefined) {
+      const entry = { score: r.score, kills: r.kills, timeSec: r.timeSec, character: r.characterId, date: new Date().toISOString().slice(0, 10), cleared: r.cleared };
+      save.scoreRanking.push(entry);
+      save.scoreRanking.sort((a, b) => b.score - a.score);
+      save.scoreRanking = save.scoreRanking.slice(0, SCORE.rankingSize);
+      rank = save.scoreRanking.indexOf(entry) + 1;
+    }
     let unlocked: string | null = null;
     if (r.cleared && !save.cleared.includes(stage.id)) {
       save.cleared.push(stage.id);
@@ -65,8 +78,8 @@ export class ResultScene extends Phaser.Scene {
     }
 
     // 見出し（「死」を使わない）
-    const title = r.cleared ? 'SIGNAL CLEAR' : 'SIGNAL LOST';
-    const sub = r.cleared ? '声は、届いた。' : '声が、途切れた……';
+    const title = r.cleared ? 'SIGNAL CLEAR' : r.timeUp ? 'TIME UP' : 'SIGNAL LOST';
+    const sub = r.cleared ? '声は、届いた。' : r.timeUp ? '長い夜が、明けた。' : '声が、途切れた……';
     this.add.text(W / 2, H * 0.10, title, {
       fontFamily: FONT_EN, fontSize: '76px', color: r.cleared ? COLOR_HEX.accent : COLOR_HEX.danger, fontStyle: '700', letterSpacing: 4,
       stroke: '#060913', strokeThickness: 8,
@@ -84,11 +97,12 @@ export class ResultScene extends Phaser.Scene {
     // スタッツ（右寄せのパネル）
     const px = W * 0.58;
     const py = H * 0.27;
-    const panel = this.add.rectangle(px, py, W * 0.40, 450, 0x0b1026, 0.88).setOrigin(0, 0).setStrokeStyle(2, 0x87ceeb, 0.6);
+    const panel = this.add.rectangle(px, py, W * 0.40, r.score !== undefined ? 510 : 450, 0x0b1026, 0.88).setOrigin(0, 0).setStrokeStyle(2, 0x87ceeb, 0.6);
     const mm = Math.floor(r.timeSec / 60).toString().padStart(2, '0');
     const ss = Math.floor(r.timeSec % 60).toString().padStart(2, '0');
     const rows: [string, string][] = [
-      ['STAGE', `${stage.nameEn}  ${stage.name}`],
+      ...(r.score !== undefined ? [['SCORE', `${r.score.toLocaleString()}${rank ? `  #${rank}` : ''}`] as [string, string]] : []),
+      ['STAGE', stage.scoreMode ? stage.nameEn : `${stage.nameEn}  ${stage.name}`],
       ['CHARACTER', chara?.name ?? r.characterId],
       ['TIME', `${mm}:${ss}`],
       ['DEFEATED', `${r.kills}`],

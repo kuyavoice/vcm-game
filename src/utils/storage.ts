@@ -28,6 +28,8 @@ export interface SaveData {
   /** 所有カラー（キャラID → バリエーションID[]）と選択中（キャラID → バリエーションID。未設定＝標準） */
   colors: Record<string, string[]>;
   colorSelected: Record<string, string>;
+  /** スコアアタックの端末内ランキング */
+  scoreRanking: { score: number; kills: number; timeSec: number; character: string; date: string; cleared: boolean }[];
 }
 
 const DEFAULT: SaveData = {
@@ -42,6 +44,7 @@ const DEFAULT: SaveData = {
   consumables: { reroll: 0, skip: 0, ban: 0 },
   colors: {},
   colorSelected: {},
+  scoreRanking: [],
 };
 
 export function loadSave(): SaveData {
@@ -61,6 +64,7 @@ export function loadSave(): SaveData {
       consumables: { ...DEFAULT.consumables, ...(parsed.consumables ?? {}) },
       colors: { ...(parsed.colors ?? {}) },
       colorSelected: { ...(parsed.colorSelected ?? {}) },
+      scoreRanking: [...(parsed.scoreRanking ?? [])],
     };
     // 旧形式の移行：best → bests[1]
     if (data.best && !data.bests['1']) {

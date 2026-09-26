@@ -3,6 +3,7 @@ import { CONFIG } from '../data/config';
 import { CHARACTERS, DEFAULT_CHARACTER } from '../data/characters';
 import { ENEMIES } from '../data/enemies';
 import { stageById, type StageDef } from '../data/stages';
+import { SCORE } from '../data/score';
 import { ITEMS, PICKUPS, type PickupKind } from '../data/items';
 import { Player } from '../entities/Player';
 import { Enemy } from '../entities/Enemy';
@@ -76,7 +77,15 @@ export class GameScene extends Phaser.Scene {
   private cureTimer = 0;
   private tmp2: Enemy[] = [];
   private boss: Enemy | null = null;
+  private bosses: Enemy[] = [];
   private bossDefeated = false;
+  /** スコアアタック */
+  private score = 0;
+  private combo = 0;
+  private comboMul = 1;
+  private comboUntil = 0;
+  private noDamageSec = 0;
+  private timeUp = false;
   /** 拾った宝箱の未開封数（重ね画面を避けるため update で順に開く） */
   private pendingChests = 0;
   /** ゲーム速度（×1 / ×1.5 / ×2） */
@@ -109,6 +118,13 @@ export class GameScene extends Phaser.Scene {
     this.cureTimer = 0;
     this.boss = null;
     this.bossDefeated = false;
+    this.bosses = [];
+    this.score = 0;
+    this.combo = 0;
+    this.comboMul = 1;
+    this.comboUntil = 0;
+    this.noDamageSec = 0;
+    this.timeUp = false;
     this.pendingChests = 0;
     this.gameNow = 0;
     this.haltFrame = false;
@@ -200,7 +216,7 @@ export class GameScene extends Phaser.Scene {
     this.xp.onItem = (kind, value, x, y) => this.onItem(kind, value, x, y);
     this.spawner = new Spawner(this, this.enemies, this.player, this.stage);
     this.spawner.onBandChange = (b) => this.onBandChange(b.label, !!b.fullMoon, b.from);
-    this.spawner.onBossSpawn = (boss) => this.onBossSpawn(boss);
+    this.spawner.onBossSpawn = (boss, hpMul) => this.onBossSpawn(boss, hpMul);
     this.hud = new Hud(this, () => this.pause(), () => this.activateSoul(), () => this.cycleSpeed());
     this.hud.setSpecialLabel(def.special.shortName);
     const savedSpeed = loadSave().settings.speed;
@@ -316,7 +332,8 @@ export class GameScene extends Phaser.Scene {
       time: this.elapsed, kills: this.kills, yell: this.xp.yell,
       band: `${this.spawner.band?.label ?? ''}　${this.stage.nameEn}`,
       soul: this.soulGauge, soulActive,
-      boss: this.boss && this.boss.active ? { name: this.boss.def.name, hp: this.boss.hp, maxHp: this.boss.maxHp } : null,
+      boss: (() => { const b = this.bosses.find((x) => x.active) ?? null; return b ? { name: this.bosses.filter((x) => x.active).length > 1 ? `${b.def.name} ×${this.bosses.filter((x) => x.active).length}` : b.def.name, hp: b.hp, maxHp: b.maxHp } : null; })(),
+      score: this.stage.scoreMode ? { score: Math.round(this.score), combo: this.comboMul } : null,
     });
     if (this.debug) {
       while (this.dmgLog.length && this.dmgLog[0].t < now - 5000) this.dmgLog.shift();
@@ -336,6 +353,7 @@ export class GameScene extends Phaser.Scene {
     // 終了判定
     if (p.hp <= 0) this.finish(false);
     else if (this.bossDefeated) this.finish(true);
+    else if (this.timeUp) this.finish(false);
   }
 
   /** 内部更新1ステップ（dt はゲーム内秒。ゲーム速度の分割後） */
@@ -377,6 +395,12 @@ export class GameScene extends Phaser.Scene {
     // 時間・湧き
     this.elapsed += dt;
     this.spawner.update(dt, this.elapsed);
+    if (this.stage.ramp) this.enemySpeedMul = this.stage.enemySpeedMul * (1 + this.stage.ramp.speedPerMin * (this.elapsed / 60)) * (this.fullMoon ? CONFIG.fullMoon.enemySpeedMul : 1);
+    if (this.stage.scoreMode) {
+      this.noDamageSec += dt;
+      if (now > this.comboUntil && this.combo > 0) { this.combo = 0; this.comboMul = 1; }
+      if (this.elapsed >= SCORE.timeLimitSec && !this.timeUp) { this.timeUp = true; }
+    }
 
     // 空間ハッシュ再構築
     this.hash.clear();
@@ -991,12 +1015,27 @@ export class GameScene extends Phaser.Scene {
     }
     this.kills++;
     this.soulGauge = Math.min(1, this.soulGauge + this.up.stats.soulGainMul / CONFIG.soul.killsToFull);
+    if (this.stage.scoreMode) {
+      const now = this.ctx.now;
+      if (now < this.comboUntil) this.combo++;
+      else this.combo = 0;
+      this.comboUntil = now + SCORE.comboWindowSec * 1000;
+      this.comboMul = Math.min(SCORE.comboMax, 1 + this.combo * SCORE.comboStep);
+      this.score += (SCORE.points[def.id] ?? 1) * this.comboMul;
+    }
     this.xp.drop(e.x, e.y, def.xp, this.ctx.now, this.up.stats.luckMul);
     if (def.tier >= 2 && !def.boss && Math.random() < ITEMS.chest.dropChance * this.up.stats.luckMul) {
       this.xp.spawn(e.x, e.y, 'chest', 1, this.ctx.now);
     }
     AudioBus.play('se_kill', 40);
     if (def.boss) {
+      this.bosses = this.bosses.filter((b) => b !== e);
+      if (this.bosses.every((b) => !b.active)) this.spawner.bossActive = false;
+      if (this.stage.scoreMode && def.id !== 'blackknight') {
+        this.hud.banner(`${def.name} 撃破　+${SCORE.points[def.id]}`, '#FFD700', 34);
+        this.cameras.main.flash(300, 255, 255, 255);
+        return;
+      }
       this.bossGfx?.clear();
       this.cavalryWarnings.length = 0;
       this.bossDefeated = true;
@@ -1076,7 +1115,10 @@ export class GameScene extends Phaser.Scene {
     }
     let mul = this.up.stats.damageTakenMul;
     if (now < this.soulUntil && def.special.id === 'aqua_lament') mul *= 0.3;
-    if (p.takeDamage(amount * mul, now)) this.onPlayerHit();
+    if (p.takeDamage(amount * mul, now)) {
+      this.onPlayerHit();
+      if (this.stage.scoreMode) { this.combo = 0; this.comboMul = 1; this.scoreNoDamageBreak(); }
+    }
   }
 
   private onPlayerHit(): void {
@@ -1202,10 +1244,17 @@ export class GameScene extends Phaser.Scene {
     AudioBus.playBgm(`bgm_chara_${this.player.def.id}`, this.stage.bgm, 'bgm_stage');
   }
 
-  private onBossSpawn(boss: Enemy): void {
+  /** ノーダメージ時間を確定させる（被弾で区切る） */
+  private scoreNoDamageBreak(): void {
+    this.score += this.noDamageSec * SCORE.noDamagePerSec;
+    this.noDamageSec = 0;
+  }
+
+  private onBossSpawn(boss: Enemy, bandHpMul = 1): void {
     this.boss = boss;
+    this.bosses.push(boss);
     // プレイヤーの成長に合わせてHPを底上げ（固定HPだと10:00の火力で即落ちする）
-    boss.maxHp = Math.round((boss.def.hp + this.xp.level * CONFIG.boss.hpPerPlayerLevel) * this.stage.bossHpMul);
+    boss.maxHp = Math.round((boss.def.hp + this.xp.level * CONFIG.boss.hpPerPlayerLevel) * this.stage.bossHpMul * bandHpMul);
     boss.hp = boss.maxHp;
     this.hud.banner(`${boss.def.name} —— 出現`, '#FF4D6D', 40);
     this.cameras.main.shake(300, 0.006);
@@ -1332,9 +1381,15 @@ export class GameScene extends Phaser.Scene {
     this.tweens.timeScale = 1;
     AudioBus.stopBgm();
     this.vo(cleared ? 'clear' : 'gameover');
+    if (this.stage.scoreMode) {
+      this.scoreNoDamageBreak();
+      this.score += this.elapsed * SCORE.survivalPerSec;
+    }
     const result: RunResult = {
       characterId: this.characterId,
       cleared,
+      score: this.stage.scoreMode ? Math.round(this.score) : undefined,
+      timeUp: this.timeUp,
       kills: this.kills,
       timeSec: Math.floor(this.elapsed),
       level: this.xp.level,

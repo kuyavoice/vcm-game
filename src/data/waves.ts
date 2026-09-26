@@ -25,6 +25,10 @@ export interface WaveBand {
   fullMoon?: boolean;
   /** ボス出現（M2で実装） */
   boss?: EnemyId;
+  /** ボスの数（既定1） */
+  bossCount?: number;
+  /** この帯のボスHP倍率（既定1） */
+  bossHpMul?: number;
 }
 
 export const WAVES: WaveBand[] = [
@@ -85,7 +89,7 @@ export const WAVES: WaveBand[] = [
   },
 ];
 
-export function bandAt(t: number): WaveBand {
-  for (const b of WAVES) if (t >= b.from && t < b.to) return b;
-  return WAVES[WAVES.length - 1];
+export function bandAt(t: number, list: WaveBand[] = WAVES): WaveBand {
+  for (const b of list) if (t >= b.from && t < b.to) return b;
+  return list[list.length - 1];
 }
