@@ -5,6 +5,7 @@ import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { makeButton } from '../ui/Button';
 import { loadSave, writeSave } from '../utils/storage';
 import { AudioBus } from '../utils/audio';
+import { renderShareCard, shareOrDownload, buildPostText, openXPost } from '../utils/shareCard';
 
 export interface RunResult {
   characterId: string;
@@ -16,6 +17,8 @@ export interface RunResult {
   /** プレイ時のゲーム速度（表示のみ。記録はゲーム内時間基準なので倍率に依存しない） */
   speed: number;
   stageId: number;
+  /** 所持していたアーツ（共有画像・ポスト用） */
+  arts?: { name: string; level: number; color: number; evolved: boolean; fusion: boolean }[];
 }
 
 export class ResultScene extends Phaser.Scene {
@@ -56,8 +59,8 @@ export class ResultScene extends Phaser.Scene {
     const stKey = `standing_${r.characterId}`;
     if (this.textures.exists(stKey)) {
       // ボタン帯（H*0.78〜）の上に足元が来るように収める
-      const img = this.add.image(W * 0.30, H * 0.79, stKey).setOrigin(0.5, 1);
-      const scale = (H * 0.60) / img.height;
+      const img = this.add.image(W * 0.30, H * 0.75, stKey).setOrigin(0.5, 1);
+      const scale = (H * 0.56) / img.height;
       img.setScale(scale).setAlpha(0.95);
     }
 
@@ -105,9 +108,24 @@ export class ResultScene extends Phaser.Scene {
       }).setOrigin(1, 1).setAngle(-4);
     }
 
-    makeButton(this, W / 2, H * 0.84, 'RETRY', () => {
+    // 共有：画像を保存（Web Share → ダウンロード）／Xにポスト
+    let busy = false;
+    const note = this.add.text(W / 2, H * 0.80 + 62, '', { fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim }).setOrigin(0.5);
+    makeButton(this, W / 2 - 150, H * 0.80, '画像を保存', async () => {
+      if (busy) return;
+      busy = true;
+      note.setText('生成中…');
+      const blob = await renderShareCard(r);
+      if (!blob) { note.setText('生成に失敗しました'); busy = false; return; }
+      const res = await shareOrDownload(blob, `dstage_${stage.id}_${r.cleared ? 'clear' : 'lost'}.png`, buildPostText(r));
+      note.setText(res === 'shared' ? '共有しました' : res === 'downloaded' ? '画像を保存しました' : '保存できませんでした');
+      busy = false;
+    }, { width: 280, height: 60, fontSize: 22 });
+    makeButton(this, W / 2 + 150, H * 0.80, 'Xにポスト', () => openXPost(buildPostText(r)), { width: 280, height: 60, fontSize: 22 });
+
+    makeButton(this, W / 2, H * 0.80 + 130, 'RETRY', () => {
       this.scene.start('Game', { characterId: r.characterId, stageId: stage.id });
     }, { primary: true });
-    makeButton(this, W / 2, H * 0.84 + 92, 'STAGE SELECT', () => this.scene.start('StageSelect'));
+    makeButton(this, W / 2, H * 0.80 + 222, 'STAGE SELECT', () => this.scene.start('StageSelect'));
   }
 }

@@ -4,6 +4,11 @@
  */
 export const OPTIONAL_IMAGES: Record<string, string> = {
   luna_chibi: 'assets/images/luna_chibi.png',
+  // キャラ選択画面のドット立ち絵（高さ約130px・整数倍で表示）
+  portrait_kuya: 'assets/images/portrait/kuya_portrait.png',
+  portrait_mizuho: 'assets/images/portrait/mizuho_portrait.png',
+  portrait_yukihito: 'assets/images/portrait/yukihito_portrait.png',
+  portrait_ritsuka: 'assets/images/portrait/ritsuka_portrait.png',
 };
 
 const available = new Set<string>();

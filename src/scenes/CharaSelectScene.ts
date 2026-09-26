@@ -35,10 +35,28 @@ export class CharaSelectScene extends Phaser.Scene {
     const save = loadSave();
     const guard = new SelectGuard(this);
     const cardW = Math.min(640, W - 40);
-    const cardH = 176;
-    const gap = 18;
+    const cardH = 150;
+    const gap = 14;
     const total = CHARACTER_ORDER.length * cardH + (CHARACTER_ORDER.length - 1) * gap;
-    let y = H / 2 - total / 2 + cardH / 2 + 10;
+    const buttonsY = H - Math.max(90, H * 0.08);
+    const headerBottom = H * 0.09 + 80;
+    const selected = CHARACTERS[save.settings.character] ? save.settings.character : CHARACTER_ORDER[0];
+    // ドット立ち絵が1枚も無いときはカードを中央寄せ（立ち絵が来たら上部に表示スペースを確保）
+    const anyPortrait = CHARACTER_ORDER.some((id) => this.textures.exists(`portrait_${id}`));
+    const cardsTop = anyPortrait ? buttonsY - 70 - total : Math.max(headerBottom + 20, (headerBottom + buttonsY - 60) / 2 - total / 2);
+    let y = cardsTop + cardH / 2;
+
+    // 選択中キャラのドット立ち絵（`assets/images/portrait/{id}_portrait.png`、置けば表示）
+    const avail = cardsTop - headerBottom - 24;
+    const portrait = this.add.image(W / 2, headerBottom + avail / 2, '__DEFAULT').setVisible(false);
+    const showPortrait = (id: string) => {
+      const key = `portrait_${id}`;
+      if (!this.textures.exists(key)) { portrait.setVisible(false); return; }
+      portrait.setTexture(key);
+      const sc = portrait.height * 3 <= avail ? 3 : 2; // 3倍の整数倍。狭ければ2倍。最近傍は pixelArt 設定で全体に効く
+      portrait.setScale(sc).setVisible(true);
+    };
+    showPortrait(selected);
 
     CHARACTER_ORDER.forEach((id, i) => {
       const def = CHARACTERS[id];
@@ -47,7 +65,7 @@ export class CharaSelectScene extends Phaser.Scene {
       cont.setPosition(W / 2 + 40, y).setAlpha(0);
       this.tweens.add({ targets: cont, alpha: 1, x: W / 2, duration: 220, delay: 60 * i, ease: 'Cubic.out' });
       const hit = cont.getByName('hit') as Phaser.GameObjects.Rectangle;
-      hit.on('pointerdown', () => { guard.press(hit); if (guard.armed) cont.setScale(0.98); });
+      hit.on('pointerdown', () => { guard.press(hit); if (guard.armed) { cont.setScale(0.98); if (unlocked) showPortrait(id); } });
       hit.on('pointerup', () => {
         cont.setScale(1);
         if (!guard.release(hit)) return;
@@ -57,7 +75,7 @@ export class CharaSelectScene extends Phaser.Scene {
       y += cardH + gap;
     });
 
-    const by = H - Math.max(90, H * 0.08);
+    const by = buttonsY;
     makeButton(this, W / 2 - 140, by, 'TITLE', () => this.scene.start('Title'), { width: 240, height: 60, fontSize: 24 });
     makeButton(this, W / 2 + 140, by, `★ SHOP  ${save.totalYell}`, () => this.scene.start('Shop'), { width: 240, height: 60, fontSize: 22, primary: true });
 
@@ -120,11 +138,8 @@ export class CharaSelectScene extends Phaser.Scene {
 
     if (unlocked) {
       const weapon = WEAPONS[def.startWeapon];
-      const lines = [
-        `武器『${weapon.name}』　特性：${def.traits.desc}`,
-        `必殺『${def.special.name}』`,
-      ];
-      const desc = this.add.text(tx, -cardH / 2 + 82, lines, {
+      const lines = [`武器『${weapon.name}』／必殺『${def.special.name}』`, `特性：${def.traits.desc}`];
+      const desc = this.add.text(tx, -cardH / 2 + 78, lines, {
         fontFamily: FONT_JP, fontSize: '16px', color: COLOR_HEX.white, wordWrap: { width: cardW - (tx + cardW / 2) - 20, useAdvancedWrap: true }, lineSpacing: 4,
       });
       const hpText = this.add.text(cardW / 2 - 18, -cardH / 2 + 14, `HP ${Math.round(def.hp * def.traits.maxHpMul)}  SPD ${def.speed}`, {
@@ -132,7 +147,7 @@ export class CharaSelectScene extends Phaser.Scene {
       }).setOrigin(1, 0);
       cont.add([desc, hpText]);
     } else {
-      const lock = this.add.text(tx, -cardH / 2 + 86, `★ ${def.unlockYell} エールで解放（タップでショップへ）`, {
+      const lock = this.add.text(tx, -cardH / 2 + 82, `★ ${def.unlockYell} エールで解放（タップでショップへ）`, {
         fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim,
       });
       const icon = this.add.text(cardW / 2 - 18, -cardH / 2 + 14, 'LOCKED', {

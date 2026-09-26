@@ -1173,6 +1173,7 @@ export class GameScene extends Phaser.Scene {
       yell: this.xp.yell,
       speed: this.speed,
       stageId: this.stage.id,
+      arts: this.up.arts.map((w) => ({ name: w.name, level: w.level, color: w.def.color, evolved: w.evolved, fusion: !!w.def.fusion })),
     };
     if (!cleared) {
       this.player.play(`${this.player.def.sprite.key}_hit`);
