@@ -427,7 +427,7 @@ const cage: ArtBehavior = {
     for (const p of picked) {
       ctx.addZone({
         x: p.x, y: p.y, radius: r, duration: dur(ctx, s), dps: artDmg(ctx, s, w.def),
-        slow: 0, stun: true, color: w.def.color, shape: 'circle',
+        slow: 0, stun: true, color: w.def.color, shape: 'circle', source: 'cage',
       });
     }
   },

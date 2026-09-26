@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { CONFIG } from '../data/config';
 import { CHARACTERS, DEFAULT_CHARACTER } from '../data/characters';
+import { ENEMIES } from '../data/enemies';
 import { stageById, type StageDef } from '../data/stages';
 import { ITEMS, PICKUPS, type PickupKind } from '../data/items';
 import { Player } from '../entities/Player';
@@ -49,6 +50,9 @@ export class GameScene extends Phaser.Scene {
   private zoneGfx!: Phaser.GameObjects.Graphics;
   private soulGfx!: Phaser.GameObjects.Graphics;
   private moon?: Phaser.GameObjects.Image;
+  private snow?: Phaser.GameObjects.Particles.ParticleEmitter;
+  /** 黒騎士のオーラ・予告線 */
+  private bossGfx!: Phaser.GameObjects.Graphics;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private ctx!: BattleContext;
 
@@ -118,8 +122,17 @@ export class GameScene extends Phaser.Scene {
     const def = CHARACTERS[this.characterId];
 
     // 背景（カメラに追従するタイル）
-    this.bg = this.add.tileSprite(0, 0, cam.width, cam.height, 'bg').setOrigin(0).setScrollFactor(0).setDepth(0);
+    const bgKey = this.textures.exists(`bg_${this.stage.id}`) ? `bg_${this.stage.id}` : 'bg';
+    this.bg = this.add.tileSprite(0, 0, cam.width, cam.height, bgKey).setOrigin(0).setScrollFactor(0).setDepth(0);
     if (this.stage.tint !== 0xffffff) this.bg.setTint(this.stage.tint);
+    if (this.stage.weather === 'snow') {
+      // 降雪：まばら・横風。当たり判定なし
+      this.snow = this.add.particles(0, 0, 'snow', {
+        x: { min: -100, max: cam.width + 100 }, y: -10,
+        lifespan: 6000, speedY: { min: 60, max: 120 }, speedX: { min: 40, max: 110 },
+        scale: { min: 0.5, max: 1.2 }, alpha: { start: 0.4, end: 0.1 }, frequency: 90, quantity: 1,
+      }).setScrollFactor(0).setDepth(3);
+    }
     this.scale.on('resize', this.onResize, this);
 
     // プール
@@ -129,6 +142,7 @@ export class GameScene extends Phaser.Scene {
     this.pickups = this.add.group({ classType: Pickup, maxSize: CONFIG.maxGems });
     this.hash = new SpatialHash<Enemy>(CONFIG.hashCell);
     this.zoneGfx = this.add.graphics().setDepth(4);
+    this.bossGfx = this.add.graphics().setDepth(9);
     this.soulGfx = this.add.graphics().setDepth(18);
 
     // 撃破パーティクル（ノイズ状に崩れる）
@@ -219,7 +233,7 @@ export class GameScene extends Phaser.Scene {
       },
     };
 
-    AudioBus.playBgm(this.stage.bgm, 'bgm_stage');
+    AudioBus.playBgm(`bgm_chara_${def.id}`, this.stage.bgm, 'bgm_stage');
     this.vo('start');
     this.hud.banner(`${this.stage.nameEn} —— ${this.stage.name}`, Phaser.Display.Color.IntegerToColor(this.stage.color).rgba, 32);
   }
@@ -228,6 +242,7 @@ export class GameScene extends Phaser.Scene {
     const cam = this.cameras.main;
     this.bg.setSize(cam.width, cam.height);
     this.moon?.setPosition(cam.width - 130, 210);
+    this.snow?.updateConfig({ x: { min: -100, max: cam.width + 100 } });
   }
 
   private overlayActive(): boolean {
@@ -485,11 +500,27 @@ export class GameScene extends Phaser.Scene {
       }
       if (e.rotation !== 0) e.setRotation(0);
 
+      // 騎兵：直線に突っ切って画面外で消える
+      if (def.charger && e.charge) {
+        e.x += e.charge.vx * dt;
+        e.y += e.charge.vy * dt;
+        e.setFlipX(e.charge.vx < 0);
+        const v = this.cameras.main.worldView;
+        if (e.x < v.left - 200 || e.x > v.right + 200 || e.y < v.top - 200 || e.y > v.bottom + 200) { e.despawn(); continue; }
+        if (dist < e.radius + p.def.hitRadius) this.hurt(def.contactDamage, now);
+        continue;
+      }
+
       // 移動
       let mx = nx;
       let my = ny;
       let spd = def.speed * this.enemySpeedMul * e.speedMul(now);
-      if (def.boss) {
+      if (def.id === 'blackknight') {
+        const r = this.updateBlackKnight(e, dt, now, dist, nx, ny);
+        mx = r.mx;
+        my = r.my;
+        spd = r.spd;
+      } else if (def.boss) {
         spd = this.updateBoss(e, dt, now, nx, ny);
         mx = e.bossState.dashing > 0 ? e.bossState.dirX : nx;
         my = e.bossState.dashing > 0 ? e.bossState.dirY : ny;
@@ -531,6 +562,128 @@ export class GameScene extends Phaser.Scene {
       if (dist < e.radius + p.def.hitRadius) this.hurt(def.contactDamage, now);
     }
   }
+
+  /** 黒騎士（STAGE 3）：前半は騎兵突撃と剣閃、50%で形態変化、後半は離脱して闇の弾幕 */
+  private updateBlackKnight(e: Enemy, dt: number, now: number, dist: number, nx: number, ny: number): { mx: number; my: number; spd: number } {
+    const b = e.bk;
+    const p = this.player;
+    // 形態変化（50%を切った瞬間）：1.5秒無敵＋黒いオーラ＋揺れ
+    if (b.phase === 1 && e.hp <= e.maxHp * 0.5) {
+      b.phase = 2;
+      b.invulnUntil = now + 1500;
+      b.animLock = now + 1500;
+      e.play('anim_e_blackknight_hit', true);
+      this.cameras.main.shake(400, 0.006);
+      this.hud.banner('黒騎士 —— 形態変化', '#9D4DFF', 34);
+      this.fxRing(e.x, e.y - 60, 220, 0x9d4dff, 10);
+    }
+    // オーラ（形態変化後は常時）＋予告線
+    const g = this.bossGfx;
+    g.clear();
+    if (b.phase === 2) {
+      const k = 0.35 + Math.sin(now / 110) * 0.12;
+      g.fillStyle(0x2a0a3a, k);
+      g.fillCircle(e.x, e.y - 50, 120 + Math.sin(now / 90) * 8);
+      g.lineStyle(3, 0x9d4dff, 0.5);
+      g.strokeCircle(e.x, e.y - 50, 130 + Math.sin(now / 70) * 6);
+    }
+    for (const w of this.cavalryWarnings) {
+      const a = Math.min(1, (w.at - now) / 1000);
+      g.lineStyle(4, 0xff2244, 0.35 + (1 - a) * 0.5);
+      g.lineBetween(w.x1, w.y1, w.x2, w.y2);
+    }
+    // 予告が時間になったら騎兵を出す
+    for (let i = this.cavalryWarnings.length - 1; i >= 0; i--) {
+      const w = this.cavalryWarnings[i];
+      if (now >= w.at) {
+        this.cavalryWarnings.splice(i, 1);
+        const c = this.spawner.spawnOne('cavalry', w.x1, w.y1, this.stage.enemyHpMul);
+        if (c) {
+          const d = Math.hypot(w.x2 - w.x1, w.y2 - w.y1) || 1;
+          c.charge = { vx: ((w.x2 - w.x1) / d) * ENEMIES.cavalry.speed, vy: ((w.y2 - w.y1) / d) * ENEMIES.cavalry.speed };
+        }
+      }
+    }
+    if (now < b.invulnUntil) return { mx: 0, my: 0, spd: 0 };
+
+    // 騎兵突撃（前半 6秒ごと／後半 4秒ごと）：3〜5体が画面を一直線に突っ切る。1秒前に赤線で予告
+    b.cavalryTimer -= dt;
+    if (b.cavalryTimer <= 0) {
+      b.cavalryTimer = b.phase === 1 ? 6 : 4;
+      const n = Phaser.Math.Between(3, 5);
+      const v = this.cameras.main.worldView;
+      const horizontal = Math.random() < 0.5;
+      const fromLeft = Math.random() < 0.5;
+      for (let i = 0; i < n; i++) {
+        const t = (i + 0.5) / n;
+        const jitter = (Math.random() - 0.5) * 60;
+        if (horizontal) {
+          const y = v.top + 120 + t * (v.height - 240) + jitter;
+          this.cavalryWarnings.push({ at: now + 1000 + i * 120, x1: fromLeft ? v.left - 150 : v.right + 150, y1: y, x2: fromLeft ? v.right + 150 : v.left - 150, y2: y });
+        } else {
+          const x = v.left + 80 + t * (v.width - 160) + jitter;
+          this.cavalryWarnings.push({ at: now + 1000 + i * 120, x1: x, y1: fromLeft ? v.top - 150 : v.bottom + 150, x2: x, y2: fromLeft ? v.bottom + 150 : v.top - 150 });
+        }
+      }
+      e.play('anim_e_blackknight_summon', true);
+      b.animLock = now + 700;
+    }
+
+    // 剣閃：200px以内で0.7秒予告 → 前方150°・半径180の横薙ぎ（25）
+    b.slashCd -= dt;
+    if (b.slashWindup > 0) {
+      b.slashWindup -= dt;
+      const a = Math.atan2(ny, nx);
+      g.fillStyle(0xff2244, 0.18);
+      g.slice(e.x, e.y - 40, 180, a - Phaser.Math.DegToRad(75), a + Phaser.Math.DegToRad(75), false);
+      g.fillPath();
+      if (b.slashWindup <= 0) {
+        e.play('anim_e_blackknight_slash', true);
+        b.animLock = now + 400;
+        if (dist < 180 + p.def.hitRadius && Math.abs(Phaser.Math.Angle.Wrap(Math.atan2(p.y - 12 - (e.y - 40), p.x - e.x) - a)) <= Phaser.Math.DegToRad(75)) this.hurt(25, now);
+        this.fxSlash(e.x, e.y - 40, 180, 0x9d4dff, a, 150);
+        this.cameras.main.shake(100, 0.004);
+      }
+      return { mx: 0, my: 0, spd: 0 };
+    }
+    if (dist < 200 && b.slashCd <= 0) {
+      b.slashWindup = 0.7;
+      b.slashCd = 2.5;
+      e.play('anim_e_blackknight_windup', true);
+      b.animLock = now + 700;
+      return { mx: 0, my: 0, spd: 0 };
+    }
+
+    // 後半：300px程度離れて闇の弾幕（扇状3連バースト×12発、弾速220、1発8）
+    if (b.phase === 2) {
+      b.barrageTimer -= dt;
+      if (b.barrageLeft > 0) {
+        b.barrageTick -= dt;
+        if (b.barrageTick <= 0) {
+          b.barrageTick = 0.12;
+          b.barrageLeft--;
+          const a = Math.atan2(ny, nx);
+          for (const off of [-0.18, 0, 0.18]) this.fireEnemyBullet(e.x + nx * 40, e.y - 40, a + off + (Math.random() - 0.5) * 0.05, 220, 5, 8, 0x9d4dff);
+        }
+        e.play('anim_e_blackknight_barrage', true);
+        b.animLock = now + 200;
+        return { mx: 0, my: 0, spd: 0 };
+      }
+      if (b.barrageTimer <= 0) {
+        b.barrageTimer = 4;
+        b.barrageLeft = 12;
+        b.barrageTick = 0;
+      }
+      // 距離取り
+      if (dist < 260) return { mx: -nx, my: -ny, spd: e.def.speed * 1.4 };
+      if (dist > 360) return { mx: nx, my: ny, spd: e.def.speed };
+      return { mx: -ny * 0.5, my: nx * 0.5, spd: e.def.speed * 0.8 };
+    }
+    if (now > b.animLock && e.anims.currentAnim?.key !== 'anim_e_blackknight') e.play('anim_e_blackknight', true);
+    return { mx: nx, my: ny, spd: e.def.speed };
+  }
+
+  private cavalryWarnings: { at: number; x1: number; y1: number; x2: number; y2: number }[] = [];
 
   /** 王級：突進＋周囲弾。返り値: この フレームの移動速度 */
   private updateBoss(e: Enemy, dt: number, now: number, nx: number, ny: number): number {
@@ -588,7 +741,7 @@ export class GameScene extends Phaser.Scene {
         if (e.def.isObject) continue;
         if (z.stun) e.stun(0.3, now);
         else if (z.slow < 1) e.applySlow(z.slow, 0.3, now);
-        if (doTick) this.damageEnemy(e, z.dps * 0.25, 0, 0);
+        if (doTick) this.damageEnemy(e, z.dps * 0.25 * (z.source === 'cage' && e.def.id === 'blackknight' ? 0.5 : 1), 0, 0);
       }
       // 描画
       const fade = Math.min(1, (z.duration - z.elapsed) / 0.4, z.elapsed / 0.15);
@@ -800,9 +953,9 @@ export class GameScene extends Phaser.Scene {
     return b;
   }
 
-  private fireEnemyBullet(x: number, y: number, angle: number, speed: number, life: number, damage: number): void {
+  private fireEnemyBullet(x: number, y: number, angle: number, speed: number, life: number, damage: number, tint?: number): void {
     const b = this.ebullets.get(x, y) as EnemyBullet | null;
-    if (b) b.fire(x, y, angle, speed, life, damage);
+    if (b) b.fire(x, y, angle, speed, life, damage, tint);
   }
 
   private kick(e: Enemy, angle: number, speed: number, durationSec: number, damage: number): void {
@@ -816,6 +969,7 @@ export class GameScene extends Phaser.Scene {
 
   private damageEnemy(e: Enemy, dmg: number, kx: number, ky: number): void {
     if (!e.active) return;
+    if (e.def.id === 'blackknight' && this.gameNow < e.bk.invulnUntil) return;
     if (this.debug) this.dmgLog.push({ t: this.gameNow, d: Math.min(dmg, e.hp) });
     if (e.hit(dmg, this.ctx.now, kx, ky)) this.killEnemy(e);
   }
@@ -840,6 +994,8 @@ export class GameScene extends Phaser.Scene {
     }
     AudioBus.play('se_kill', 40);
     if (def.boss) {
+      this.bossGfx?.clear();
+      this.cavalryWarnings.length = 0;
       this.bossDefeated = true;
       this.cameras.main.shake(400, 0.01);
       this.cameras.main.flash(500, 255, 255, 255);
@@ -1040,7 +1196,7 @@ export class GameScene extends Phaser.Scene {
     }
     if (this.stage.tint !== 0xffffff) this.bg.setTint(this.stage.tint);
     else this.bg.clearTint();
-    AudioBus.playBgm(this.stage.bgm, 'bgm_stage');
+    AudioBus.playBgm(`bgm_chara_${this.player.def.id}`, this.stage.bgm, 'bgm_stage');
   }
 
   private onBossSpawn(boss: Enemy): void {
@@ -1048,10 +1204,11 @@ export class GameScene extends Phaser.Scene {
     // プレイヤーの成長に合わせてHPを底上げ（固定HPだと10:00の火力で即落ちする）
     boss.maxHp = Math.round((boss.def.hp + this.xp.level * CONFIG.boss.hpPerPlayerLevel) * this.stage.bossHpMul);
     boss.hp = boss.maxHp;
-    this.hud.banner('王級 —— 出現', '#FF4D6D', 40);
+    this.hud.banner(`${boss.def.name} —— 出現`, '#FF4D6D', 40);
     this.cameras.main.shake(300, 0.006);
     AudioBus.play('se_boss');
-    AudioBus.playBgm('bgm_boss');
+    if (boss.def.id === 'blackknight') AudioBus.playBgm('bgm_boss_blackknight', 'bgm_boss');
+    else AudioBus.playBgm('bgm_boss');
   }
 
   private activateSoul(): void {

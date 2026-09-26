@@ -59,7 +59,7 @@ export class Spawner {
     if (band.boss && !this.bossSpawned) {
       this.bossSpawned = true;
       const pos = this.ringPoint();
-      const boss = this.spawnOne(band.boss, pos.x, pos.y, 1);
+      const boss = this.spawnOne(this.stage.bossId ?? band.boss, pos.x, pos.y, 1);
       if (boss) this.onBossSpawn?.(boss);
     }
 
@@ -148,6 +148,7 @@ export class Spawner {
     const e = this.enemies.get(x, y) as Enemy | null;
     if (!e) return null;
     e.spawn(ENEMIES[id], x, y, hpMul);
+    if (this.stage.enemyOutline && !ENEMIES[id].sheet && !ENEMIES[id].isObject) e.play(`anim_e_${id}_o`, true);
     return e;
   }
 }

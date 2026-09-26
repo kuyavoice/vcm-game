@@ -20,6 +20,8 @@ export interface ZoneOpts {
   stun: boolean;
   color: number;
   shape: 'circle' | 'fence';
+  /** 出所の武器ID（黒騎士は『重圧の檻』の効果半分、など） */
+  source?: string;
 }
 
 /** 武器から見た戦場の情報・操作 */

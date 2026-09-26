@@ -1,7 +1,7 @@
 // 敵：ネミノクス。M1はコード生成テクスチャ（黒い影＋光る目＋グリッチ）。
 // size はスプライトのpx（画面上は spriteScale 倍）。当たり判定は hitRadius（ワールドpx）で別管理。
 
-export type EnemyId = 'grunt' | 'hunter' | 'knight' | 'bishop' | 'king' | 'speaker';
+export type EnemyId = 'grunt' | 'hunter' | 'knight' | 'bishop' | 'king' | 'speaker' | 'blackknight' | 'cavalry';
 
 export interface EnemyDef {
   id: EnemyId;
@@ -32,6 +32,12 @@ export interface EnemyDef {
   boss?: boolean;
   /** 動かない破壊可能オブジェクト（壊れたスピーカー）。接触ダメージ・経験値なし、狙われない */
   isObject?: boolean;
+  /** スプライトシート（コード生成でなく画像を使う）。frames は横一列のコマ数 */
+  sheet?: { file: string; frameWidth: number; frameHeight: number; frames: number };
+  /** 原点Y（既定 0.75。足元基準の絵は 0.9 前後） */
+  originY?: number;
+  /** 直線に突っ切る（騎兵）。画面外で消える */
+  charger?: boolean;
 }
 
 export const ENEMIES: Record<EnemyId, EnemyDef> = {
@@ -60,6 +66,20 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
     id: 'king', name: '王級', tier: 4,
     size: 144, hitRadius: 110, hp: 3000, speed: 55, contactDamage: 20, xp: 0,
     eyeColor: 0xffffff, knockbackResist: 1, boss: true,
+  },
+  blackknight: {
+    id: 'blackknight', name: '黒騎士', tier: 4,
+    size: 144, hitRadius: 100, hp: 3000, speed: 55, contactDamage: 20, xp: 0,
+    eyeColor: 0x9d4dff, knockbackResist: 1, boss: true,
+    sheet: { file: 'assets/sprites/enemy/knight.png', frameWidth: 144, frameHeight: 144, frames: 9 },
+    originY: 0.86,
+  },
+  cavalry: {
+    id: 'cavalry', name: '重装騎兵', tier: 2,
+    size: 96, hitRadius: 40, hp: 150, speed: 380, contactDamage: 15, xp: 2,
+    eyeColor: 0x9d4dff, knockbackResist: 1, charger: true,
+    sheet: { file: 'assets/sprites/enemy/cavalry.png', frameWidth: 96, frameHeight: 96, frames: 4 },
+    originY: 0.8,
   },
   speaker: {
     id: 'speaker', name: '壊れたスピーカー', tier: -1,

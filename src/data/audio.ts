@@ -18,6 +18,12 @@ export const AUDIO_MANIFEST: AudioEntry[] = [
   { key: 'bgm_stage3', path: 'assets/audio/bgm/stage3.mp3', category: 'bgm', loop: true },
   { key: 'bgm_fullmoon', path: 'assets/audio/bgm/fullmoon.mp3', category: 'bgm', loop: true },
   { key: 'bgm_boss', path: 'assets/audio/bgm/boss.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_boss_blackknight', path: 'assets/audio/bgm/boss_blackknight.mp3', category: 'bgm', loop: true },
+  // 道中はキャラソンのバトルアレンジ（無ければ stageN → stage）
+  { key: 'bgm_chara_kuya', path: 'assets/audio/bgm/chara_kuya.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_chara_mizuho', path: 'assets/audio/bgm/chara_mizuho.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_chara_yukihito', path: 'assets/audio/bgm/chara_yukihito.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_chara_ritsuka', path: 'assets/audio/bgm/chara_ritsuka.mp3', category: 'bgm', loop: true },
   { key: 'bgm_result', path: 'assets/audio/bgm/result.mp3', category: 'bgm', loop: true },
   // SE
   { key: 'se_slash', path: 'assets/audio/se/slash.mp3', category: 'se' },

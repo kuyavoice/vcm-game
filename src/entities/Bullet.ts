@@ -138,12 +138,14 @@ export class EnemyBullet extends Phaser.GameObjects.Image {
     this.setDepth(24).setScale(CONFIG.spriteScale);
   }
 
-  fire(x: number, y: number, angle: number, speed: number, lifeSec: number, damage: number): void {
+  fire(x: number, y: number, angle: number, speed: number, lifeSec: number, damage: number, tint?: number): void {
     this.setPosition(x, y);
     this.vx = Math.cos(angle) * speed;
     this.vy = Math.sin(angle) * speed;
     this.life = lifeSec;
     this.damage = damage;
+    if (tint !== undefined) this.setTint(tint);
+    else this.clearTint();
     this.setActive(true).setVisible(true);
   }
 

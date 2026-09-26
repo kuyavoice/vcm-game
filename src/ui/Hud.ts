@@ -116,6 +116,10 @@ export class Hud {
     const t = this.top;
     g.clear();
 
+    // 上部の暗い帯（明るい背景のステージでも文字が読めるように）
+    g.fillStyle(0x060913, 0.45);
+    g.fillRect(0, 0, this.w, t + 130);
+
     // HPバー（左）
     const hpW = 300;
     const hpY = t + 40;

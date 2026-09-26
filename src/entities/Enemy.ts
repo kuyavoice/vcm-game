@@ -38,6 +38,10 @@ export class Enemy extends Phaser.GameObjects.Sprite {
   burnTick = 0;
   /** ボス用の行動タイマー */
   bossState = { chargeTimer: 0, ringTimer: 0, windup: 0, dashing: 0, dirX: 0, dirY: 0 };
+  /** 黒騎士の状態 */
+  bk = { phase: 1, invulnUntil: 0, cavalryTimer: 0, barrageTimer: 0, slashWindup: 0, slashCd: 0, barrageLeft: 0, barrageTick: 0, animLock: 0 };
+  /** 直線突撃（騎兵）の速度 */
+  charge: { vx: number; vy: number } | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'e_grunt_0');
@@ -62,9 +66,13 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     this.burnDps = 0;
     this.burnTick = 0;
     this.bossState = { chargeTimer: 2, ringTimer: 1.5, windup: 0, dashing: 0, dirX: 0, dirY: 0 };
+    this.bk = { phase: 1, invulnUntil: 0, cavalryTimer: 3, barrageTimer: 2, slashWindup: 0, slashCd: 0, barrageLeft: 0, barrageTick: 0, animLock: 0 };
+    this.charge = null;
+    this.setOrigin(0.5, def.originY ?? 0.75);
     this.setPosition(x, y);
     this.setActive(true).setVisible(true);
-    this.setAlpha(1).setScale(CONFIG.spriteScale).clearTint();
+    // 画像スプライトの敵は等倍（絵のサイズ＝画面サイズ）、コード生成の敵は spriteScale 倍
+    this.setAlpha(1).setScale(def.sheet ? 1 : CONFIG.spriteScale).clearTint();
     this.setDepth(def.isObject ? 8 : 10 + def.tier);
     this.play(`anim_e_${def.id}`, true);
     // アニメの位相をずらして群れの見た目をばらす

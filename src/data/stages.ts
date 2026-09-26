@@ -24,6 +24,12 @@ export interface StageDef {
   bgm: string;
   /** 解放条件：このステージIDをクリア */
   unlockAfter?: number;
+  /** 10:00 のボス（既定 king） */
+  bossId?: EnemyId;
+  /** 敵に淡い縁取り（背景が暗いステージの見やすさ対策） */
+  enemyOutline?: boolean;
+  /** 降雪などの天候演出 */
+  weather?: 'snow';
 }
 
 export const STAGES: StageDef[] = [
@@ -39,16 +45,16 @@ export const STAGES: StageDef[] = [
     desc: '群れは厚く、足も速い。騎士級が早くから混ざる。',
     enemyHpMul: 1.6, enemySpeedMul: 1.1, spawnMul: 1.3, bossHpMul: 3, xpMul: 1.15,
     extraWeights: { knight: 0.08 },
-    tint: 0xbfb4e8, color: 0x9d4dff, bgm: 'bgm_stage2',
-    unlockAfter: 1,
+    tint: 0xffffff, color: 0x9d4dff, bgm: 'bgm_stage2',
+    unlockAfter: 1, enemyOutline: true,
   },
   {
     id: 3, name: '夜明け前', nameEn: 'STAGE 3',
     desc: '声の嵐。司祭級の弾幕と、硬い騎士の壁。王級は桁違いに頑丈。',
     enemyHpMul: 2.5, enemySpeedMul: 1.2, spawnMul: 1.6, bossHpMul: 4.2, xpMul: 1.3, // v2: 6→4.2（70%）。まだ硬ければ 3.3（55%）
     extraWeights: { knight: 0.14, bishop: 0.1 },
-    tint: 0xe8b4b8, color: 0xff4d6d, bgm: 'bgm_stage3',
-    unlockAfter: 2,
+    tint: 0xffffff, color: 0xff4d6d, bgm: 'bgm_stage3',
+    unlockAfter: 2, bossId: 'blackknight', weather: 'snow',
   },
 ];
 

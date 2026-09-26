@@ -14,7 +14,7 @@ function mulberry32(seed: number) {
 }
 
 /** 敵テクスチャ：黒い影＋光る目＋ノイズ状グリッチ。frame 0/1 でグリッチ位置が変わる */
-function makeEnemyTexture(scene: Phaser.Scene, key: string, size: number, eyeColor: number, seed: number) {
+function makeEnemyTexture(scene: Phaser.Scene, key: string, size: number, eyeColor: number, seed: number, outline = false) {
   const rnd = mulberry32(seed);
   const g = scene.make.graphics({ x: 0, y: 0 }, false);
   const c = size / 2;
@@ -30,8 +30,8 @@ function makeEnemyTexture(scene: Phaser.Scene, key: string, size: number, eyeCol
   }
   g.fillStyle(0x05070f, 1);
   g.fillPoints(pts, true);
-  // 薄い縁（1pxアウトライン）
-  g.lineStyle(1, 0x1a2350, 1);
+  // 薄い縁（1pxアウトライン）。outline のときは淡い明色で見やすく（STAGE 2 用）
+  g.lineStyle(outline ? 2 : 1, outline ? 0xb8c4ff : 0x1a2350, outline ? 0.5 : 1);
   g.strokePoints(pts, true);
 
   // グリッチ：横スライスをずらす
@@ -88,13 +88,79 @@ function makeBackground(scene: Phaser.Scene) {
   g.destroy();
 }
 
+/** ステージ背景タイル（256×256）。敵が黒いシルエットなので、暗くしすぎない・低彩度・模様は弱く */
+function makeStageBackgrounds(scene: Phaser.Scene) {
+  const S = 256;
+  // STAGE 1 宵の口：夕暮れの街並み・石畳
+  {
+    const rnd = mulberry32(101);
+    const g = scene.make.graphics({ x: 0, y: 0 }, false);
+    g.fillStyle(0x6b5a78, 1);
+    g.fillRect(0, 0, S, S);
+    for (let y = 0; y < S; y += 32) {
+      const off = (y / 32) % 2 === 0 ? 0 : 24;
+      for (let x = -24; x < S; x += 48) {
+        const shade = rnd();
+        g.fillStyle(shade < 0.3 ? 0x74627f : shade < 0.6 ? 0x6f5e7b : 0x7a6685, 1);
+        g.fillRect(x + off + 2, y + 2, 44, 28);
+        if (rnd() < 0.25) { g.fillStyle(0x8a6e6a, 0.35); g.fillRect(x + off + 6, y + 6, 20, 8); }
+      }
+    }
+    g.lineStyle(1, 0x5e4f6a, 0.6);
+    for (let y = 0; y <= S; y += 32) g.lineBetween(0, y, S, y);
+    g.generateTexture('bg_1', S, S);
+    g.destroy();
+  }
+  // STAGE 2 真夜中：倉庫街のコンクリート・目地
+  {
+    const rnd = mulberry32(202);
+    const g = scene.make.graphics({ x: 0, y: 0 }, false);
+    g.fillStyle(0x3e4b63, 1);
+    g.fillRect(0, 0, S, S);
+    for (let i = 0; i < 18; i++) {
+      g.fillStyle(rnd() < 0.5 ? 0x42506a : 0x3a465d, 0.7);
+      g.fillEllipse(rnd() * S, rnd() * S, 30 + rnd() * 60, 16 + rnd() * 30);
+    }
+    g.lineStyle(3, 0x4a5873, 1);
+    for (let i = 0; i <= S; i += 128) { g.lineBetween(i, 0, i, S); g.lineBetween(0, i, S, i); }
+    g.lineStyle(1, 0x34405a, 0.8);
+    for (let i = 64; i < S; i += 128) { g.lineBetween(i, 0, i, S); g.lineBetween(0, i, S, i); }
+    g.generateTexture('bg_2', S, S);
+    g.destroy();
+  }
+  // STAGE 3 夜明け前：吹雪の夜の雪原（真っ白にしない）
+  {
+    const rnd = mulberry32(303);
+    const g = scene.make.graphics({ x: 0, y: 0 }, false);
+    g.fillStyle(0xa9b8cc, 1);
+    g.fillRect(0, 0, S, S);
+    for (let i = 0; i < 26; i++) {
+      g.fillStyle(rnd() < 0.6 ? 0xc3cfdd : 0x9fb0c6, 0.55);
+      g.fillEllipse(rnd() * S, rnd() * S, 40 + rnd() * 90, 14 + rnd() * 40);
+    }
+    for (let i = 0; i < 40; i++) { g.fillStyle(0xffffff, 0.25 + rnd() * 0.3); g.fillRect(rnd() * S, rnd() * S, 2, 2); }
+    g.generateTexture('bg_3', S, S);
+    g.destroy();
+  }
+  // 雪片
+  const s = scene.make.graphics({ x: 0, y: 0 }, false);
+  s.fillStyle(0xffffff, 1);
+  s.fillCircle(3, 3, 3);
+  s.generateTexture('snow', 6, 6);
+  s.destroy();
+}
+
 export function generateTextures(scene: Phaser.Scene) {
+  makeStageBackgrounds(scene);
   // 敵（2フレーム）
   let seed = 7;
   for (const def of Object.values(ENEMIES)) {
-    if (def.isObject) continue; // スピーカーは別途生成
-    makeEnemyTexture(scene, `e_${def.id}_0`, def.size, def.eyeColor, seed++);
-    makeEnemyTexture(scene, `e_${def.id}_1`, def.size, def.eyeColor, seed++);
+    if (def.isObject || def.sheet) continue; // スピーカーは別途生成、画像の敵はBootで読み込み
+    makeEnemyTexture(scene, `e_${def.id}_0`, def.size, def.eyeColor, seed, false);
+    makeEnemyTexture(scene, `e_${def.id}_1`, def.size, def.eyeColor, seed + 1, false);
+    makeEnemyTexture(scene, `e_${def.id}_0_o`, def.size, def.eyeColor, seed, true);
+    makeEnemyTexture(scene, `e_${def.id}_1_o`, def.size, def.eyeColor, seed + 1, true);
+    seed += 2;
   }
 
   const g = scene.make.graphics({ x: 0, y: 0 }, false);
