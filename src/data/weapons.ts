@@ -94,6 +94,44 @@ export const YOISEI: WeaponDef = {
   ],
 };
 
+/** 『怜水閃』（瑞穂）：最寄りの敵へ細く長い水圧の突き。全貫通。count=連射数 */
+export const REISUISEN: WeaponDef = {
+  id: 'reisuisen', name: '怜水閃', owner: '月怜 瑞穂', kind: 'main', tags: ['projectile'],
+  desc: '最寄りの敵へ水圧の突きを放つ。細く長い直線で、すべてを貫く。',
+  color: 0x87cefa, maxLevel: 8,
+  base: stats({ damage: 14, intervalSec: 0.9, count: 1, area: 450, speed: 1500, pierce: Infinity }),
+  levels: [
+    dmg(25), faster(12), { desc: '2連射になる', apply: (s) => { s.count = 2; } }, wider(20, '射程'),
+    dmg(25), faster(12),
+    { desc: '『怜水閃・五月雨』：細い貫通突きを5連射', apply: (s) => { s.evolved = true; s.count = 5; s.damage *= 0.85; } },
+  ],
+};
+
+/** 大剣（雪人）：最後に移動した方向へ180°・半径110pxの薙ぎ払い。強ノックバック */
+export const GREATSWORD: WeaponDef = {
+  id: 'greatsword', name: '大剣', owner: '狐森 雪人', kind: 'main', tags: ['melee'],
+  desc: '進む方向へ大剣を薙ぎ払う。半円の範囲を強く弾き飛ばす。',
+  color: 0xe8f4ff, maxLevel: 8,
+  base: stats({ damage: 30, intervalSec: 1.3, area: 110, knockback: 320, extra: { arcDeg: 180, waveDamage: 25, waveRange: 400 } }),
+  levels: [
+    dmg(25), wider(15), faster(10), dmg(25), wider(15), faster(10),
+    { desc: '『アクセル・レイド』：薙ぎ払いの後、前方へ衝撃波が走る', apply: (s) => { s.evolved = true; s.damage *= 1.15; } },
+  ],
+};
+
+/** 『焔の猟犬』（律花）：炎の玉が敵を追い、当たると小爆発。count=猟犬の数, extra.blastRadius/blastDamage */
+export const FLAMEHOUND: WeaponDef = {
+  id: 'flamehound', name: '焔の猟犬', owner: '寿 律花', kind: 'main', tags: ['projectile'],
+  desc: '炎の玉が敵を追いかけ、当たると小さく爆ぜる。',
+  color: 0xff4500, maxLevel: 8,
+  base: stats({ damage: 10, intervalSec: 1.2, count: 2, speed: 380, duration: 3, extra: { blastRadius: 40, blastDamage: 6, maxHounds: 12 } }),
+  levels: [
+    more(1, '猟犬の数'), dmg(25), { desc: '爆発の範囲 +30%', apply: (s) => { s.extra.blastRadius *= 1.3; } },
+    faster(10), more(1, '猟犬の数'), dmg(25),
+    { desc: '『焔の大狩猟』：猟犬6匹が群れで駆け回り、敵を倒すたび新しい猟犬が生まれる（最大12）', apply: (s) => { s.evolved = true; s.count = 6; s.duration = 6; s.speed *= 1.15; } },
+  ],
+};
+
 // ───────────────────────── 共鳴アーツ ─────────────────────────
 
 /** 『紅蓮の矢』：前方へ遠くまで飛ぶ貫通する火矢。count=本数, area=射程, pierce=貫通 */
@@ -286,6 +324,9 @@ const MONOGATARI: WeaponDef = {
 
 export const WEAPONS: Record<string, WeaponDef> = {
   yoisei: YOISEI,
+  reisuisen: REISUISEN,
+  greatsword: GREATSWORD,
+  flamehound: FLAMEHOUND,
   guren: GUREN,
   hoshikuzu: HOSHIKUZU,
   setsugekka: SETSUGEKKA,

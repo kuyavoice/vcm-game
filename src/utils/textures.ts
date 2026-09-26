@@ -193,6 +193,45 @@ export function generateTextures(scene: Phaser.Scene) {
   g.fillCircle(6, 1, 3);
   g.generateTexture('art_ofuda', 12, 20);
 
+  // 水圧の突き（怜水閃）：細く長い、右向き
+  g.clear();
+  g.fillStyle(0x87cefa, 0.45);
+  g.fillRect(0, 2, 40, 4);
+  g.fillStyle(0xffffff, 1);
+  g.fillRect(4, 3, 34, 2);
+  g.fillTriangle(38, 0, 44, 4, 38, 8);
+  g.generateTexture('art_thrust', 44, 8);
+
+  // 衝撃波（アクセル・レイド）：縦長の弧、右向き
+  g.clear();
+  g.fillStyle(0xe8f4ff, 0.35);
+  g.fillEllipse(8, 16, 14, 32);
+  g.lineStyle(3, 0xffffff, 0.95);
+  g.beginPath();
+  g.arc(2, 16, 12, -1.2, 1.2, false);
+  g.strokePath();
+  g.generateTexture('art_wave', 18, 32);
+
+  // 焔の猟犬（炎の玉）
+  g.clear();
+  g.fillStyle(0xff4500, 0.4);
+  g.fillCircle(9, 9, 9);
+  g.fillStyle(0xff6a00, 1);
+  g.fillCircle(9, 9, 6);
+  g.fillStyle(0xfff3a0, 1);
+  g.fillCircle(8, 8, 3);
+  g.generateTexture('art_hound', 18, 18);
+
+  // 水流（流麗なる水衣）
+  g.clear();
+  g.fillStyle(0x87cefa, 0.4);
+  g.fillEllipse(12, 8, 24, 14);
+  g.fillStyle(0xbfe6ff, 1);
+  g.fillEllipse(12, 8, 16, 8);
+  g.fillStyle(0xffffff, 0.9);
+  g.fillEllipse(10, 7, 6, 3);
+  g.generateTexture('art_stream', 24, 16);
+
   // 狐火（九尾の狐火）
   g.clear();
   g.fillStyle(0xff6a00, 0.35);

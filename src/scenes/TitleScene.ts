@@ -64,7 +64,7 @@ export class TitleScene extends Phaser.Scene {
       AudioBus.playBgm('bgm_title');
       this.cameras.main.fadeOut(250, 6, 9, 19);
       this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('StageSelect');
+        this.scene.start('CharaSelect');
       });
     };
     this.input.once('pointerdown', start);

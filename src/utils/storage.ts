@@ -15,16 +15,19 @@ export interface SaveData {
   bests: Record<string, BestRecord>;
   /** クリア済みステージID */
   cleared: number[];
-  settings: { bgm: number; se: number; voice: number; speed: number };
+  settings: { bgm: number; se: number; voice: number; speed: number; character: string };
   totalYell: number;
+  /** 解放済みキャラID（空夜は常に使える） */
+  unlockedCharacters: string[];
 }
 
 const DEFAULT: SaveData = {
   best: null,
   bests: {},
   cleared: [],
-  settings: { bgm: 0.7, se: 0.8, voice: 1, speed: 1 },
+  settings: { bgm: 0.7, se: 0.8, voice: 1, speed: 1, character: 'kuya' },
   totalYell: 0,
+  unlockedCharacters: [],
 };
 
 export function loadSave(): SaveData {
@@ -38,6 +41,7 @@ export function loadSave(): SaveData {
       settings: { ...DEFAULT.settings, ...(parsed.settings ?? {}) },
       bests: { ...(parsed.bests ?? {}) },
       cleared: [...(parsed.cleared ?? [])],
+      unlockedCharacters: [...(parsed.unlockedCharacters ?? [])],
     };
     // 旧形式の移行：best → bests[1]
     if (data.best && !data.bests['1']) {

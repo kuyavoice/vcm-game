@@ -35,6 +35,8 @@ export class UpgradeState {
   stats: RunStats = baseStats();
   /** 操作キャラ自身のアーツ（抽選から除外） */
   excluded = new Set<string>();
+  /** キャラ特性の攻撃力倍率（recompute で damageMul に乗る） */
+  traitDamageMul = 1;
 
   get weapons(): Weapon[] {
     return [this.main, ...this.arts];
@@ -47,6 +49,7 @@ export class UpgradeState {
   recompute(): RunStats {
     const s = baseStats();
     for (const [id, lv] of this.passives) PASSIVES[id].apply(s, lv);
+    s.damageMul *= this.traitDamageMul;
     this.stats = s;
     return s;
   }

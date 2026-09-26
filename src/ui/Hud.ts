@@ -186,7 +186,14 @@ export class Hud {
     } else {
       this.soulLabel.setColor('#8A94B8');
     }
-    this.soulLabel.setText(d.soulActive ? '共鳴中' : '共鳴');
+    this.soulLabel.setText(d.soulActive ? `${this.specialLabel}中` : this.specialLabel).setFontSize(this.specialLabel.length >= 4 ? 18 : 22);
+  }
+
+  private specialLabel = '共鳴';
+
+  /** 必殺ボタンの短い表示名（キャラごと） */
+  setSpecialLabel(label: string): void {
+    this.specialLabel = label;
   }
 
   setSpeed(mul: number): void {

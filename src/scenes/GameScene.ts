@@ -16,6 +16,7 @@ import { Hud } from '../ui/Hud';
 import { Joystick } from '../ui/Joystick';
 import { CutIn } from '../ui/CutIn';
 import { PASSIVES } from '../data/passives';
+import { SPECIALS, type SpecialHost } from '../systems/specials';
 import { AudioBus } from '../utils/audio';
 import { FONT_JP } from '../utils/fonts';
 import { loadSave, writeSave } from '../utils/storage';
@@ -60,7 +61,15 @@ export class GameScene extends Phaser.Scene {
   private tmp: Enemy[] = [];
   private arrowTargets: { x: number; y: number; color: number }[] = [];
   private soulGauge = 0;
+  /** 必殺の終了時刻（ゲーム内時計） */
   private soulUntil = 0;
+  private specialHost: SpecialHost = { state: {} };
+  private specialRunning = false;
+  /** 完全看破：回避後の攻撃力+30%が続く時刻 */
+  private kanpaUntil = 0;
+  /** 慈愛の雫のタイマー */
+  private cureTimer = 0;
+  private tmp2: Enemy[] = [];
   private boss: Enemy | null = null;
   private bossDefeated = false;
   /** 拾った宝箱の未開封数（重ね画面を避けるため update で順に開く） */
@@ -87,6 +96,10 @@ export class GameScene extends Phaser.Scene {
     this.zones = [];
     this.soulGauge = 0;
     this.soulUntil = 0;
+    this.specialHost = { state: {} };
+    this.specialRunning = false;
+    this.kanpaUntil = 0;
+    this.cureTimer = 0;
     this.boss = null;
     this.bossDefeated = false;
     this.pendingChests = 0;
@@ -128,6 +141,8 @@ export class GameScene extends Phaser.Scene {
 
     // プレイヤー（カメラは胸の高さを追う）
     this.player = new Player(this, 0, 0, def);
+    this.player.maxHp = Math.round(def.hp * def.traits.maxHpMul);
+    this.player.hp = this.player.maxHp;
     cam.startFollow(this.player, false, 0.12, 0.12, 0, this.player.displayHeight * 0.4);
     cam.setDeadzone(0, 0);
 
@@ -159,11 +174,13 @@ export class GameScene extends Phaser.Scene {
     this.up = new UpgradeState();
     this.up.setMain(def.startWeapon);
     for (const id of def.excludedArts) this.up.excluded.add(id);
+    this.up.traitDamageMul = def.traits.damageMul;
     this.up.recompute();
     this.spawner = new Spawner(this, this.enemies, this.player, this.stage);
     this.spawner.onBandChange = (b) => this.onBandChange(b.label, !!b.fullMoon, b.from);
     this.spawner.onBossSpawn = (boss) => this.onBossSpawn(boss);
     this.hud = new Hud(this, () => this.pause(), () => this.activateSoul(), () => this.cycleSpeed());
+    this.hud.setSpecialLabel(def.special.shortName);
     const savedSpeed = loadSave().settings.speed;
     this.setSpeed(CONFIG.speedModes.includes(savedSpeed) ? savedSpeed : 1);
     this.cutIn = new CutIn(this);
@@ -178,6 +195,8 @@ export class GameScene extends Phaser.Scene {
       artDamageMul: 1,
       artIntervalMul: 1,
       excludedArts: this.up.excluded,
+      meleeMul: def.traits.meleePower,
+      bonusDamageMul: 1,
       damage: (e, dmg, kx, ky) => this.damageEnemy(e, dmg, kx, ky),
       nearestEnemy: (x, y, maxDist) => this.nearestEnemy(x, y, maxDist),
       enemiesInCircle: (x, y, r, out) => this.enemiesInCircle(x, y, r, out),
@@ -195,7 +214,7 @@ export class GameScene extends Phaser.Scene {
     };
 
     AudioBus.playBgm(this.stage.bgm, 'bgm_stage');
-    AudioBus.play('vo_kuya_start');
+    this.vo('start');
     this.hud.banner(`${this.stage.nameEn} —— ${this.stage.name}`, Phaser.Display.Color.IntegerToColor(this.stage.color).rgba, 32);
   }
 
@@ -272,7 +291,7 @@ export class GameScene extends Phaser.Scene {
       passives: [...this.up.passives].map(([id, lv]) => `${this.passiveName(id)} ${lv}`),
       boss: this.boss && this.boss.active ? { name: this.boss.def.name, hp: this.boss.hp, maxHp: this.boss.maxHp } : null,
     });
-    if (p.def.uniquePassive === 'info_control') {
+    if (p.def.uniquePassive.id === 'info_control') {
       this.arrowTargets.length = 0;
       for (let i = 0; i < enemies.length; i++) {
         const e = enemies[i];
@@ -293,13 +312,27 @@ export class GameScene extends Phaser.Scene {
     const ctx = this.ctx;
     ctx.now = now;
     ctx.stats = this.up.stats;
-    const soulActive = now < this.soulUntil;
-    ctx.artDamageMul = (1 + this.player.def.traits.resonanceArtsPower) * (soulActive ? CONFIG.soul.artDamageMul : 1);
+    const def = this.player.def;
+    const specialActive = now < this.soulUntil;
+    const soulActive = specialActive && def.special.id === 'soul_connect';
+    ctx.artDamageMul = (1 + def.traits.resonanceArtsPower) * (soulActive ? CONFIG.soul.artDamageMul : 1);
     ctx.artIntervalMul = soulActive ? CONFIG.soul.artIntervalMul : 1;
+    ctx.bonusDamageMul = now < this.kanpaUntil ? 1.3 : 1;
     const stats = this.up.stats;
     const p = this.player;
 
     p.move(dx, dy, dt, stats.speedMul, now);
+
+    // 固有パッシブ『慈愛の雫』：20秒ごとにHP+10
+    if (def.uniquePassive.id === 'cure_drop') {
+      this.cureTimer += dt;
+      if (this.cureTimer >= 20) {
+        this.cureTimer -= 20;
+        p.heal(10);
+        this.fxText(p.x, p.y - 110, '+10', '#87CEFA');
+        this.fxRing(p.x, p.y - 40, 50, 0x87cefa, 3);
+      }
+    }
 
     // 自然回復・居眠り回復
     if (stats.regenPerSec > 0) p.heal(stats.regenPerSec * dt);
@@ -320,6 +353,16 @@ export class GameScene extends Phaser.Scene {
     this.updateEnemyBullets(dt, now);
 
     for (const w of this.up.weapons) w.update(dt, ctx);
+
+    // 必殺の進行・終了
+    if (this.specialRunning) {
+      const sp = SPECIALS[def.special.id];
+      if (specialActive) sp.update?.(dt, ctx, this.specialHost);
+      else {
+        sp.end?.(ctx, this.specialHost);
+        this.specialRunning = false;
+      }
+    }
 
     // 経験値・アイテム
     this.xp.update(dt, now, p.x, p.y - 12, p.def.pickup * stats.pickupMul);
@@ -367,7 +410,6 @@ export class GameScene extends Phaser.Scene {
     const p = this.player;
     const px = p.x;
     const py = p.y - 12;
-    const stats = this.up.stats;
     const sep = CONFIG.separationForce;
 
     for (let i = 0; i < enemies.length; i++) {
@@ -463,9 +505,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       // 接触ダメージ
-      if (dist < e.radius + p.def.hitRadius) {
-        if (p.takeDamage(def.contactDamage * stats.damageTakenMul, now)) this.onPlayerHit();
-      }
+      if (dist < e.radius + p.def.hitRadius) this.hurt(def.contactDamage, now);
     }
   }
 
@@ -567,7 +607,7 @@ export class GameScene extends Phaser.Scene {
           const want = Math.atan2(t.y - b.y, t.x - b.x);
           const cur = Math.atan2(b.vy, b.vx);
           const diff = Phaser.Math.Angle.Wrap(want - cur);
-          const turn = Phaser.Math.Clamp(diff, -6 * dt, 6 * dt);
+          const turn = Phaser.Math.Clamp(diff, -b.turnRate * dt, b.turnRate * dt);
           const spd = Math.hypot(b.vx, b.vy);
           b.vx = Math.cos(cur + turn) * spd;
           b.vy = Math.sin(cur + turn) * spd;
@@ -645,6 +685,20 @@ export class GameScene extends Phaser.Scene {
         this.damageEnemy(e, b.damage, Math.cos(a) * b.knockback, Math.sin(a) * b.knockback);
         if (b.slow < 1) e.applySlow(b.slow, b.slowSec, now);
         this.hitSpark(b.x, b.y, 0x87ceeb, 3);
+        // 小爆発（焔の猟犬）
+        if (b.explodeRadius > 0) {
+          this.tmp2.length = 0;
+          this.enemiesInCircle(b.x, b.y, b.explodeRadius, this.tmp2);
+          for (const o of this.tmp2) if (o !== e) this.damageEnemy(o, b.explodeDamage, 0, 0);
+          this.fxRing(b.x, b.y, b.explodeRadius, 0xff6a00, 3);
+        }
+        // 倒したら同じ弾を生む（焔の大狩猟）
+        if (b.spawnOnKill && !e.active && b.opts) {
+          const tex = b.texture.key;
+          let alive = 0;
+          for (const o of list) if (o.active && o.texture.key === tex) alive++;
+          if (alive < b.maxSpawned) this.fireBullet({ ...b.opts, x: e.x, y: e.y, angle: Math.random() * Math.PI * 2 });
+        }
         if (b.pierce <= 0) { b.despawn(); break; }
         b.pierce--;
       }
@@ -662,7 +716,7 @@ export class GameScene extends Phaser.Scene {
       b.life -= dt;
       if (b.life <= 0) { b.despawn(); continue; }
       if (Math.hypot(p.x - b.x, p.y - 12 - b.y) < p.def.hitRadius + 5) {
-        if (p.takeDamage(b.damage * this.up.stats.damageTakenMul, now)) this.onPlayerHit();
+        this.hurt(b.damage, now);
         b.despawn();
       }
     }
@@ -710,6 +764,10 @@ export class GameScene extends Phaser.Scene {
 
   private fireBullet(o: BulletOpts): Bullet | null {
     if (this.bullets.countActive(true) >= CONFIG.maxBullets) return null;
+    // 固有パッシブ『精密制御』：投射物すべてにゆるい追尾（跳弾・ブーメランは除く）
+    if (this.player.def.uniquePassive.id === 'precision' && !o.homing && !o.bounce && !o.boomerangDist) {
+      o = { ...o, homing: true, turnRate: Math.PI / 2 };
+    }
     const b = this.bullets.get(o.x, o.y) as Bullet | null;
     if (!b) return null;
     b.fire(o);
@@ -786,8 +844,9 @@ export class GameScene extends Phaser.Scene {
       this.xp.magnetAllUntil = this.ctx.now + 1500;
       this.fxRing(x, y, 60, 0x87ceeb, 4);
     } else if (kind === 'cake') {
-      this.player.heal(ITEMS.cake.heal);
-      this.fxText(this.player.x, this.player.y - 110, `+${ITEMS.cake.heal}`, '#F0E68C');
+      const heal = Math.round(ITEMS.cake.heal * this.player.def.traits.healItemMul);
+      this.player.heal(heal);
+      this.fxText(this.player.x, this.player.y - 110, `+${heal}`, '#F0E68C');
     } else if (kind === 'cross') {
       this.cameras.main.flash(400, 255, 255, 255);
       for (const e of this.onScreenEnemies()) {
@@ -809,10 +868,32 @@ export class GameScene extends Phaser.Scene {
 
   private counterUntil = 0;
 
+  /** ボイス（キャラ別。未配置なら無音） */
+  private vo(kind: string, minGapMs = 0): void {
+    AudioBus.play(`vo_${this.player.def.voicePrefix}_${kind}`, minGapMs);
+  }
+
+  /** プレイヤーへのダメージ入口：被ダメ倍率・必殺の軽減・完全看破の回避 */
+  private hurt(amount: number, now: number): void {
+    const p = this.player;
+    const def = p.def;
+    if (now < p.invulnUntil) return;
+    if (now >= p.shieldUntil && def.uniquePassive.id === 'kanpa' && Math.random() < 0.2) {
+      // 完全看破：回避して1秒間攻撃力+30%
+      p.invulnUntil = now + 150;
+      this.kanpaUntil = now + 1000;
+      this.fxText(p.x, p.y - 110, '看破', '#E8F4FF');
+      return;
+    }
+    let mul = this.up.stats.damageTakenMul;
+    if (now < this.soulUntil && def.special.id === 'aqua_lament') mul *= 0.3;
+    if (p.takeDamage(amount * mul, now)) this.onPlayerHit();
+  }
+
   private onPlayerHit(): void {
     this.cameras.main.shake(90, 0.004);
     AudioBus.play('se_hit', 120);
-    AudioBus.play('vo_kuya_hit', 2500);
+    this.vo('hit', 2500);
     const now = this.ctx.now;
     // 後の先：周囲120pxへ反撃（1秒に1回）
     const cd = this.up.stats.counterDamage;
@@ -945,13 +1026,17 @@ export class GameScene extends Phaser.Scene {
   private activateSoul(): void {
     if (this.over || this.overlayActive()) return;
     if (this.soulGauge < 1 || this.ctx.now < this.soulUntil) return;
+    const def = this.player.def;
+    const sp = SPECIALS[def.special.id];
     this.soulGauge = 0;
-    this.soulUntil = this.ctx.now + CONFIG.soul.durationSec * 1000;
-    this.hud.banner('魂の共鳴 —— SOUL CONNECT', '#87CEEB', 36);
-    this.fxRing(this.player.x, this.player.y - 40, 260, 0x87ceeb, 8);
+    this.soulUntil = this.ctx.now + sp.durationSec * 1000;
+    this.specialHost = { state: {} };
+    this.specialRunning = true;
+    sp.activate(this.ctx, this.specialHost);
+    this.hud.banner(def.special.name, Phaser.Display.Color.IntegerToColor(def.color).rgba, 36);
     this.cameras.main.flash(300, 135, 206, 235);
     AudioBus.play('se_special');
-    AudioBus.play('vo_kuya_special');
+    this.vo('special');
   }
 
   private openLevelUp(): void {
@@ -966,7 +1051,7 @@ export class GameScene extends Phaser.Scene {
       onPick: (c: Choice) => this.applyChoice(c),
     };
     AudioBus.play('se_levelup');
-    AudioBus.play('vo_kuya_levelup', 4000);
+    this.vo('levelup', 4000);
     this.joystick.reset();
     this.haltFrame = true;
     this.scene.pause();
@@ -976,12 +1061,14 @@ export class GameScene extends Phaser.Scene {
   private applyChoice(c: Choice): void {
     const r = this.up.apply(c);
     const p = this.player;
-    p.maxHp = p.def.hp + this.up.stats.maxHpBonus;
+    p.maxHp = Math.round(p.def.hp * p.def.traits.maxHpMul) + this.up.stats.maxHpBonus;
     if (r.maxHpDelta > 0) p.heal(r.maxHpDelta);
     if (r.heal > 0) p.heal(p.maxHp * r.heal);
     if (c.kind === 'weapon' && c.id === this.up.main.def.id && this.up.main.isMaxLevel) {
-      this.hud.banner('『蒼天の連撃』');
-      AudioBus.play('vo_kuya_evolve');
+      const last = this.up.main.def.levels[this.up.main.def.levels.length - 1].desc;
+      const m = last.match(/『([^』]+)』/);
+      this.hud.banner(m ? `『${m[1]}』` : last);
+      this.vo('evolve');
     }
     // 使い手のカットイン（共鳴アーツ・パッシブの取得／Lvアップ）
     if (c.kind === 'weapon' && c.id !== this.up.main.def.id) {
@@ -1022,11 +1109,15 @@ export class GameScene extends Phaser.Scene {
     this.haltFrame = true;
     this.joystick.reset();
     for (const key of ['LevelUp', 'Chest', 'Pause']) if (this.scene.isActive(key)) this.scene.stop(key);
+    if (this.specialRunning) {
+      SPECIALS[this.player.def.special.id].end?.(this.ctx, this.specialHost);
+      this.specialRunning = false;
+    }
     // 終了演出は等速で
     this.time.timeScale = 1;
     this.tweens.timeScale = 1;
     AudioBus.stopBgm();
-    AudioBus.play(cleared ? 'vo_kuya_clear' : 'vo_kuya_gameover');
+    this.vo(cleared ? 'clear' : 'gameover');
     const result: RunResult = {
       characterId: this.characterId,
       cleared,

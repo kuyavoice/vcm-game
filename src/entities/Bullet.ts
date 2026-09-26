@@ -34,6 +34,14 @@ export interface BulletOpts {
   boomerangDist?: number;
   /** ブーメランが戻ったあと、周囲を舞う秒数（『花傘乱舞』） */
   orbitSec?: number;
+  /** 追尾の旋回速度（rad/s）。既定 6 */
+  turnRate?: number;
+  /** 命中時の爆発（半径・ダメージ） */
+  explodeRadius?: number;
+  explodeDamage?: number;
+  /** 敵を倒したとき、その位置に同じ弾を生む（『焔の大狩猟』）。上限は GameScene 側 */
+  spawnOnKill?: boolean;
+  maxSpawned?: number;
 }
 
 /** 自弾（『宵星』の射撃・各アーツの弾） */
@@ -58,6 +66,13 @@ export class Bullet extends Phaser.GameObjects.Image {
   phase = 0;
   orbitLeft = 0;
   orbitAngle = 0;
+  turnRate = 6;
+  explodeRadius = 0;
+  explodeDamage = 0;
+  spawnOnKill = false;
+  maxSpawned = 0;
+  /** 生成時のオプション（spawnOnKill の複製用） */
+  opts: BulletOpts | null = null;
   hit = new Set<Enemy>();
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
@@ -87,6 +102,12 @@ export class Bullet extends Phaser.GameObjects.Image {
     this.orbitLeft = 0;
     this.orbitAngle = 0;
     this.phase = 0;
+    this.turnRate = o.turnRate ?? 6;
+    this.explodeRadius = o.explodeRadius ?? 0;
+    this.explodeDamage = o.explodeDamage ?? 0;
+    this.spawnOnKill = o.spawnOnKill ?? false;
+    this.maxSpawned = o.maxSpawned ?? 0;
+    this.opts = o;
     this.hit.clear();
     this.setScale(CONFIG.spriteScale * (o.scale ?? 1));
     this.setRotation(this.rotateToVel ? o.angle : 0);

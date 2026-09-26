@@ -36,6 +36,10 @@ export interface BattleContext {
   artIntervalMul: number;
   /** 操作キャラ自身のアーツ（『物語の具現化』の抽選から除外） */
   excludedArts: Set<string>;
+  /** melee タグの武器の威力倍率（雪人の特性） */
+  meleeMul: number;
+  /** 一時的な攻撃力倍率（完全看破の回避後など） */
+  bonusDamageMul: number;
   damage: (e: Enemy, dmg: number, kx: number, ky: number) => void;
   /** 最寄りの敵（オブジェクトは含まない） */
   nearestEnemy: (x: number, y: number, maxDist: number) => Enemy | null;

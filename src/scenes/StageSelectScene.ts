@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { DEFAULT_CHARACTER } from '../data/characters';
+import { CHARACTERS, DEFAULT_CHARACTER } from '../data/characters';
 import { STAGES, type StageDef } from '../data/stages';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, isStageUnlocked } from '../utils/storage';
@@ -32,6 +32,7 @@ export class StageSelectScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const save = loadSave();
+    const characterId = CHARACTERS[save.settings.character] ? save.settings.character : DEFAULT_CHARACTER;
     const guard = new SelectGuard(this);
     const cardW = Math.min(640, W - 40);
     const cardH = 200;
@@ -53,21 +54,22 @@ export class StageSelectScene extends Phaser.Scene {
           if (!guard.release(hit)) return;
           this.cameras.main.fadeOut(250, 6, 9, 19);
           this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.scene.start('Game', { characterId: DEFAULT_CHARACTER, stageId: st.id });
+            this.scene.start('Game', { characterId, stageId: st.id });
           });
         });
       }
       y += cardH + gap;
     });
 
-    makeButton(this, W / 2, H - Math.max(90, H * 0.08), 'TITLE', () => this.scene.start('Title'), { width: 240, height: 60, fontSize: 24 });
+    makeButton(this, W / 2, H - Math.max(90, H * 0.08), 'CHARACTER', () => this.scene.start('CharaSelect'), { width: 260, height: 60, fontSize: 24 });
+    this.add.text(W / 2, H * 0.11 + 78, `${CHARACTERS[characterId].name}`, { fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.accent, fontStyle: '700' }).setOrigin(0.5);
 
     // PC：1〜3キー
     this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
       const n = parseInt(ev.key, 10);
       const st = STAGES[n - 1];
       if (!st || !isStageUnlocked(save, st.unlockAfter) || !guard.confirm()) return;
-      this.scene.start('Game', { characterId: DEFAULT_CHARACTER, stageId: st.id });
+      this.scene.start('Game', { characterId, stageId: st.id });
     });
   }
 
