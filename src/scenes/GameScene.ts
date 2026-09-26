@@ -13,6 +13,8 @@ import type { BattleContext, ZoneOpts } from '../systems/WeaponSystem';
 import { UpgradeState, type Choice, type ChestResult } from '../systems/Upgrades';
 import { Hud } from '../ui/Hud';
 import { Joystick } from '../ui/Joystick';
+import { CutIn } from '../ui/CutIn';
+import { PASSIVES } from '../data/passives';
 import { AudioBus } from '../utils/audio';
 import { FONT_JP } from '../utils/fonts';
 import { loadSave, writeSave } from '../utils/storage';
@@ -31,6 +33,7 @@ export class GameScene extends Phaser.Scene {
   private player!: Player;
   private joystick!: Joystick;
   private hud!: Hud;
+  private cutIn!: CutIn;
   private spawner!: Spawner;
   private xp!: XpSystem;
   private up!: UpgradeState;
@@ -157,6 +160,7 @@ export class GameScene extends Phaser.Scene {
     this.hud = new Hud(this, () => this.pause(), () => this.activateSoul(), () => this.cycleSpeed());
     const savedSpeed = loadSave().settings.speed;
     this.setSpeed(CONFIG.speedModes.includes(savedSpeed) ? savedSpeed : 1);
+    this.cutIn = new CutIn(this);
 
     this.ctx = {
       scene: this,
@@ -917,6 +921,14 @@ export class GameScene extends Phaser.Scene {
       this.hud.banner('『蒼天の連撃』');
       AudioBus.play('vo_kuya_evolve');
     }
+    // 使い手のカットイン（共鳴アーツ・パッシブの取得／Lvアップ）
+    if (c.kind === 'weapon' && c.id !== this.up.main.def.id) {
+      const w = this.up.arts.find((x) => x.def.id === c.id);
+      if (w) this.cutIn.show({ owner: w.def.owner, title: w.name, tag: r.newWeapon ? 'RESONANCE' : `Lv ${w.level}`, color: w.def.color });
+    } else if (c.kind === 'passive') {
+      const p = PASSIVES[c.id];
+      this.cutIn.show({ owner: p.owner, title: p.name, tag: c.tag === 'NEW' ? 'SUPPORT' : `Lv ${this.up.passives.get(c.id)}`, color: p.color });
+    }
   }
 
   private openChest(): void {
@@ -928,6 +940,12 @@ export class GameScene extends Phaser.Scene {
       open: () => this.up.openChest(),
       onClose: (r: ChestResult) => {
         if (r.kind === 'yell' && r.yell) this.xp.yell += r.yell;
+        if (r.weapon) {
+          this.cutIn.show({
+            owner: r.weapon.def.owner, title: r.weapon.name,
+            tag: r.kind === 'evolve' ? 'EVOLVE' : `Lv ${r.weapon.level}`, color: r.weapon.def.color,
+          });
+        }
       },
     };
     this.joystick.reset();

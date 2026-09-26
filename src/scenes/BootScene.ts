@@ -5,6 +5,7 @@ import { generateTextures } from '../utils/textures';
 import { AudioBus } from '../utils/audio';
 import { FONT_EN } from '../utils/fonts';
 import { OPTIONAL_IMAGES, hasOptionalImage } from '../utils/optionalAssets';
+import { PORTRAITS, PORTRAIT_DIR, portraitKey } from '../data/portraits';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -27,6 +28,8 @@ export class BootScene extends Phaser.Scene {
       });
       if (c.standing) this.load.image(`standing_${c.id}`, c.standing);
     }
+    // カットイン用の顔画像（ポータルの立ち絵から切り出した 256px webp）
+    for (const id of new Set(Object.values(PORTRAITS))) this.load.image(portraitKey(id), `${PORTRAIT_DIR}${id}.webp`);
     // 宝箱画面のマスコット（ルナ様チビ）など、置けば使われる画像。未配置なら簡易プレースホルダー
     for (const [key, path] of Object.entries(OPTIONAL_IMAGES)) if (hasOptionalImage(key)) this.load.image(key, path);
     AudioBus.queueLoad(this.load);
