@@ -44,7 +44,11 @@ export class TitleScene extends Phaser.Scene {
       fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.dim,
     }).setOrigin(0.5);
 
-    const best = loadSave().bests['1'];
+    const sv = loadSave();
+    this.add.text(W / 2, H * 0.76, `★ ${sv.totalYell} YELL`, {
+      fontFamily: FONT_EN, fontSize: '22px', color: COLOR_HEX.gold, fontStyle: '700', letterSpacing: 2,
+    }).setOrigin(0.5);
+    const best = sv.bests['1'];
     if (best) {
       const mm = Math.floor(best.timeSec / 60).toString().padStart(2, '0');
       const ss = Math.floor(best.timeSec % 60).toString().padStart(2, '0');

@@ -19,6 +19,8 @@ export interface SaveData {
   totalYell: number;
   /** 解放済みキャラID（空夜は常に使える） */
   unlockedCharacters: string[];
+  /** 永続強化のLv（キー = shop.ts の id） */
+  permanent: Record<string, number>;
 }
 
 const DEFAULT: SaveData = {
@@ -28,6 +30,7 @@ const DEFAULT: SaveData = {
   settings: { bgm: 0.7, se: 0.8, voice: 1, speed: 1, character: 'kuya' },
   totalYell: 0,
   unlockedCharacters: [],
+  permanent: {},
 };
 
 export function loadSave(): SaveData {
@@ -42,6 +45,7 @@ export function loadSave(): SaveData {
       bests: { ...(parsed.bests ?? {}) },
       cleared: [...(parsed.cleared ?? [])],
       unlockedCharacters: [...(parsed.unlockedCharacters ?? [])],
+      permanent: { ...(parsed.permanent ?? {}) },
     };
     // 旧形式の移行：best → bests[1]
     if (data.best && !data.bests['1']) {

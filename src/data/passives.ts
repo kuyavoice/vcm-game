@@ -21,6 +21,8 @@ export interface RunStats {
   counterDamage: number;
   /** 必殺ゲージの上昇倍率 */
   soulGainMul: number;
+  /** 最大HP倍率（永続強化） */
+  maxHpMul: number;
 }
 
 export function baseStats(): RunStats {
@@ -38,6 +40,7 @@ export function baseStats(): RunStats {
     durationMul: 1,
     counterDamage: 0,
     soulGainMul: 1,
+    maxHpMul: 1,
   };
 }
 

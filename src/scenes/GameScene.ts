@@ -141,7 +141,14 @@ export class GameScene extends Phaser.Scene {
 
     // プレイヤー（カメラは胸の高さを追う）
     this.player = new Player(this, 0, 0, def);
-    this.player.maxHp = Math.round(def.hp * def.traits.maxHpMul);
+    // 永続強化（セーブ）を反映してから最大HPを決める
+    this.up = new UpgradeState();
+    this.up.permanent = loadSave().permanent;
+    this.up.setMain(def.startWeapon);
+    for (const id of def.excludedArts) this.up.excluded.add(id);
+    this.up.traitDamageMul = def.traits.damageMul;
+    this.up.recompute();
+    this.player.maxHp = Math.round(def.hp * def.traits.maxHpMul * this.up.stats.maxHpMul);
     this.player.hp = this.player.maxHp;
     cam.startFollow(this.player, false, 0.12, 0.12, 0, this.player.displayHeight * 0.4);
     cam.setDeadzone(0, 0);
@@ -171,11 +178,6 @@ export class GameScene extends Phaser.Scene {
     this.xp = new XpSystem(this.pickups);
     this.xp.xpMul = this.stage.xpMul;
     this.xp.onItem = (kind, value, x, y) => this.onItem(kind, value, x, y);
-    this.up = new UpgradeState();
-    this.up.setMain(def.startWeapon);
-    for (const id of def.excludedArts) this.up.excluded.add(id);
-    this.up.traitDamageMul = def.traits.damageMul;
-    this.up.recompute();
     this.spawner = new Spawner(this, this.enemies, this.player, this.stage);
     this.spawner.onBandChange = (b) => this.onBandChange(b.label, !!b.fullMoon, b.from);
     this.spawner.onBossSpawn = (boss) => this.onBossSpawn(boss);
@@ -1061,7 +1063,7 @@ export class GameScene extends Phaser.Scene {
   private applyChoice(c: Choice): void {
     const r = this.up.apply(c);
     const p = this.player;
-    p.maxHp = Math.round(p.def.hp * p.def.traits.maxHpMul) + this.up.stats.maxHpBonus;
+    p.maxHp = Math.round(p.def.hp * p.def.traits.maxHpMul * this.up.stats.maxHpMul) + this.up.stats.maxHpBonus;
     if (r.maxHpDelta > 0) p.heal(r.maxHpDelta);
     if (r.heal > 0) p.heal(p.maxHp * r.heal);
     if (c.kind === 'weapon' && c.id === this.up.main.def.id && this.up.main.isMaxLevel) {
@@ -1086,14 +1088,18 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const data: ChestData = {
-      open: () => this.up.openChest(),
+      open: () => this.up.openChest(this.up.stats.luckMul),
       onClose: (r: ChestResult) => {
-        if (r.kind === 'yell' && r.yell) this.xp.yell += r.yell;
-        if (r.weapon) {
-          this.cutIn.show({
-            owner: r.weapon.def.owner, title: r.weapon.name,
-            tag: r.kind === 'evolve' ? 'EVOLVE' : `Lv ${r.weapon.level}`, color: r.weapon.def.color,
-          });
+        const p = this.player;
+        p.maxHp = Math.round(p.def.hp * p.def.traits.maxHpMul * this.up.stats.maxHpMul) + this.up.stats.maxHpBonus;
+        for (const rw of r.rewards) {
+          if (rw.kind === 'yell' && rw.yell) this.xp.yell += rw.yell;
+          if (rw.owner && rw.kind !== 'yell') {
+            this.cutIn.show({
+              owner: rw.owner, title: rw.title,
+              tag: rw.kind === 'evolve' ? 'EVOLVE' : rw.sub, color: rw.color,
+            });
+          }
         }
       },
     };

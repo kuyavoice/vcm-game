@@ -46,19 +46,20 @@ export class CharaSelectScene extends Phaser.Scene {
       const cont = this.buildCard(def, unlocked, cardW, cardH);
       cont.setPosition(W / 2 + 40, y).setAlpha(0);
       this.tweens.add({ targets: cont, alpha: 1, x: W / 2, duration: 220, delay: 60 * i, ease: 'Cubic.out' });
-      if (unlocked) {
-        const hit = cont.getByName('hit') as Phaser.GameObjects.Rectangle;
-        hit.on('pointerdown', () => { guard.press(hit); if (guard.armed) cont.setScale(0.98); });
-        hit.on('pointerup', () => {
-          cont.setScale(1);
-          if (!guard.release(hit)) return;
-          this.choose(id);
-        });
-      }
+      const hit = cont.getByName('hit') as Phaser.GameObjects.Rectangle;
+      hit.on('pointerdown', () => { guard.press(hit); if (guard.armed) cont.setScale(0.98); });
+      hit.on('pointerup', () => {
+        cont.setScale(1);
+        if (!guard.release(hit)) return;
+        if (unlocked) this.choose(id);
+        else this.scene.start('Shop');
+      });
       y += cardH + gap;
     });
 
-    makeButton(this, W / 2, H - Math.max(90, H * 0.08), 'TITLE', () => this.scene.start('Title'), { width: 240, height: 60, fontSize: 24 });
+    const by = H - Math.max(90, H * 0.08);
+    makeButton(this, W / 2 - 140, by, 'TITLE', () => this.scene.start('Title'), { width: 240, height: 60, fontSize: 24 });
+    makeButton(this, W / 2 + 140, by, `★ SHOP  ${save.totalYell}`, () => this.scene.start('Shop'), { width: 240, height: 60, fontSize: 22, primary: true });
 
     this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
       const n = parseInt(ev.key, 10);
@@ -131,7 +132,7 @@ export class CharaSelectScene extends Phaser.Scene {
       }).setOrigin(1, 0);
       cont.add([desc, hpText]);
     } else {
-      const lock = this.add.text(tx, -cardH / 2 + 86, `★ ${def.unlockYell} エールで解放（準備中）`, {
+      const lock = this.add.text(tx, -cardH / 2 + 86, `★ ${def.unlockYell} エールで解放（タップでショップへ）`, {
         fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim,
       });
       const icon = this.add.text(cardW / 2 - 18, -cardH / 2 + 14, 'LOCKED', {
@@ -142,7 +143,7 @@ export class CharaSelectScene extends Phaser.Scene {
     }
 
     const hit = this.add.rectangle(0, 0, cardW, cardH, 0xffffff, 0.001).setName('hit');
-    if (unlocked) hit.setInteractive({ useHandCursor: true });
+    hit.setInteractive({ useHandCursor: true });
     cont.add(hit);
     return cont;
   }

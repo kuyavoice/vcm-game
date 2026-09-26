@@ -1,6 +1,7 @@
 import { CONFIG } from '../data/config';
 import { PASSIVES, baseStats, type RunStats } from '../data/passives';
 import { ART_IDS, WEAPONS } from '../data/weapons';
+import { CHEST, PERMANENT } from '../data/shop';
 import type { Weapon } from './WeaponSystem';
 import { createWeapon } from './arts';
 
@@ -18,13 +19,24 @@ export interface Choice {
   color: number;
 }
 
-/** 宝箱の結果 */
-export interface ChestResult {
-  kind: 'levelup' | 'evolve' | 'yell';
+/** 宝箱の報酬1件 */
+export interface ChestReward {
+  kind: 'evolve' | 'weapon' | 'passive' | 'yell';
+  title: string;
+  sub: string;
+  color: number;
+  /** 使い手（カットイン用） */
+  owner?: string;
   weapon?: Weapon;
   /** 進化前の名前（表示用） */
   fromName?: string;
   yell?: number;
+  desc?: string;
+}
+
+export interface ChestResult {
+  rewards: ChestReward[];
+  jackpot: boolean;
 }
 
 /** ラン中の強化状態（初期武器・共鳴アーツ・パッシブ）と選択肢生成 */
@@ -37,6 +49,8 @@ export class UpgradeState {
   excluded = new Set<string>();
   /** キャラ特性の攻撃力倍率（recompute で damageMul に乗る） */
   traitDamageMul = 1;
+  /** 永続強化のLv（セーブから） */
+  permanent: Record<string, number> = {};
 
   get weapons(): Weapon[] {
     return [this.main, ...this.arts];
@@ -49,6 +63,10 @@ export class UpgradeState {
   recompute(): RunStats {
     const s = baseStats();
     for (const [id, lv] of this.passives) PASSIVES[id].apply(s, lv);
+    for (const p of PERMANENT) {
+      const lv = this.permanent[p.id] ?? 0;
+      if (lv > 0) p.apply(s, lv);
+    }
     s.damageMul *= this.traitDamageMul;
     this.stats = s;
     return s;
@@ -86,7 +104,7 @@ export class UpgradeState {
       });
     }
 
-    // シャッフルして先頭 count 件（同じ id が重複しないようにする）
+    // シャッフルして先頭 count 件
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]];
@@ -121,21 +139,46 @@ export class UpgradeState {
     return { maxHpDelta: this.stats.maxHpBonus - before, heal: 0, newWeapon };
   }
 
-  /** 宝箱を開ける：進化できるアーツがあれば進化、なければ所持アーツ1つをLvアップ */
-  openChest(): ChestResult {
+  /**
+   * 宝箱を開ける：進化できるアーツがあれば最優先で進化。それ以外は
+   * 「所持アーツ（Lv未満）」と「所持パッシブ（Lv未満）」からランダムにLvアップ。
+   * 幸運に応じて稀に大当たり（報酬3つ）。何も無ければエール。
+   */
+  openChest(luckMul = 1): ChestResult {
+    const jackpot = Math.random() < CHEST.jackpotChance * luckMul;
+    const n = jackpot ? CHEST.jackpotRewards : 1;
+    const rewards: ChestReward[] = [];
+    for (let i = 0; i < n; i++) {
+      const r = this.drawReward();
+      rewards.push(r);
+    }
+    this.recompute();
+    return { rewards, jackpot };
+  }
+
+  private drawReward(): ChestReward {
     const evolvable = this.arts.filter((w) => w.canEvolve(this.passives));
     if (evolvable.length > 0) {
       const w = evolvable[Math.floor(Math.random() * evolvable.length)];
       const fromName = w.name;
       w.evolve();
-      return { kind: 'evolve', weapon: w, fromName };
+      return { kind: 'evolve', title: w.name, sub: `『${fromName}』が進化した！`, color: 0xffd700, owner: w.def.owner, weapon: w, fromName, desc: w.def.evolution?.desc };
     }
-    const upgradable = this.arts.filter((w) => !w.isMaxLevel);
-    if (upgradable.length > 0) {
-      const w = upgradable[Math.floor(Math.random() * upgradable.length)];
-      w.levelUp();
-      return { kind: 'levelup', weapon: w };
+    type Cand = { kind: 'weapon'; weapon: Weapon } | { kind: 'passive'; id: string };
+    const cands: Cand[] = [];
+    for (const w of this.arts) if (!w.isMaxLevel) cands.push({ kind: 'weapon', weapon: w });
+    for (const [id, lv] of this.passives) if (lv < PASSIVES[id].maxLevel) cands.push({ kind: 'passive', id });
+    if (cands.length === 0) {
+      return { kind: 'yell', title: 'エール +20', sub: '強化できるものが無いので、代わりに', color: 0xffd700, yell: 20 };
     }
-    return { kind: 'yell', yell: 20 };
+    const c = cands[Math.floor(Math.random() * cands.length)];
+    if (c.kind === 'weapon') {
+      c.weapon.levelUp();
+      return { kind: 'weapon', title: c.weapon.name, sub: `Lv ${c.weapon.level - 1} → ${c.weapon.level}`, color: c.weapon.def.color, owner: c.weapon.def.owner, weapon: c.weapon };
+    }
+    const p = PASSIVES[c.id];
+    const lv = (this.passives.get(c.id) ?? 0) + 1;
+    this.passives.set(c.id, lv);
+    return { kind: 'passive', title: p.name, sub: `Lv ${lv - 1} → ${lv}`, color: p.color, owner: p.owner };
   }
 }
