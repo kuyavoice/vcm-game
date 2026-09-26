@@ -88,7 +88,7 @@ export class StageSelectScene extends Phaser.Scene {
 
     if (unlocked) {
       const desc = this.add.text(-cardW / 2 + 32, -cardH / 2 + 96, st.desc, {
-        fontFamily: FONT_JP, fontSize: '19px', color: COLOR_HEX.white, wordWrap: { width: cardW - 64 },
+        fontFamily: FONT_JP, fontSize: '19px', color: COLOR_HEX.white, wordWrap: { width: cardW - 64, useAdvancedWrap: true },
       });
       const mods = this.add.text(cardW / 2 - 20, -cardH / 2 + 18, `HP ×${st.enemyHpMul}　SPD ×${st.enemySpeedMul}　NUM ×${st.spawnMul}`, {
         fontFamily: FONT_EN, fontSize: '16px', color: COLOR_HEX.dim, fontStyle: '700',

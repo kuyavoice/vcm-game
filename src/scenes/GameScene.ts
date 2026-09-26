@@ -234,7 +234,12 @@ export class GameScene extends Phaser.Scene {
     if (this.over || !this.scene.isActive('Game') || this.overlayActive()) return;
     this.joystick.reset();
     this.scene.pause();
-    this.scene.launch('Pause');
+    this.scene.launch('Pause', {
+      character: this.player.def.name,
+      stage: `${this.stage.nameEn} ${this.stage.name}`,
+      weapons: this.up.weapons.map((w) => ({ name: w.name, level: w.level, max: w.def.maxLevel, color: w.def.color, owner: w.def.owner, evolved: w.evolved })),
+      passives: [...this.up.passives].map(([id, lv]) => ({ name: PASSIVES[id].name, level: lv, max: PASSIVES[id].maxLevel, color: PASSIVES[id].color, owner: PASSIVES[id].owner })),
+    });
   }
 
   // ─────────────────────────── メインループ ───────────────────────────
@@ -289,8 +294,6 @@ export class GameScene extends Phaser.Scene {
       time: this.elapsed, kills: this.kills, yell: this.xp.yell,
       band: `${this.spawner.band?.label ?? ''}　${this.stage.nameEn}`,
       soul: this.soulGauge, soulActive,
-      weapons: this.up.weapons.map((w) => `${w.name} ${w.level}`),
-      passives: [...this.up.passives].map(([id, lv]) => `${this.passiveName(id)} ${lv}`),
       boss: this.boss && this.boss.active ? { name: this.boss.def.name, hp: this.boss.hp, maxHp: this.boss.maxHp } : null,
     });
     if (p.def.uniquePassive.id === 'info_control') {
@@ -397,15 +400,6 @@ export class GameScene extends Phaser.Scene {
     this.tweens.timeScale = mul;
     this.anims.globalTimeScale = mul;
     this.hud.setSpeed(mul);
-  }
-
-  private passiveName(id: string): string {
-    // 表示用の短縮（HUDの幅節約）
-    const map: Record<string, string> = {
-      patisserie: 'Patisserie', makanai: 'まかない', jewel: '宝石', gear: 'ギア', route: '経路',
-      tuning: '調律', poem: '詩', scout: '斥候', finder: '神通力',
-    };
-    return map[id] ?? id;
   }
 
   private updateEnemies(enemies: Enemy[], dt: number, now: number): void {

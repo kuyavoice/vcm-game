@@ -86,7 +86,7 @@ export class CutIn {
     });
     const owner = s.add.text(textX + tag.width + 10, 18, req.owner, { fontFamily: FONT_JP, fontSize: '16px', color: '#8A94B8' });
     const title = s.add.text(textX, 48, req.title, {
-      fontFamily: FONT_JP, fontSize: '28px', color: '#FFFFFF', fontStyle: '700', wordWrap: { width: W - textX - 40 },
+      fontFamily: FONT_JP, fontSize: '28px', color: '#FFFFFF', fontStyle: '700', wordWrap: { width: W - textX - 40, useAdvancedWrap: true },
     });
     c.add([tag, owner, title]);
 

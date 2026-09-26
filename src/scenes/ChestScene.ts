@@ -103,7 +103,7 @@ export class ChestScene extends Phaser.Scene {
         cont.add([bg, stripe, tag, title, sub]);
         if (r.desc && result!.rewards.length === 1) {
           cont.add(this.add.text(-cardW / 2 + 28, -rowH / 2 + 78, r.desc, {
-            fontFamily: FONT_JP, fontSize: '17px', color: COLOR_HEX.white, wordWrap: { width: cardW - 56 },
+            fontFamily: FONT_JP, fontSize: '17px', color: COLOR_HEX.white, wordWrap: { width: cardW - 56, useAdvancedWrap: true },
           }));
         }
         this.tweens.add({ targets: cont, alpha: 1, y: cont.y - 6, duration: 220, delay: 120 * i });

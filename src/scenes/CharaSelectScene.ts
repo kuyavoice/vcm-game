@@ -125,7 +125,7 @@ export class CharaSelectScene extends Phaser.Scene {
         `必殺『${def.special.name}』`,
       ];
       const desc = this.add.text(tx, -cardH / 2 + 82, lines, {
-        fontFamily: FONT_JP, fontSize: '16px', color: COLOR_HEX.white, wordWrap: { width: cardW - (tx + cardW / 2) - 20 }, lineSpacing: 4,
+        fontFamily: FONT_JP, fontSize: '16px', color: COLOR_HEX.white, wordWrap: { width: cardW - (tx + cardW / 2) - 20, useAdvancedWrap: true }, lineSpacing: 4,
       });
       const hpText = this.add.text(cardW / 2 - 18, -cardH / 2 + 14, `HP ${Math.round(def.hp * def.traits.maxHpMul)}  SPD ${def.speed}`, {
         fontFamily: FONT_EN, fontSize: '15px', color: COLOR_HEX.dim, fontStyle: '700',

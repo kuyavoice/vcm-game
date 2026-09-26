@@ -64,7 +64,7 @@ export class LevelUpScene extends Phaser.Scene {
         fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim,
       }).setOrigin(0, 0);
       const desc = this.add.text(-cardW / 2 + 32, -cardH / 2 + 100, c.desc, {
-        fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.white, wordWrap: { width: cardW - 64 },
+        fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.white, wordWrap: { width: cardW - 64, useAdvancedWrap: true },
       }).setOrigin(0, 0);
       cont.add([shadow, bg, stripe, tag, title, owner, desc]);
       cont.setAlpha(0).setX(W / 2 + 40);
