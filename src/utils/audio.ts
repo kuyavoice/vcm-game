@@ -40,10 +40,17 @@ class AudioBusImpl {
     clearTimeout(timer);
   }
 
-  /** Boot で呼ぶ：実在が確認できた音声だけ読み込む */
+  /** Boot で呼ぶ：実在が確認できた SE・ボイスとタイトル曲だけ読み込む（他のBGMは再生時に遅延読み込み。起動を軽くするため） */
   queueLoad(loader: Phaser.Loader.LoaderPlugin): void {
-    for (const e of AUDIO_MANIFEST) if (this.available.has(e.key)) loader.audio(e.key, e.path);
+    for (const e of AUDIO_MANIFEST) {
+      if (!this.available.has(e.key)) continue;
+      if (e.category === 'bgm' && e.key !== 'bgm_title') continue;
+      loader.audio(e.key, e.path);
+    }
   }
+
+  /** 再生したいBGM（遅延読み込みの完了後に、まだこの曲が望まれていれば再生） */
+  private wantedBgm = '';
 
   setVolume(cat: AudioCategory, v: number): void {
     this.volumes[cat] = v;
@@ -69,15 +76,38 @@ class AudioBusImpl {
   /** fallbacks：key が未配置のときに順に試すキー（キャラ曲 → ステージ曲 → 共通曲 など） */
   playBgm(key: string, ...fallbacks: string[]): void {
     if (!this.game) return;
-    for (const k of [key, ...fallbacks]) { if (this.has(k)) { key = k; break; } }
+    // 実在する候補（読み込み済みでなくてもよい）
+    const found = [key, ...fallbacks].find((k) => this.available.has(k));
+    if (!found) return; // 候補が無ければ今の曲を続ける
+    key = found;
+    this.wantedBgm = key;
     if (this.bgm && (this.bgm as Phaser.Sound.BaseSound).key === key) return;
+    if (this.has(key)) {
+      this.startBgm(key);
+      return;
+    }
+    // 遅延読み込み：いま動いているシーンのローダーで読む（シーン切替直後は終了中のシーンが先頭に来るので、最後の＝新しい方を使う）
+    const active = this.game.scene.getScenes(true);
+    const scene = active.find((x) => x.scene.key === 'Game') ?? active[active.length - 1];
+    const entry = AUDIO_MANIFEST.find((e) => e.key === key);
+    if (!scene || !entry) return;
+    const loader = scene.load;
+    loader.audio(key, entry.path);
+    loader.once(Phaser.Loader.Events.COMPLETE, () => {
+      if (this.wantedBgm === key && this.has(key)) this.startBgm(key);
+    });
+    if (!loader.isLoading()) loader.start();
+  }
+
+  private startBgm(key: string): void {
+    if (!this.game) return;
     this.stopBgm();
-    if (!this.has(key)) return;
     this.bgm = this.game.sound.add(key, { loop: true, volume: this.volumes.bgm });
     this.bgm.play();
   }
 
   stopBgm(): void {
+    this.wantedBgm = '';
     if (this.bgm) {
       this.bgm.stop();
       this.bgm.destroy();

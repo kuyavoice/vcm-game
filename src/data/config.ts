@@ -15,8 +15,8 @@ export const CONFIG = {
   maxEnemyBullets: 120,
 
   // 枠数
-  weaponSlots: 5,
-  passiveSlots: 5,
+  weaponSlots: 6,
+  passiveSlots: 6,
 
   // 必要経験値：Lv n → n+1
   xpToNext: (lv: number) => 5 + (lv - 1) * 10,

@@ -1291,7 +1291,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.shake(300, 0.006);
     AudioBus.play('se_boss');
     if (boss.def.id === 'blackknight') AudioBus.playBgm('bgm_boss_blackknight', 'bgm_boss');
-    else AudioBus.playBgm('bgm_boss');
+    else AudioBus.playBgm('bgm_boss', 'bgm_boss_blackknight');
   }
 
   private activateSoul(): void {

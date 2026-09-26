@@ -35,7 +35,7 @@ export class ResultScene extends Phaser.Scene {
     const W = cam.width;
     const H = cam.height;
     cam.fadeIn(300, 6, 9, 19);
-    AudioBus.playBgm('bgm_result');
+    AudioBus.playBgm('bgm_result', 'bgm_title');
 
     const stage = stageById(r.stageId ?? 1);
     const key = String(stage.id);
