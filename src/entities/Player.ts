@@ -17,6 +17,8 @@ export class Player extends Phaser.GameObjects.Sprite {
   shadow: Phaser.GameObjects.Image;
   /** 『アクアシールド』：この時刻まで被弾を防ぐ */
   shieldUntil = 0;
+  /** 『夢見る猫箱』：あと何回の被弾を防ぐか */
+  hitShield = 0;
   private shieldFx: Phaser.GameObjects.Image;
 
   constructor(scene: Phaser.Scene, x: number, y: number, def: CharacterDef) {
@@ -54,7 +56,7 @@ export class Player extends Phaser.GameObjects.Sprite {
     }
 
     this.shadow.setPosition(this.x, this.y - 2);
-    const shielded = now < this.shieldUntil;
+    const shielded = now < this.shieldUntil || this.hitShield > 0;
     this.shieldFx.setVisible(shielded);
     if (shielded) {
       this.shieldFx.setPosition(this.x, this.y - this.displayHeight * 0.45).setRotation(now / 900);
@@ -86,6 +88,13 @@ export class Player extends Phaser.GameObjects.Sprite {
   /** 被弾。返り値: 実際に受けたら true */
   takeDamage(amount: number, now: number): boolean {
     if (now < this.invulnUntil) return false;
+    if (this.hitShield > 0) {
+      this.hitShield--;
+      this.invulnUntil = now + 200;
+      this.shieldFx.setAlpha(1).setScale(CONFIG.spriteScale * 2.2);
+      this.scene.tweens.add({ targets: this.shieldFx, scale: CONFIG.spriteScale * 1.6, alpha: 0, duration: 250 });
+      return false;
+    }
     if (now < this.shieldUntil) {
       // 盾が受け止める（短い無敵で連続ヒットのちらつきを防ぐ）
       this.invulnUntil = now + 120;

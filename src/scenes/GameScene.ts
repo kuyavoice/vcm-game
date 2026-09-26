@@ -80,6 +80,8 @@ export class GameScene extends Phaser.Scene {
   private gameNow = 0;
   /** このフレーム内で重ね画面を開いた（残りの分割ステップを止める） */
   private haltFrame = false;
+  /** `?debug` でボスHP・DPS などを表示 */
+  private debug = typeof location !== 'undefined' && /debug/.test(location.search);
   private fullMoon = false;
   private enemySpeedMul = 1;
 
@@ -147,6 +149,7 @@ export class GameScene extends Phaser.Scene {
     this.up.setMain(def.startWeapon);
     for (const id of def.excludedArts) this.up.excluded.add(id);
     this.up.traitDamageMul = def.traits.damageMul;
+    this.up.characterId = this.characterId;
     this.up.recompute();
     this.player.maxHp = Math.round(def.hp * def.traits.maxHpMul * this.up.stats.maxHpMul);
     this.player.hp = this.player.maxHp;
@@ -197,6 +200,7 @@ export class GameScene extends Phaser.Scene {
       artDamageMul: 1,
       artIntervalMul: 1,
       excludedArts: this.up.excluded,
+      characterId: this.characterId,
       meleeMul: def.traits.meleePower,
       bonusDamageMul: 1,
       damage: (e, dmg, kx, ky) => this.damageEnemy(e, dmg, kx, ky),
@@ -237,7 +241,7 @@ export class GameScene extends Phaser.Scene {
     this.scene.launch('Pause', {
       character: this.player.def.name,
       stage: `${this.stage.nameEn} ${this.stage.name}`,
-      weapons: this.up.weapons.map((w) => ({ name: w.name, level: w.level, max: w.def.maxLevel, color: w.def.color, owner: w.def.owner, evolved: w.evolved })),
+      weapons: this.up.weapons.map((w) => ({ name: w.name, level: w.level, max: w.def.maxLevel, color: w.def.color, owner: w.def.owner, evolved: w.evolved, fusion: !!w.def.fusion })),
       passives: [...this.up.passives].map(([id, lv]) => ({ name: PASSIVES[id].name, level: lv, max: PASSIVES[id].maxLevel, color: PASSIVES[id].color, owner: PASSIVES[id].owner })),
     });
   }
@@ -296,6 +300,12 @@ export class GameScene extends Phaser.Scene {
       soul: this.soulGauge, soulActive,
       boss: this.boss && this.boss.active ? { name: this.boss.def.name, hp: this.boss.hp, maxHp: this.boss.maxHp } : null,
     });
+    if (this.debug) {
+      while (this.dmgLog.length && this.dmgLog[0].t < now - 5000) this.dmgLog.shift();
+      const dps = this.dmgLog.reduce((a, b) => a + b.d, 0) / 5;
+      const b = this.boss && this.boss.active ? `BOSS ${Math.ceil(this.boss.hp)}/${this.boss.maxHp}  残${(this.boss.hp / Math.max(1, dps)).toFixed(0)}s` : 'BOSS -';
+      this.hud.setDebug(`DPS ${dps.toFixed(0)}  ${b}  敵${enemies.filter((e) => e.active).length}  Lv${this.xp.level}`);
+    }
     if (p.def.uniquePassive.id === 'info_control') {
       this.arrowTargets.length = 0;
       for (let i = 0; i < enemies.length; i++) {
@@ -327,6 +337,9 @@ export class GameScene extends Phaser.Scene {
     const p = this.player;
 
     p.move(dx, dy, dt, stats.speedMul, now);
+
+    // 『流麗なる水衣』発動中は Midnight Patisserie Lv2相当（+1.0/秒）の回復を上乗せ（v2）
+    if (specialActive && def.special.id === 'aqua_lament') p.heal(1.0 * dt);
 
     // 固有パッシブ『慈愛の雫』：20秒ごとにHP+10
     if (def.uniquePassive.id === 'cure_drop') {
@@ -451,6 +464,20 @@ export class GameScene extends Phaser.Scene {
           if (Math.hypot(o.x - e.x, o.y - e.y) > e.radius + o.radius) continue;
           f.hit.add(o);
           this.damageEnemy(o, f.damage, f.vx * 0.25, f.vy * 0.25);
+        }
+        // 跳弾バグ：画面端で跳ね返る
+        if (f.bounces && f.bounces > 0) {
+          const v = this.cameras.main.worldView;
+          let bounced = false;
+          if (e.x < v.left && f.vx < 0) { f.vx = -f.vx; bounced = true; }
+          if (e.x > v.right && f.vx > 0) { f.vx = -f.vx; bounced = true; }
+          if (e.y < v.top && f.vy < 0) { f.vy = -f.vy; bounced = true; }
+          if (e.y > v.bottom && f.vy > 0) { f.vy = -f.vy; bounced = true; }
+          if (bounced) {
+            f.bounces--;
+            f.hit.clear();
+            this.hitSpark(e.x, e.y, 0x00ced1, 6);
+          }
         }
         if (now > f.until) e.fly = null;
         e.setRotation(e.rotation + dt * 14);
@@ -678,6 +705,8 @@ export class GameScene extends Phaser.Scene {
         if (d > e.radius + b.hitRadius) continue;
         b.hit.add(e);
         const a = Math.atan2(b.vy, b.vx);
+        // 跳弾バグ：飛んでいる敵に響の弾が当たると加速
+        if (e.fly && e.fly.bounces && b.texture.key === 'art_refresh') { e.fly.vx *= 1.25; e.fly.vy *= 1.25; }
         this.damageEnemy(e, b.damage, Math.cos(a) * b.knockback, Math.sin(a) * b.knockback);
         if (b.slow < 1) e.applySlow(b.slow, b.slowSec, now);
         this.hitSpark(b.x, b.y, 0x87ceeb, 3);
@@ -782,8 +811,12 @@ export class GameScene extends Phaser.Scene {
     e.fly = { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, until: this.ctx.now + durationSec * 1000, damage, hit: new Set() };
   }
 
+  /** DPS計測（デバッグ表示用）：直近5秒の与ダメージ */
+  private dmgLog: { t: number; d: number }[] = [];
+
   private damageEnemy(e: Enemy, dmg: number, kx: number, ky: number): void {
     if (!e.active) return;
+    if (this.debug) this.dmgLog.push({ t: this.gameNow, d: Math.min(dmg, e.hp) });
     if (e.hit(dmg, this.ctx.now, kx, ky)) this.killEnemy(e);
   }
 
@@ -1083,6 +1116,15 @@ export class GameScene extends Phaser.Scene {
       this.pendingChests++;
       return;
     }
+    // 強化できるものが無いときは開封画面を出さず、その場でエール＋HP回復（v2）
+    if (!this.up.hasChestReward()) {
+      this.xp.yell += 20;
+      this.player.heal(10);
+      this.fxText(this.player.x - 30, this.player.y - 110, '+20 ★', '#FFD700');
+      this.fxText(this.player.x + 40, this.player.y - 130, '+10', '#87CEFA');
+      AudioBus.play('se_item');
+      return;
+    }
     const data: ChestData = {
       open: () => this.up.openChest(this.up.stats.luckMul),
       onClose: (r: ChestResult) => {
@@ -1090,7 +1132,9 @@ export class GameScene extends Phaser.Scene {
         p.maxHp = Math.round(p.def.hp * p.def.traits.maxHpMul * this.up.stats.maxHpMul) + this.up.stats.maxHpBonus;
         for (const rw of r.rewards) {
           if (rw.kind === 'yell' && rw.yell) this.xp.yell += rw.yell;
-          if (rw.owner && rw.kind !== 'yell') {
+          if (rw.kind === 'fusion' && rw.owners) {
+            for (const o of rw.owners) this.cutIn.show({ owner: o, title: rw.title, tag: 'FUSION', color: rw.color });
+          } else if (rw.owner && rw.kind !== 'yell') {
             this.cutIn.show({
               owner: rw.owner, title: rw.title,
               tag: rw.kind === 'evolve' ? 'EVOLVE' : rw.sub, color: rw.color,

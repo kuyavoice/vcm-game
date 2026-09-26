@@ -91,7 +91,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     startWeapon: 'yoisei',
     uniquePassive: { id: 'info_control', name: '情報統制システム', desc: '画面外の強敵（騎士級以上）の方向を矢印で表示' },
     special: { id: 'soul_connect', name: '魂の共鳴', shortName: '共鳴', desc: '10秒間、共鳴アーツの威力×1.5・発動間隔−30%' },
-    excludedArts: [],
+    excludedArts: ['engo'], // 『宵星（援護射撃）』は初期武器と重複
     unlockYell: 0,
     voicePrefix: 'kuya',
   },
@@ -112,7 +112,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     startWeapon: 'reisuisen',
     uniquePassive: { id: 'cure_drop', name: '慈愛の雫', desc: '20秒ごとにHP+10' },
     special: { id: 'aqua_lament', name: '流麗なる水衣', shortName: '水衣', desc: '10秒間、2本の水流が周囲の敵を迎撃。被ダメージ−70%' },
-    excludedArts: ['aqua'],
+    excludedArts: [], // v2 で『アクアシールド』解禁
     unlockYell: 300,
     voicePrefix: 'mizuho',
   },
@@ -155,7 +155,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     startWeapon: 'flamehound',
     uniquePassive: { id: 'precision', name: '精密制御', desc: '投射物すべてにゆるい追尾がつく' },
     special: { id: 'angelic_rumble', name: 'エンジェリック・ランブル', shortName: 'ランブル', desc: '画面内の全ての敵にダメージ80＋炎上（5秒）' },
-    excludedArts: ['guren'],
+    excludedArts: [], // v2 で『紅蓮の矢』解禁
     unlockYell: 1000,
     voicePrefix: 'ritsuka',
   },

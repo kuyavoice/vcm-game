@@ -45,7 +45,7 @@ export const STAGES: StageDef[] = [
   {
     id: 3, name: '夜明け前', nameEn: 'STAGE 3',
     desc: '声の嵐。司祭級の弾幕と、硬い騎士の壁。王級は桁違いに頑丈。',
-    enemyHpMul: 2.5, enemySpeedMul: 1.2, spawnMul: 1.6, bossHpMul: 6, xpMul: 1.3,
+    enemyHpMul: 2.5, enemySpeedMul: 1.2, spawnMul: 1.6, bossHpMul: 4.2, xpMul: 1.3, // v2: 6→4.2（70%）。まだ硬ければ 3.3（55%）
     extraWeights: { knight: 0.14, bishop: 0.1 },
     tint: 0xe8b4b8, color: 0xff4d6d, bgm: 'bgm_stage3',
     unlockAfter: 2,

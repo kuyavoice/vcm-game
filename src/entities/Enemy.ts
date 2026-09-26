@@ -9,6 +9,8 @@ export interface FlyState {
   until: number;
   damage: number;
   hit: Set<Enemy>;
+  /** 画面端で跳ね返れる残り回数（『跳弾バグ』）。0 で跳ね返らない */
+  bounces?: number;
 }
 
 export class Enemy extends Phaser.GameObjects.Sprite {

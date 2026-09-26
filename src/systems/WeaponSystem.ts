@@ -36,6 +36,8 @@ export interface BattleContext {
   artIntervalMul: number;
   /** 操作キャラ自身のアーツ（『物語の具現化』の抽選から除外） */
   excludedArts: Set<string>;
+  /** 操作キャラID（合体レシピの requiredChara 判定など） */
+  characterId: string;
   /** melee タグの武器の威力倍率（雪人の特性） */
   meleeMul: number;
   /** 一時的な攻撃力倍率（完全看破の回避後など） */

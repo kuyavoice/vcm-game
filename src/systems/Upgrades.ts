@@ -2,6 +2,7 @@ import { CONFIG } from '../data/config';
 import { PASSIVES, baseStats, type RunStats } from '../data/passives';
 import { ART_IDS, WEAPONS } from '../data/weapons';
 import { CHEST, PERMANENT } from '../data/shop';
+import { FUSIONS, type FusionDef } from '../data/fusions';
 import type { Weapon } from './WeaponSystem';
 import { createWeapon } from './arts';
 
@@ -21,7 +22,7 @@ export interface Choice {
 
 /** 宝箱の報酬1件 */
 export interface ChestReward {
-  kind: 'evolve' | 'weapon' | 'passive' | 'yell';
+  kind: 'fusion' | 'evolve' | 'weapon' | 'passive' | 'yell';
   title: string;
   sub: string;
   color: number;
@@ -30,6 +31,10 @@ export interface ChestReward {
   weapon?: Weapon;
   /** 進化前の名前（表示用） */
   fromName?: string;
+  /** 合体：素材2つの使い手（カットイン2枚） */
+  owners?: [string, string];
+  /** 合体：素材の名前 */
+  fromNames?: [string, string];
   yell?: number;
   desc?: string;
 }
@@ -51,6 +56,8 @@ export class UpgradeState {
   traitDamageMul = 1;
   /** 永続強化のLv（セーブから） */
   permanent: Record<string, number> = {};
+  /** 操作キャラID（合体レシピの requiredChara） */
+  characterId = 'kuya';
 
   get weapons(): Weapon[] {
     return [this.main, ...this.arts];
@@ -139,6 +146,22 @@ export class UpgradeState {
     return { maxHpDelta: this.stats.maxHpBonus - before, heal: 0, newWeapon };
   }
 
+  /** いま成立する合体レシピ（priority 順） */
+  fusionCandidates(): FusionDef[] {
+    const lv8 = (id: string) => this.arts.find((w) => w.def.id === id && w.isMaxLevel);
+    return FUSIONS
+      .filter((f) => (!f.requiredChara || f.requiredChara === this.characterId) && lv8(f.a) && lv8(f.b))
+      .sort((x, y) => x.priority - y.priority);
+  }
+
+  /** 宝箱で何か強化できるか（合体・進化・アーツLv・パッシブLv） */
+  hasChestReward(): boolean {
+    if (this.fusionCandidates().length > 0) return true;
+    if (this.arts.some((w) => w.canEvolve(this.passives) || !w.isMaxLevel)) return true;
+    for (const [id, lv] of this.passives) if (lv < PASSIVES[id].maxLevel) return true;
+    return false;
+  }
+
   /**
    * 宝箱を開ける：進化できるアーツがあれば最優先で進化。それ以外は
    * 「所持アーツ（Lv未満）」と「所持パッシブ（Lv未満）」からランダムにLvアップ。
@@ -157,6 +180,21 @@ export class UpgradeState {
   }
 
   private drawReward(): ChestReward {
+    // ① 合体
+    const fusions = this.fusionCandidates();
+    if (fusions.length > 0) {
+      const f = fusions[0];
+      const wa = this.arts.find((w) => w.def.id === f.a)!;
+      const wb = this.arts.find((w) => w.def.id === f.b)!;
+      this.arts = this.arts.filter((w) => w !== wa && w !== wb);
+      const fused = createWeapon(f.id);
+      this.arts.push(fused);
+      return {
+        kind: 'fusion', title: fused.name, sub: `『${wa.name}』×『${wb.name}』`, color: fused.def.color,
+        owner: fused.def.owner, weapon: fused, owners: [wa.def.owner, wb.def.owner], fromNames: [wa.name, wb.name], desc: fused.def.desc,
+      };
+    }
+    // ② 進化
     const evolvable = this.arts.filter((w) => w.canEvolve(this.passives));
     if (evolvable.length > 0) {
       const w = evolvable[Math.floor(Math.random() * evolvable.length)];

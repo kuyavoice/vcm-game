@@ -488,6 +488,202 @@ const monogatari: ArtBehavior = {
   },
 };
 
+/** 『換装・散弾』：移動方向の前後へ扇状に散弾 */
+const sandan: ArtBehavior = {
+  mimicable: true,
+  fire(ctx, s, w) {
+    const c = chest(ctx);
+    const base = facingAngle(ctx);
+    const n = projCount(ctx, s, w.def);
+    const arc = Phaser.Math.DegToRad(s.extra.arcDeg ?? 30);
+    const dmg = artDmg(ctx, s, w.def);
+    for (const dir of [base, base + Math.PI]) {
+      for (let i = 0; i < n; i++) {
+        const off = n > 1 ? (i / (n - 1) - 0.5) * arc : 0;
+        ctx.fireBullet({
+          x: c.x, y: c.y, angle: dir + off, speed: s.speed * (0.9 + Math.random() * 0.2), damage: dmg,
+          range: s.area * ctx.stats.areaMul, pierce: 0, knockback: s.knockback, scale: 0.9, tint: w.def.color,
+        });
+      }
+    }
+    ctx.fx.ring(c.x, c.y, 40, w.def.color, 3);
+  },
+};
+
+/** 『宵星（援護射撃）』：画面内でHPの高い敵へ連射。進化『蒼天の号令』：上位3体を同時に */
+const engo: ArtBehavior = {
+  mimicable: true,
+  fire(ctx, s, w) {
+    const c = chest(ctx);
+    const targets = ctx.onScreenEnemies().sort((a, b) => b.hp - a.hp).slice(0, s.extra.targets ?? 1);
+    if (targets.length === 0) return;
+    const shots = projCount(ctx, s, w.def);
+    const dmg = artDmg(ctx, s, w.def);
+    for (const t of targets) {
+      for (let i = 0; i < shots; i++) {
+        ctx.scene.time.delayedCall(i * 80, () => {
+          if (!t.active) return;
+          const angle = Math.atan2(t.y - c.y, t.x - c.x) + (Math.random() - 0.5) * 0.05;
+          ctx.fireBullet({ x: ctx.player.x, y: ctx.player.y - 16, angle, speed: s.speed, damage: dmg, range: s.area * ctx.stats.areaMul, pierce: 0, knockback: 60 });
+        });
+      }
+    }
+  },
+};
+
+// ───────────────────────── 合体アーツ（v2 §5.5） ─────────────────────────
+
+/** 点が三角形の内側か */
+function inTriangle(px: number, py: number, a: { x: number; y: number }, b: { x: number; y: number }, c: { x: number; y: number }): boolean {
+  const s1 = (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x);
+  const s2 = (c.x - b.x) * (py - b.y) - (c.y - b.y) * (px - b.x);
+  const s3 = (a.x - c.x) * (py - c.y) - (a.y - c.y) * (px - c.x);
+  return (s1 >= 0 && s2 >= 0 && s3 >= 0) || (s1 <= 0 && s2 <= 0 && s3 <= 0);
+}
+
+/** 『三ツ星』：白銀の斬撃＋星弾。triangleEvery 回ごとに 空夜・斬撃・星弾 を結ぶ三角の光 */
+const tristar: ArtBehavior = {
+  mimicable: false,
+  fire(ctx, s, w) {
+    const c = chest(ctx);
+    const list = ctx.onScreenEnemies();
+    const dmg = artDmg(ctx, s, w.def);
+    // 斬撃（白銀）
+    const t = list.length ? list[Math.floor(Math.random() * list.length)] : null;
+    if (t) {
+      tmp.length = 0;
+      ctx.enemiesInCircle(t.x, t.y, s.area * ctx.stats.areaMul, tmp);
+      for (const e of tmp) ctx.damage(e, dmg, 0, 0);
+      ctx.fx.cross(t.x, t.y - 10, s.area * ctx.stats.areaMul, 0xe8f4ff);
+      w.state.slashAt = { x: t.x, y: t.y };
+    }
+    // 星弾（追尾）
+    const star = ctx.nearestEnemy(c.x, c.y, 600);
+    for (let i = 0; i < s.count; i++) {
+      ctx.fireBullet({ x: c.x, y: c.y, angle: Math.random() * Math.PI * 2, speed: s.speed, damage: dmg * 0.6, life: 2.5, pierce: 1, homing: true, texture: 'art_star', spin: 6, rotateToVel: false, knockback: 40, tint: 0xc0c0ff });
+    }
+    if (star) w.state.starAt = { x: star.x, y: star.y };
+    // 三角形の光
+    const n = ((w.state.n as number) ?? 0) + 1;
+    w.state.n = n;
+    const every = s.extra.triangleEvery ?? 3;
+    const A = w.state.slashAt as { x: number; y: number } | undefined;
+    const B = w.state.starAt as { x: number; y: number } | undefined;
+    if (n % every === 0 && A && B) {
+      const P = { x: c.x, y: c.y };
+      const tri = artDmg(ctx, { ...s, damage: s.extra.triangleDamage ?? 80 }, w.def);
+      for (const e of ctx.onScreenEnemies()) if (inTriangle(e.x, e.y, P, A, B)) ctx.damage(e, tri, 0, 0);
+      const g = ctx.scene.add.graphics().setDepth(27);
+      g.fillStyle(0x87ceeb, 0.18);
+      g.fillTriangle(P.x, P.y, A.x, A.y, B.x, B.y);
+      g.lineStyle(5, 0xffd700, 0.95);
+      g.strokeTriangle(P.x, P.y, A.x, A.y, B.x, B.y);
+      g.lineStyle(2, 0xffffff, 0.9);
+      g.strokeTriangle(P.x, P.y, A.x, A.y, B.x, B.y);
+      ctx.scene.tweens.add({ targets: g, alpha: 0, duration: 420, onComplete: () => g.destroy() });
+      ctx.fx.text(P.x, P.y - 120, '三ツ星', '#FFD700');
+    }
+  },
+};
+
+/** 『夢見る猫箱』：1回分の被弾を防ぐ盾（割れて shieldRegenSec 秒で再生）＋前方180°へ大きな炎の矢 */
+const nekobako: ArtBehavior = {
+  mimicable: false,
+  update(dt, ctx, s, w) {
+    const p = ctx.player;
+    if (p.hitShield > 0) {
+      w.state.brokenAt = undefined;
+      return;
+    }
+    if (w.state.brokenAt === undefined) w.state.brokenAt = ctx.now;
+    else if (ctx.now - (w.state.brokenAt as number) >= (s.extra.shieldRegenSec ?? 5) * 1000 * (1 / ctx.stats.durationMul)) {
+      p.hitShield = 1;
+      w.state.brokenAt = undefined;
+      ctx.fx.ring(p.x, p.y - 40, 70, 0x87cefa, 4);
+    }
+  },
+  fire(ctx, s, w) {
+    const c = chest(ctx);
+    const base = facingAngle(ctx);
+    const n = projCount(ctx, s, w.def);
+    for (let i = 0; i < n; i++) {
+      const off = n > 1 ? (i / (n - 1) - 0.5) * Math.PI : 0;
+      ctx.fireBullet({ x: c.x, y: c.y, angle: base + off, speed: s.speed, damage: artDmg(ctx, s, w.def), range: s.area * ctx.stats.areaMul, pierce: Infinity, texture: 'art_arrow', scale: 2, knockback: 120, tint: 0xff8c69 });
+    }
+  },
+};
+
+/** 『星墜の檻』：前方の半円に星が降り注ぎ、着弾範囲にダメージ＋縫い止め */
+const meteocage: ArtBehavior = {
+  mimicable: false,
+  fire(ctx, s, w) {
+    const c = chest(ctx);
+    const base = facingAngle(ctx);
+    const r = s.area * ctx.stats.areaMul;
+    const blast = (s.extra.blastRadius ?? 60) * ctx.stats.areaMul;
+    const dmg = artDmg(ctx, s, w.def);
+    for (let i = 0; i < s.count; i++) {
+      const a = base + (Math.random() - 0.5) * Math.PI;
+      const d = 40 + Math.random() * r;
+      const x = c.x + Math.cos(a) * d;
+      const y = c.y + Math.sin(a) * d;
+      const star = ctx.scene.add.image(x, y - 320, 'art_star').setDepth(27).setScale(CONFIG.spriteScale * 1.6).setTint(0xc0c0ff);
+      ctx.scene.tweens.add({
+        targets: star, y, duration: 450, delay: i * 60, ease: 'Quad.in',
+        onComplete: () => {
+          star.destroy();
+          tmp.length = 0;
+          ctx.enemiesInCircle(x, y, blast, tmp);
+          for (const e of tmp) {
+            ctx.damage(e, dmg, 0, 0);
+            e.stun(dur(ctx, s), ctx.now);
+          }
+          ctx.fx.ring(x, y, blast, w.def.color, 4);
+        },
+      });
+    }
+  },
+};
+
+/** 『本陣の咆哮』：周囲に円形の逆茂木（足止め＋継続ダメージ）＋岩の衝撃波（強ノックバック） */
+const honjin: ArtBehavior = {
+  mimicable: false,
+  fire(ctx, s, w) {
+    const c = chest(ctx);
+    ctx.addZone({
+      x: ctx.player.x, y: ctx.player.y, radius: (s.extra.fenceRadius ?? 150) * ctx.stats.areaMul, duration: dur(ctx, s),
+      dps: (s.extra.fenceDps ?? 15) * ctx.stats.damageMul * ctx.artDamageMul, slow: s.slow, stun: false, color: w.def.color, shape: 'fence',
+    });
+    const r = s.area * ctx.stats.areaMul;
+    const dmg = artDmg(ctx, s, w.def);
+    tmp.length = 0;
+    ctx.enemiesInCircle(c.x, c.y, r, tmp);
+    for (const e of tmp) {
+      const a = Math.atan2(e.y - c.y, e.x - c.x);
+      ctx.damage(e, dmg, Math.cos(a) * s.knockback, Math.sin(a) * s.knockback);
+    }
+    ctx.fx.ring(c.x, c.y, r, w.def.color, 8);
+    ctx.scene.cameras.main.shake(90, 0.004);
+  },
+};
+
+/** 『跳弾バグ』：蹴り飛ばした敵が画面端で最大 bounces 回跳ね返り、ぶつかった敵にダメージ */
+const ricochet: ArtBehavior = {
+  mimicable: false,
+  fire(ctx, s, w) {
+    const c = chest(ctx);
+    const list = ctx.onScreenEnemies().filter((e) => !e.def.boss && !e.fly);
+    list.sort((a, b) => Phaser.Math.Distance.Between(c.x, c.y, a.x, a.y) - Phaser.Math.Distance.Between(c.x, c.y, b.x, b.y));
+    const dmg = artDmg(ctx, s, w.def);
+    for (const e of list.slice(0, s.count)) {
+      const a = Math.atan2(e.y - c.y, e.x - c.x);
+      ctx.kick(e, a, s.speed, s.duration, dmg);
+      if (e.fly) e.fly.bounces = s.extra.bounces ?? 5;
+      ctx.fx.text(e.x, e.y - 40, 'GLITCH', '#00CED1');
+    }
+  },
+};
+
 export const ARTS: Record<string, ArtBehavior> = {
   yoisei,
   reisuisen,
@@ -506,6 +702,13 @@ export const ARTS: Record<string, ArtBehavior> = {
   bug,
   butou,
   monogatari,
+  sandan,
+  engo,
+  tristar,
+  nekobako,
+  meteocage,
+  honjin,
+  ricochet,
 };
 
 /** 武器インスタンス生成 */

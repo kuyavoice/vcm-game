@@ -54,6 +54,10 @@ export interface WeaponDef {
   kind: 'main' | 'art';
   /** 種別タグ：melee（近接）／projectile（投射）／zone（設置）／orbit（常駐）／support（補助） */
   tags: WeaponTag[];
+  /** 合体アーツ（レベルアップの抽選・『物語の具現化』の対象外。宝箱の合体でのみ入手） */
+  fusion?: boolean;
+  /** 名前が仮のもの */
+  provisionalName?: boolean;
   maxLevel: number;
   base: ArtStats;
   /** Lv2以降の強化（index 0 = Lv1→2） */
@@ -322,6 +326,76 @@ const MONOGATARI: WeaponDef = {
   levels: [faster(10), { desc: '再現の威力 +20%', apply: (s) => { s.damage *= 1.2; } }, faster(10), { desc: '再現の威力 +20%', apply: (s) => { s.damage *= 1.2; } }, faster(10), { desc: '再現の威力 +20%', apply: (s) => { s.damage *= 1.2; } }, { desc: '2種を同時に再現', apply: (s) => { s.count = 2; } }],
 };
 
+/** 『換装・散弾』（響・名前は仮）：移動方向の前後へ扇状（30°）に各 count 発。area=射程 */
+const SANDAN: WeaponDef = {
+  id: 'sandan', name: '換装・散弾', owner: '振須 響', kind: 'art', tags: ['projectile'],
+  desc: '前と後ろへ同時に散弾を撃つ。近い敵を弾き飛ばす。',
+  color: 0x7fffd4, maxLevel: 8,
+  base: stats({ damage: 7, intervalSec: 1.0, count: 5, area: 220, speed: 820, knockback: 140, extra: { arcDeg: 30 } }),
+  levels: [more(1, '散弾の数'), dmg(25), wider(15, '射程'), faster(12), more(1, '散弾の数'), dmg(25), { desc: '射程 +15%・散弾の数 +1', apply: (s) => { s.area *= 1.15; s.count += 1; } }],
+};
+
+/** 『宵星（援護射撃）』（空夜）：画面内で最もHPの高い敵へハンドガン count 連射。空夜操作時は出ない。extra.targets=同時に狙う数 */
+const ENGO: WeaponDef = {
+  id: 'engo', name: '宵星（援護射撃）', owner: '宵月 空夜', kind: 'art', tags: ['projectile'],
+  desc: '画面内でいちばん手強い敵へ、ハンドガンの連射を送る。',
+  color: 0x87ceeb, maxLevel: 8,
+  base: stats({ damage: 10, intervalSec: 1.5, count: 3, area: 800, speed: 950, extra: { targets: 1 } }),
+  levels: [dmg(25), faster(10), more(1, '連射数'), dmg(25), faster(10), more(1, '連射数'), dmg(25)],
+  evolution: {
+    name: '蒼天の号令', passiveId: 'script',
+    desc: 'HPの高い敵3体を同時に狙い、まとめて連射する。',
+    apply: (s) => { s.evolved = true; s.extra.targets = 3; s.damage *= 1.2; },
+  },
+};
+
+// ───────────────────────── 合体アーツ（v2 §5.5） ─────────────────────────
+
+/** 『三ツ星（トライスター）』（空夜のみ）：白銀の斬撃＋追尾する星弾。一定間隔で三角形の光が走り内側に大ダメージ */
+const TRISTAR: WeaponDef = {
+  id: 'tristar', name: '三ツ星', owner: '狐森 雪人・黒崎 詩音', kind: 'art', tags: ['melee', 'projectile'], fusion: true,
+  desc: '白銀の斬撃と星の弾。ときおり三つを結ぶ光が走り、内側の敵を裁く。',
+  color: 0xffd700, maxLevel: 1,
+  base: stats({ damage: 30, intervalSec: 1.6, count: 3, area: 80, speed: 560, extra: { triangleEvery: 3, triangleDamage: 80 } }),
+  levels: [],
+};
+
+/** 『夢見る猫箱』：1回分のダメージを防ぐ盾（割れて5秒で再生）＋前方180°へ大きな貫通炎矢5本 */
+const NEKOBAKO: WeaponDef = {
+  id: 'nekobako', name: '夢見る猫箱', owner: '寿 律花・月怜 瑞穂', kind: 'art', tags: ['projectile', 'support'], fusion: true,
+  desc: '一撃を防ぐ水の盾をまとい、前方へ大きな炎の矢を放つ。',
+  color: 0xff69b4, maxLevel: 1,
+  base: stats({ damage: 30, intervalSec: 1.5, count: 5, area: 900, speed: 820, pierce: Infinity, extra: { shieldRegenSec: 5 } }),
+  levels: [],
+};
+
+/** 『星墜の檻（メテオ・ケージ）』（仮）：前方の半円に星が降り注ぎ、着弾範囲にダメージ＋0.5秒縫い止め */
+const METEOCAGE: WeaponDef = {
+  id: 'meteocage', name: '星墜の檻', owner: '黒崎 詩音・若宮 征士郎', kind: 'art', tags: ['projectile', 'zone'], fusion: true, provisionalName: true,
+  desc: '前方の空から星が降り、着弾した場所の敵を縫い止める。',
+  color: 0x9d4dff, maxLevel: 1,
+  base: stats({ damage: 25, intervalSec: 2.2, count: 6, area: 260, duration: 0.5, extra: { blastRadius: 60 } }),
+  levels: [],
+};
+
+/** 『本陣の咆哮』：2秒ごとに周囲へ円形の逆茂木（足止め＋継続ダメージ）＋岩の衝撃波（半径220・強ノックバック） */
+const HONJIN: WeaponDef = {
+  id: 'honjin', name: '本陣の咆哮', owner: '護乃 豪・弼辺 徹', kind: 'art', tags: ['melee', 'zone'], fusion: true,
+  desc: '足元に逆茂木が立ち、岩の衝撃波が周囲をなぎ払う。',
+  color: 0x8b4513, maxLevel: 1,
+  base: stats({ damage: 30, intervalSec: 2.0, area: 220, duration: 1.2, knockback: 420, slow: 0.2, extra: { fenceRadius: 150, fenceDps: 15 } }),
+  levels: [],
+};
+
+/** 『跳弾バグ（リコシェ・グリッチ）』（仮）：蹴り飛ばした敵が画面端で最大5回跳ね返り、ぶつかった敵にダメージ。響の弾が当たると加速 */
+const RICOCHET: WeaponDef = {
+  id: 'ricochet', name: '跳弾バグ', owner: '振須 響・晴山 樹', kind: 'art', tags: ['melee'], fusion: true, provisionalName: true,
+  desc: '蹴り飛ばした敵が画面の端で跳ね回り、ぶつかった敵を巻き込む。',
+  color: 0x00ced1, maxLevel: 1,
+  base: stats({ damage: 28, intervalSec: 1.6, count: 1, speed: 900, duration: 6, extra: { bounces: 5 } }),
+  levels: [],
+};
+
 export const WEAPONS: Record<string, WeaponDef> = {
   yoisei: YOISEI,
   reisuisen: REISUISEN,
@@ -340,9 +414,17 @@ export const WEAPONS: Record<string, WeaponDef> = {
   bug: BUG,
   butou: BUTOU,
   monogatari: MONOGATARI,
+  sandan: SANDAN,
+  engo: ENGO,
+  tristar: TRISTAR,
+  nekobako: NEKOBAKO,
+  meteocage: METEOCAGE,
+  honjin: HONJIN,
+  ricochet: RICOCHET,
 };
 
-export const ART_IDS = Object.values(WEAPONS).filter((w) => w.kind === 'art').map((w) => w.id);
+/** レベルアップで選べる共鳴アーツ（合体アーツは除く） */
+export const ART_IDS = Object.values(WEAPONS).filter((w) => w.kind === 'art' && !w.fusion).map((w) => w.id);
 
 /** Lv と進化状態から ArtStats を計算する */
 export function computeStats(def: WeaponDef, level: number, evolved: boolean): ArtStats {

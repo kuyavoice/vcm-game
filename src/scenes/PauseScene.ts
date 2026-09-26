@@ -9,6 +9,7 @@ export interface LoadoutRow {
   color: number;
   owner: string;
   evolved?: boolean;
+  fusion?: boolean;
 }
 
 export interface PauseData {
@@ -50,14 +51,14 @@ export class PauseScene extends Phaser.Scene {
       const h = 50;
       this.add.rectangle(left, y, rowW, h - 6, 0x111a3a, 0.9).setOrigin(0).setStrokeStyle(1, r.color, 0.6);
       this.add.rectangle(left + 3, y + 5, 6, h - 16, r.color, 1).setOrigin(0);
-      this.add.text(left + 20, y + 6, r.name, { fontFamily: FONT_JP, fontSize: '20px', color: r.evolved ? COLOR_HEX.gold : COLOR_HEX.white, fontStyle: '700' });
+      this.add.text(left + 20, y + 6, r.name, { fontFamily: FONT_JP, fontSize: '20px', color: r.evolved || r.fusion ? COLOR_HEX.gold : COLOR_HEX.white, fontStyle: '700' });
       this.add.text(left + 20, y + 30, r.owner, { fontFamily: FONT_JP, fontSize: '12px', color: COLOR_HEX.dim });
       // Lvピップ
       const px = left + rowW - 14 - r.max * 18;
       for (let i = 0; i < r.max; i++) {
         this.add.rectangle(px + i * 18, y + (h - 6) / 2, 13, 12, i < r.level ? r.color : 0x000000, i < r.level ? 1 : 0.5).setOrigin(0, 0.5).setStrokeStyle(1, r.color, 0.5);
       }
-      this.add.text(px - 10, y + (h - 6) / 2, r.evolved ? 'EVO' : `Lv${r.level}`, { fontFamily: FONT_EN, fontSize: '16px', color: COLOR_HEX.white, fontStyle: '700' }).setOrigin(1, 0.5);
+      this.add.text(px - 10, y + (h - 6) / 2, r.fusion ? 'FUSION' : r.evolved ? 'EVO' : `Lv${r.level}`, { fontFamily: FONT_EN, fontSize: '16px', color: COLOR_HEX.white, fontStyle: '700' }).setOrigin(1, 0.5);
       y += h;
     };
     if (data?.weapons?.length) {

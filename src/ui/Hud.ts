@@ -21,6 +21,7 @@ export class Hud {
   private hpText: Phaser.GameObjects.Text;
   private bandText: Phaser.GameObjects.Text;
   private bossText: Phaser.GameObjects.Text;
+  private debugText: Phaser.GameObjects.Text;
   private pauseBtn: Phaser.GameObjects.Container;
   private speedBtn: Phaser.GameObjects.Container;
   private speedText: Phaser.GameObjects.Text;
@@ -47,6 +48,7 @@ export class Hud {
     this.hpText = scene.add.text(0, 0, '100 / 100', en(18)).setOrigin(0, 0.5);
     this.bandText = scene.add.text(0, 0, '', { fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.dim }).setOrigin(0.5, 0);
     this.bossText = scene.add.text(0, 0, '', { fontFamily: FONT_JP, fontSize: '18px', color: '#FF4D6D', fontStyle: '700' }).setOrigin(0.5, 0).setVisible(false);
+    this.debugText = scene.add.text(0, 0, '', { fontFamily: FONT_EN, fontSize: '16px', color: '#00FF88', backgroundColor: '#000000aa', padding: { x: 4, y: 2 } }).setOrigin(0, 0).setVisible(false);
 
     // ポーズボタン
     const pbg = scene.add.rectangle(0, 0, 56, 44, 0x111a3a, 0.9).setStrokeStyle(2, 0x87ceeb, 0.6);
@@ -77,7 +79,7 @@ export class Hud {
       onSoul();
     });
 
-    this.container.add([this.bars, this.timeText, this.killText, this.yellText, this.lvText, this.hpText, this.bandText, this.bossText, this.pauseBtn, this.speedBtn, this.soulBtn]);
+    this.container.add([this.bars, this.timeText, this.killText, this.yellText, this.lvText, this.hpText, this.bandText, this.bossText, this.debugText, this.pauseBtn, this.speedBtn, this.soulBtn]);
     // 入力の当たり判定は子要素自身の scrollFactor を見るので、入れ子の末端まで 0 を設定する
     const fix = (obj: Phaser.GameObjects.GameObject) => {
       (obj as unknown as Phaser.GameObjects.Components.ScrollFactor).setScrollFactor?.(0);
@@ -103,6 +105,7 @@ export class Hud {
     this.hpText.setPosition(24 + 10, t + 50);
     this.bandText.setPosition(this.w / 2, t + 54);
     this.bossText.setPosition(this.w / 2, t + 118);
+    this.debugText.setPosition(24, t + 100);
     this.pauseBtn.setPosition(this.w - 24 - 28, t + 100);
     this.speedBtn.setPosition(this.w - 24 - 56 - 10 - 36, t + 100);
     this.soulBtn.setPosition(this.w - 24 - this.soulRadius, this.h - this.bottom - this.soulRadius);
@@ -181,6 +184,11 @@ export class Hud {
       this.soulLabel.setColor('#8A94B8');
     }
     this.soulLabel.setText(d.soulActive ? `${this.specialLabel}中` : this.specialLabel).setFontSize(this.specialLabel.length >= 4 ? 18 : 22);
+  }
+
+  /** デバッグ表示（`?debug`） */
+  setDebug(text: string): void {
+    this.debugText.setText(text).setVisible(true);
   }
 
   private specialLabel = '共鳴';

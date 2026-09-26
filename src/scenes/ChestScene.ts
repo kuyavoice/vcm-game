@@ -3,6 +3,7 @@ import type { ChestResult } from '../systems/Upgrades';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { SelectGuard } from '../ui/SelectGuard';
 import { AudioBus } from '../utils/audio';
+import { PORTRAITS, portraitKey } from '../data/portraits';
 
 export interface ChestData {
   /** 開封時に結果を確定する（進化・Lvアップの適用込み） */
@@ -76,6 +77,9 @@ export class ChestScene extends Phaser.Scene {
         bubble.setText('よいぞ、よいぞ');
         this.cameras.main.shake(200, 0.006);
         AudioBus.play('se_evolve');
+      } else if (result.rewards.some((r) => r.kind === 'fusion')) {
+        bubble.setText('ほう……よいぞ');
+        AudioBus.play('se_evolve');
       } else if (result.rewards.some((r) => r.kind === 'evolve')) {
         bubble.setText('よいぞ');
         AudioBus.play('se_evolve');
@@ -91,16 +95,39 @@ export class ChestScene extends Phaser.Scene {
         const cont = this.add.container(W / 2, y + rowH / 2).setAlpha(0);
         const bg = this.add.rectangle(0, 0, cardW, rowH - 10, 0x111a3a, 0.95).setStrokeStyle(2, r.color, 0.9);
         const stripe = this.add.rectangle(-cardW / 2 + 8, 0, 8, rowH - 30, r.color, 1);
-        const tag = this.add.text(-cardW / 2 + 28, -rowH / 2 + 14, r.kind === 'evolve' ? 'EVOLVE' : r.kind === 'weapon' ? 'ARTS' : r.kind === 'passive' ? 'SUPPORT' : 'YELL', {
+        const tag = this.add.text(-cardW / 2 + 28, -rowH / 2 + 14, r.kind === 'fusion' ? 'FUSION' : r.kind === 'evolve' ? 'EVOLVE' : r.kind === 'weapon' ? 'ARTS' : r.kind === 'passive' ? 'SUPPORT' : 'YELL', {
           fontFamily: FONT_EN, fontSize: '14px', color: '#060913', backgroundColor: Phaser.Display.Color.IntegerToColor(r.color).rgba, fontStyle: '700', padding: { x: 6, y: 1 },
         });
         const title = this.add.text(-cardW / 2 + 28, -rowH / 2 + 38, r.title, {
-          fontFamily: FONT_JP, fontSize: r.kind === 'evolve' ? '30px' : '26px', color: r.kind === 'evolve' ? '#FFD700' : COLOR_HEX.white, fontStyle: '700',
+          fontFamily: FONT_JP, fontSize: r.kind === 'evolve' || r.kind === 'fusion' ? '30px' : '26px', color: r.kind === 'evolve' || r.kind === 'fusion' ? '#FFD700' : COLOR_HEX.white, fontStyle: '700',
         });
         const sub = this.add.text(cardW / 2 - 20, -rowH / 2 + 40, r.sub, {
           fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim,
         }).setOrigin(1, 0);
         cont.add([bg, stripe, tag, title, sub]);
+        // 合体：素材2人の顔を並べる
+        if (r.kind === 'fusion' && r.owners) {
+          r.owners.forEach((owner, k) => {
+            const id = PORTRAITS[owner];
+            const key = id ? portraitKey(id) : '';
+            if (!key || !this.textures.exists(key)) return;
+            const fr = 26;
+            const fx = cardW / 2 - 40 - k * 64;
+            const fy = rowH / 2 - 34;
+            const face = this.add.image(fx, fy, key).setDisplaySize(fr * 2.2, fr * 2.2);
+            const m = this.make.graphics({ x: 0, y: 0 }, false);
+            m.fillStyle(0xffffff, 1);
+            m.fillCircle(fx, fy, fr);
+            face.setMask(m.createGeometryMask());
+            const ring = this.add.graphics();
+            ring.lineStyle(2, r.color, 1);
+            ring.strokeCircle(fx, fy, fr + 1);
+            cont.add([face, ring]);
+            const sync = () => m.setPosition(cont.x, cont.y);
+            this.events.on(Phaser.Scenes.Events.UPDATE, sync);
+            cont.once(Phaser.GameObjects.Events.DESTROY, () => { this.events.off(Phaser.Scenes.Events.UPDATE, sync); m.destroy(); });
+          });
+        }
         if (r.desc && result!.rewards.length === 1) {
           cont.add(this.add.text(-cardW / 2 + 28, -rowH / 2 + 78, r.desc, {
             fontFamily: FONT_JP, fontSize: '17px', color: COLOR_HEX.white, wordWrap: { width: cardW - 56, useAdvancedWrap: true },
