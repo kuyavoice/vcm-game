@@ -147,12 +147,15 @@ const SHURABA: WeaponDef = {
   levels: [wider(20), dmg(30), longer(30), more(1, '柵の数'), dmg(30), wider(20), { desc: '柵の数 +1・持続 +30%', apply: (s) => { s.count += 1; s.duration *= 1.3; } }],
 };
 
-/** 『アクアシールド』：一定時間ダメージを防ぐ水の盾。duration=持続, extra.heal=進化時の回復 */
+/**
+ * 『アクアシールド』：一定時間ダメージを防ぐ水の盾。duration=持続, extra.heal=進化時の回復。
+ * extra.maxUptime = 実効発動間隔に対する持続の上限比率（パッシブ・必殺で間隔を縮めても常時無敵にならないようにする）
+ */
 const AQUA: WeaponDef = {
   id: 'aqua', name: 'アクアシールド', owner: '月怜 瑞穂', kind: 'art',
   desc: '水の盾をまとい、しばらくのあいだダメージを防ぐ。',
   color: 0x87cefa, maxLevel: 8,
-  base: stats({ damage: 0, intervalSec: 9, duration: 2.5, area: 60, extra: { heal: 0 } }),
+  base: stats({ damage: 0, intervalSec: 9, duration: 2.5, area: 60, extra: { heal: 0, maxUptime: 0.6 } }),
   levels: [longer(25), faster(12), longer(25), faster(12), longer(25), faster(12), { desc: '持続 +40%', apply: (s) => { s.duration *= 1.4; } }],
   evolution: {
     name: 'アクア・メディック', passiveId: 'tuning',

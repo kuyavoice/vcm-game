@@ -172,7 +172,10 @@ const aqua: ArtBehavior = {
     if (s.evolved && ctx.now < ctx.player.shieldUntil) ctx.player.heal(s.extra.heal * dt);
   },
   fire(ctx, s, w) {
-    ctx.player.shieldUntil = ctx.now + s.duration * 1000;
+    // 常時無敵の防止：持続は「実効発動間隔 × maxUptime」を上限にする
+    const effInterval = s.intervalSec * ctx.stats.intervalMul * ctx.artIntervalMul;
+    const duration = Math.min(s.duration, effInterval * (s.extra.maxUptime ?? 0.6));
+    ctx.player.shieldUntil = Math.max(ctx.player.shieldUntil, ctx.now + duration * 1000);
     ctx.fx.ring(ctx.player.x, ctx.player.y - 40, 70, w.def.color, 4);
   },
 };
