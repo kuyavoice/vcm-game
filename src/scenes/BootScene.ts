@@ -6,6 +6,7 @@ import { AudioBus } from '../utils/audio';
 import { FONT_EN } from '../utils/fonts';
 import { OPTIONAL_IMAGES, hasOptionalImage } from '../utils/optionalAssets';
 import { PORTRAITS, PORTRAIT_DIR, portraitKey } from '../data/portraits';
+import { createCharAnims } from '../utils/recolor';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -43,16 +44,7 @@ export class BootScene extends Phaser.Scene {
     generateTextures(this);
 
     // キャラアニメ
-    for (const c of Object.values(CHARACTERS)) {
-      const k = c.sprite.key;
-      const f = c.sprite.frames;
-      const mk = (name: string, frames: number[], frameRate: number, repeat = -1) =>
-        this.anims.create({ key: `${k}_${name}`, frames: this.anims.generateFrameNumbers(k, { frames }), frameRate, repeat });
-      mk('idle', f.idle, 2);
-      mk('walk', f.walk, 8);
-      mk('hit', f.hit, 1, 0);
-      mk('sleep', f.sleep, 1.5);
-    }
+    for (const c of Object.values(CHARACTERS)) createCharAnims(this, c);
 
     // 敵アニメ（2フレームのグリッチ切替。_o は縁取り付き）。画像スプライトの敵はコマ送り
     for (const e of Object.values(ENEMIES)) {

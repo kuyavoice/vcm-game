@@ -21,6 +21,7 @@ import { SPECIALS, type SpecialHost } from '../systems/specials';
 import { AudioBus } from '../utils/audio';
 import { FONT_JP } from '../utils/fonts';
 import { loadSave, writeSave } from '../utils/storage';
+import { ensureColorVariant } from '../utils/recolor';
 import type { RunResult } from './ResultScene';
 import type { LevelUpData } from './LevelUpScene';
 import type { ChestData } from './ChestScene';
@@ -156,7 +157,9 @@ export class GameScene extends Phaser.Scene {
     }).setDepth(28);
 
     // プレイヤー（カメラは胸の高さを追う）
-    this.player = new Player(this, 0, 0, def);
+    const colorSel = loadSave().colorSelected[def.id];
+    const spriteKey = colorSel ? ensureColorVariant(this, def, colorSel) : def.sprite.key;
+    this.player = new Player(this, 0, 0, def, spriteKey);
     // 永続強化（セーブ）を反映してから最大HPを決める
     this.up = new UpgradeState();
     this.up.permanent = loadSave().permanent;
@@ -1341,7 +1344,7 @@ export class GameScene extends Phaser.Scene {
       arts: this.up.arts.map((w) => ({ name: w.name, level: w.level, color: w.def.color, evolved: w.evolved, fusion: !!w.def.fusion })),
     };
     if (!cleared) {
-      this.player.play(`${this.player.def.sprite.key}_hit`);
+      this.player.play(`${this.player.spriteKey}_hit`);
       this.tweens.add({ targets: this.player, alpha: 0, duration: 900, delay: 300 });
     } else {
       this.hud.banner('—— 声は、届いた ——', '#FFFFFF', 36);

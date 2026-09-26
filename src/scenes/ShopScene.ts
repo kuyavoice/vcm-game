@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { CHARACTERS, CHARACTER_ORDER } from '../data/characters';
 import { PERMANENT, CONSUMABLES } from '../data/shop';
+import { COLOR_VARIANTS } from '../data/colors';
+import { ensureColorVariant } from '../utils/recolor';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, writeSave } from '../utils/storage';
 import { makeButton } from '../ui/Button';
@@ -134,7 +136,65 @@ export class ShopScene extends Phaser.Scene {
       y += rowH + 10;
     }
 
-    makeButton(this, W / 2, Math.min(H - 70, y + 60), 'BACK', () => this.scene.start('CharaSelect'), { width: 240, height: 60, fontSize: 24 });
+    // ── カラーバリエーション（選択中のキャラ） ──
+    y += 12;
+    const charaId = CHARACTERS[save.settings.character] ? save.settings.character : 'kuya';
+    const chara = CHARACTERS[charaId];
+    const variants = COLOR_VARIANTS[charaId] ?? [];
+    section(`COLORS — ${chara.name}`);
+    const owned = save.colors[charaId] ?? [];
+    const selected = save.colorSelected[charaId] ?? '';
+    const colorRow = (id: string, name: string, cost: number, key: string) => {
+      const rowH = 64;
+      const isSel = selected === id;
+      this.add.rectangle(left, y, rowW, rowH, 0x111a3a, 0.9).setOrigin(0).setStrokeStyle(2, isSel ? 0x87ceeb : 0x3a4a8a, 0.8);
+      // プレビュー（待機1コマ目・2倍）
+      if (this.textures.exists(key)) this.add.image(left + 40, y + rowH / 2 + 6, key, chara.sprite.frames.idle[0]).setScale(1.2).setOrigin(0.5, 0.6);
+      this.add.text(left + 80, y + 10, name, { fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.white, fontStyle: '700' });
+      this.add.text(left + 80, y + 38, isSel ? '使用中' : owned.includes(id) || id === '' ? '所持' : `★ ${cost} で購入`, { fontFamily: FONT_JP, fontSize: '14px', color: isSel ? COLOR_HEX.accent : COLOR_HEX.dim });
+      if (isSel) {
+        this.add.text(left + rowW - 16, y + rowH / 2, 'SELECTED', { fontFamily: FONT_EN, fontSize: '18px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 2 }).setOrigin(1, 0.5);
+      } else if (owned.includes(id) || id === '') {
+        makeButton(this, left + rowW - 16 - 80, y + rowH / 2, 'USE', () => {
+          const sv = loadSave();
+          if (id) sv.colorSelected[charaId] = id;
+          else delete sv.colorSelected[charaId];
+          writeSave(sv);
+          this.scene.restart();
+        }, { width: 160, height: 46, fontSize: 20 });
+      } else {
+        makeButton(this, left + rowW - 16 - 80, y + rowH / 2, `★ ${cost}`, () => {
+          buy(cost, (sv) => {
+            sv.colors[charaId] = [...(sv.colors[charaId] ?? []), id];
+            sv.colorSelected[charaId] = id;
+          }, `${name} を入手`);
+        }, { width: 160, height: 46, fontSize: 20, primary: save.totalYell >= cost });
+      }
+      y += rowH + 10;
+    };
+    colorRow('', '標準', 0, chara.sprite.key);
+    for (const v of variants) colorRow(v.id, v.name, v.cost, ensureColorVariant(this, chara, v.id));
+
+    makeButton(this, W / 2, y + 60, 'BACK', () => this.scene.start('CharaSelect'), { width: 240, height: 60, fontSize: 24 });
     void wallet;
+
+    // 縦スクロール（ドラッグ／ホイール）。内容が画面より長い端末向け
+    const contentH = y + 130;
+    const maxScroll = Math.max(0, contentH - H);
+    let dragY: number | null = null;
+    let dragStart = 0;
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => { dragY = p.y; dragStart = cam.scrollY; });
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      if (dragY === null || !p.isDown) return;
+      cam.scrollY = Phaser.Math.Clamp(dragStart - (p.y - dragY), 0, maxScroll);
+      bg.tilePositionY = cam.scrollY * 0.3;
+    });
+    const endDrag = () => { dragY = null; };
+    this.input.on('pointerup', endDrag);
+    this.input.on('pointerupoutside', endDrag);
+    this.input.on('wheel', (_p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
+      cam.scrollY = Phaser.Math.Clamp(cam.scrollY + dy * 0.6, 0, maxScroll);
+    });
+    bg.setScrollFactor(0);
   }
 }

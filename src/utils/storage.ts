@@ -25,6 +25,9 @@ export interface SaveData {
   codex: string[];
   /** レベルアップ時の便利アイテムの所持数（エールで購入） */
   consumables: { reroll: number; skip: number; ban: number };
+  /** 所有カラー（キャラID → バリエーションID[]）と選択中（キャラID → バリエーションID。未設定＝標準） */
+  colors: Record<string, string[]>;
+  colorSelected: Record<string, string>;
 }
 
 const DEFAULT: SaveData = {
@@ -37,6 +40,8 @@ const DEFAULT: SaveData = {
   permanent: {},
   codex: [],
   consumables: { reroll: 0, skip: 0, ban: 0 },
+  colors: {},
+  colorSelected: {},
 };
 
 export function loadSave(): SaveData {
@@ -54,6 +59,8 @@ export function loadSave(): SaveData {
       permanent: { ...(parsed.permanent ?? {}) },
       codex: [...(parsed.codex ?? [])],
       consumables: { ...DEFAULT.consumables, ...(parsed.consumables ?? {}) },
+      colors: { ...(parsed.colors ?? {}) },
+      colorSelected: { ...(parsed.colorSelected ?? {}) },
     };
     // 旧形式の移行：best → bests[1]
     if (data.best && !data.bests['1']) {

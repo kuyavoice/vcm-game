@@ -21,9 +21,13 @@ export class Player extends Phaser.GameObjects.Sprite {
   hitShield = 0;
   private shieldFx: Phaser.GameObjects.Image;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, def: CharacterDef) {
-    super(scene, x, y, def.sprite.key, def.sprite.frames.idle[0]);
+  /** 実際に使うスプライトキー（カラーバリエーション適用後） */
+  spriteKey: string;
+
+  constructor(scene: Phaser.Scene, x: number, y: number, def: CharacterDef, spriteKey = def.sprite.key) {
+    super(scene, x, y, spriteKey, def.sprite.frames.idle[0]);
     this.def = def;
+    this.spriteKey = spriteKey;
     this.hp = def.hp;
     this.maxHp = def.hp;
     // 基準点：足元中央。画面上は spriteScale 倍で描画
@@ -33,7 +37,7 @@ export class Player extends Phaser.GameObjects.Sprite {
     this.shadow = scene.add.image(x, y, 'shadow').setOrigin(0.5, 0.5).setDepth(19).setAlpha(0.6).setScale(CONFIG.spriteScale);
     this.shieldFx = scene.add.image(x, y, 'shield').setDepth(21).setScale(CONFIG.spriteScale * 1.6).setVisible(false).setAlpha(0.85);
     scene.add.existing(this);
-    this.play(`${def.sprite.key}_idle`);
+    this.play(`${spriteKey}_idle`);
   }
 
   /** 移動入力（-1〜1）を受けて位置を更新 */
@@ -64,7 +68,7 @@ export class Player extends Phaser.GameObjects.Sprite {
     }
 
     // アニメ選択
-    const k = this.def.sprite.key;
+    const k = this.spriteKey;
     if (now < this.hitAnimUntil) {
       this.play(`${k}_hit`, true);
     } else if (this.sleeping) {
