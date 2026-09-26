@@ -74,8 +74,8 @@ export class ResultScene extends Phaser.Scene {
     if (unlocked) {
       const t = this.add.text(W / 2, H * 0.10 + 104, unlocked, {
         fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.gold, fontStyle: '700', stroke: '#060913', strokeThickness: 6,
-      }).setOrigin(0.5).setAlpha(0);
-      this.tweens.add({ targets: t, alpha: 1, y: t.y - 6, duration: 500, delay: 600 });
+      }).setOrigin(0.5);
+      this.tweens.add({ targets: t, scaleX: 1.06, scaleY: 1.06, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
 
     // スタッツ（右寄せのパネル）
