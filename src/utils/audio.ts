@@ -66,8 +66,10 @@ class AudioBusImpl {
     this.game.sound.play(key, { volume: this.volumes[cat] });
   }
 
-  playBgm(key: string): void {
+  /** fallback：key が未配置のときに使うキー（ステージ別BGM → 共通BGM など） */
+  playBgm(key: string, fallback?: string): void {
     if (!this.game) return;
+    if (!this.has(key) && fallback) key = fallback;
     if (this.bgm && (this.bgm as Phaser.Sound.BaseSound).key === key) return;
     this.stopBgm();
     if (!this.has(key)) return;

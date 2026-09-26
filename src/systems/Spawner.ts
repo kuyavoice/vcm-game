@@ -3,6 +3,7 @@ import { CONFIG } from '../data/config';
 import { ENEMIES, type EnemyId } from '../data/enemies';
 import { ITEMS } from '../data/items';
 import { bandAt, type WaveBand } from '../data/waves';
+import { STAGES, type StageDef } from '../data/stages';
 import { Enemy } from '../entities/Enemy';
 
 /** waves.ts に従って画面外から敵を湧かせる。壊れたスピーカーの配置とボス出現も担当 */
@@ -19,6 +20,7 @@ export class Spawner {
     private scene: Phaser.Scene,
     private enemies: Phaser.GameObjects.Group,
     private target: { x: number; y: number },
+    private stage: StageDef = STAGES[0],
   ) {}
 
   get band(): WaveBand | undefined {
@@ -34,21 +36,22 @@ export class Spawner {
     }
 
     const p = Phaser.Math.Clamp((t - band.from) / Math.max(1, band.to - band.from), 0, 1);
-    let rate = Phaser.Math.Linear(band.spawnPerSecStart, band.spawnPerSecEnd, p);
+    let rate = Phaser.Math.Linear(band.spawnPerSecStart, band.spawnPerSecEnd, p) * this.stage.spawnMul;
     if (band.fullMoon) rate *= CONFIG.fullMoon.spawnMul;
+    const hpMul = band.hpMul * this.stage.enemyHpMul;
     this.acc += rate * dt;
     while (this.acc >= 1) {
       this.acc -= 1;
       const id = this.pick(band);
       const pos = this.ringPoint();
-      this.spawnOne(id, pos.x, pos.y, band.hpMul);
+      this.spawnOne(id, pos.x, pos.y, hpMul);
     }
 
     if (band.ambush) {
       this.ambushTimer += dt;
       if (this.ambushTimer >= band.ambush.everySec) {
         this.ambushTimer = 0;
-        this.ambush(band.ambush.type, band.ambush.count, band.hpMul);
+        this.ambush(band.ambush.type, Math.round(band.ambush.count * this.stage.spawnMul), hpMul);
       }
     }
 
@@ -70,11 +73,22 @@ export class Spawner {
     }
   }
 
+  /** 出現比率：2:00 以降はステージの追加比率を足す（強敵を早めに混ぜる） */
+  private weightsFor(band: WaveBand): Partial<Record<EnemyId, number>> {
+    if (band.from < 120 || band.boss) return band.weights;
+    const w: Partial<Record<EnemyId, number>> = { ...band.weights };
+    for (const [id, extra] of Object.entries(this.stage.extraWeights)) {
+      w[id as EnemyId] = (w[id as EnemyId] ?? 0) + (extra ?? 0);
+    }
+    return w;
+  }
+
   private pick(band: WaveBand): EnemyId {
+    const weights = this.weightsFor(band);
     let total = 0;
-    for (const w of Object.values(band.weights)) total += w ?? 0;
+    for (const w of Object.values(weights)) total += w ?? 0;
     let r = Math.random() * total;
-    for (const [id, w] of Object.entries(band.weights)) {
+    for (const [id, w] of Object.entries(weights)) {
       r -= w ?? 0;
       if (r <= 0) return id as EnemyId;
     }

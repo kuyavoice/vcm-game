@@ -22,10 +22,10 @@ export class PauseScene extends Phaser.Scene {
       this.scene.resume('Game');
     };
     makeButton(this, W / 2, H * 0.50, 'RESUME', resume, { primary: true });
-    makeButton(this, W / 2, H * 0.50 + 96, 'TITLE', () => {
+    makeButton(this, W / 2, H * 0.50 + 96, 'STAGE SELECT', () => {
       this.scene.stop('Game');
       this.scene.stop();
-      this.scene.start('Title');
+      this.scene.start('StageSelect');
     });
     this.add.text(W / 2, H * 0.50 + 170, 'Esc でも再開', {
       fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim,

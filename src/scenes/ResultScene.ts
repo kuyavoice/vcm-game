@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { CHARACTERS } from '../data/characters';
+import { STAGES, stageById } from '../data/stages';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { makeButton } from '../ui/Button';
 import { loadSave, writeSave } from '../utils/storage';
@@ -14,6 +15,7 @@ export interface RunResult {
   yell: number;
   /** プレイ時のゲーム速度（表示のみ。記録はゲーム内時間基準なので倍率に依存しない） */
   speed: number;
+  stageId: number;
 }
 
 export class ResultScene extends Phaser.Scene {
@@ -28,11 +30,22 @@ export class ResultScene extends Phaser.Scene {
     cam.fadeIn(300, 6, 9, 19);
     AudioBus.playBgm('bgm_result');
 
-    // ベスト更新・エール累計
+    const stage = stageById(r.stageId ?? 1);
+    const key = String(stage.id);
+
+    // ステージ別ベスト・クリア記録・エール累計
     const save = loadSave();
     const score = (x: { kills: number; timeSec: number }) => x.timeSec * 10 + x.kills;
-    const isBest = !save.best || score(r) > score(save.best);
-    if (isBest) save.best = { kills: r.kills, timeSec: r.timeSec, level: r.level, yell: r.yell, cleared: r.cleared };
+    const prev = save.bests[key];
+    const isBest = !prev || score(r) > score(prev);
+    if (isBest) save.bests[key] = { kills: r.kills, timeSec: r.timeSec, level: r.level, yell: r.yell, cleared: r.cleared || !!prev?.cleared };
+    else if (r.cleared && !prev.cleared) save.bests[key] = { ...prev, cleared: true };
+    let unlocked: string | null = null;
+    if (r.cleared && !save.cleared.includes(stage.id)) {
+      save.cleared.push(stage.id);
+      const next = STAGES.find((s) => s.unlockAfter === stage.id);
+      if (next) unlocked = `${next.nameEn} 「${next.name}」 解放！`;
+    }
     save.totalYell += r.yell;
     writeSave(save);
 
@@ -58,14 +71,21 @@ export class ResultScene extends Phaser.Scene {
     this.add.text(W / 2, H * 0.10 + 62, sub, {
       fontFamily: FONT_JP, fontSize: '26px', color: COLOR_HEX.white, stroke: '#060913', strokeThickness: 6,
     }).setOrigin(0.5);
+    if (unlocked) {
+      const t = this.add.text(W / 2, H * 0.10 + 104, unlocked, {
+        fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.gold, fontStyle: '700', stroke: '#060913', strokeThickness: 6,
+      }).setOrigin(0.5).setAlpha(0);
+      this.tweens.add({ targets: t, alpha: 1, y: t.y - 6, duration: 500, delay: 600 });
+    }
 
     // スタッツ（右寄せのパネル）
     const px = W * 0.58;
     const py = H * 0.27;
-    const panel = this.add.rectangle(px, py, W * 0.40, 390, 0x0b1026, 0.88).setOrigin(0, 0).setStrokeStyle(2, 0x87ceeb, 0.6);
+    const panel = this.add.rectangle(px, py, W * 0.40, 450, 0x0b1026, 0.88).setOrigin(0, 0).setStrokeStyle(2, 0x87ceeb, 0.6);
     const mm = Math.floor(r.timeSec / 60).toString().padStart(2, '0');
     const ss = Math.floor(r.timeSec % 60).toString().padStart(2, '0');
     const rows: [string, string][] = [
+      ['STAGE', `${stage.nameEn}  ${stage.name}`],
       ['CHARACTER', chara?.name ?? r.characterId],
       ['TIME', `${mm}:${ss}`],
       ['DEFEATED', `${r.kills}`],
@@ -76,7 +96,8 @@ export class ResultScene extends Phaser.Scene {
     rows.forEach(([k, v], i) => {
       const y = py + 24 + i * 60;
       this.add.text(px + 18, y, k, { fontFamily: FONT_EN, fontSize: '18px', color: COLOR_HEX.dim, fontStyle: '700' });
-      this.add.text(px + 18, y + 20, v, { fontFamily: k === 'CHARACTER' ? FONT_JP : FONT_EN, fontSize: '30px', color: COLOR_HEX.white, fontStyle: '700' });
+      const jp = k === 'CHARACTER' || k === 'STAGE';
+      this.add.text(px + 18, y + 20, v, { fontFamily: jp ? FONT_JP : FONT_EN, fontSize: jp ? '24px' : '30px', color: COLOR_HEX.white, fontStyle: '700' });
     });
     if (isBest) {
       this.add.text(panel.x + panel.width - 14, py - 14, 'NEW BEST', {
@@ -85,8 +106,8 @@ export class ResultScene extends Phaser.Scene {
     }
 
     makeButton(this, W / 2, H * 0.84, 'RETRY', () => {
-      this.scene.start('Game', { characterId: r.characterId });
+      this.scene.start('Game', { characterId: r.characterId, stageId: stage.id });
     }, { primary: true });
-    makeButton(this, W / 2, H * 0.84 + 92, 'TITLE', () => this.scene.start('Title'));
+    makeButton(this, W / 2, H * 0.84 + 92, 'STAGE SELECT', () => this.scene.start('StageSelect'));
   }
 }

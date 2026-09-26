@@ -14,6 +14,8 @@ export const AUDIO_MANIFEST: AudioEntry[] = [
   // BGM（ループ）
   { key: 'bgm_title', path: 'assets/audio/bgm/title.mp3', category: 'bgm', loop: true },
   { key: 'bgm_stage', path: 'assets/audio/bgm/stage.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_stage2', path: 'assets/audio/bgm/stage2.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_stage3', path: 'assets/audio/bgm/stage3.mp3', category: 'bgm', loop: true },
   { key: 'bgm_fullmoon', path: 'assets/audio/bgm/fullmoon.mp3', category: 'bgm', loop: true },
   { key: 'bgm_boss', path: 'assets/audio/bgm/boss.mp3', category: 'bgm', loop: true },
   { key: 'bgm_result', path: 'assets/audio/bgm/result.mp3', category: 'bgm', loop: true },

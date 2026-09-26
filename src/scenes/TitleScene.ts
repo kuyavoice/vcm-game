@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import { DEFAULT_CHARACTER } from '../data/characters';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave } from '../utils/storage';
 import { AudioBus } from '../utils/audio';
@@ -45,7 +44,7 @@ export class TitleScene extends Phaser.Scene {
       fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.dim,
     }).setOrigin(0.5);
 
-    const best = loadSave().best;
+    const best = loadSave().bests['1'];
     if (best) {
       const mm = Math.floor(best.timeSec / 60).toString().padStart(2, '0');
       const ss = Math.floor(best.timeSec % 60).toString().padStart(2, '0');
@@ -65,7 +64,7 @@ export class TitleScene extends Phaser.Scene {
       AudioBus.playBgm('bgm_title');
       this.cameras.main.fadeOut(250, 6, 9, 19);
       this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('Game', { characterId: DEFAULT_CHARACTER });
+        this.scene.start('StageSelect');
       });
     };
     this.input.once('pointerdown', start);

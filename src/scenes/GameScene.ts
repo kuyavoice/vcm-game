@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { CONFIG } from '../data/config';
 import { CHARACTERS, DEFAULT_CHARACTER } from '../data/characters';
+import { stageById, type StageDef } from '../data/stages';
 import { ITEMS, PICKUPS, type PickupKind } from '../data/items';
 import { Player } from '../entities/Player';
 import { Enemy } from '../entities/Enemy';
@@ -55,6 +56,7 @@ export class GameScene extends Phaser.Scene {
   private kills = 0;
   private over = false;
   private characterId = DEFAULT_CHARACTER;
+  private stage: StageDef = stageById(1);
   private tmp: Enemy[] = [];
   private arrowTargets: { x: number; y: number; color: number }[] = [];
   private soulGauge = 0;
@@ -76,8 +78,9 @@ export class GameScene extends Phaser.Scene {
     super('Game');
   }
 
-  init(data: { characterId?: string }): void {
+  init(data: { characterId?: string; stageId?: number }): void {
     this.characterId = data.characterId ?? DEFAULT_CHARACTER;
+    this.stage = stageById(data.stageId ?? 1);
     this.elapsed = 0;
     this.kills = 0;
     this.over = false;
@@ -90,7 +93,7 @@ export class GameScene extends Phaser.Scene {
     this.gameNow = 0;
     this.haltFrame = false;
     this.fullMoon = false;
-    this.enemySpeedMul = 1;
+    this.enemySpeedMul = this.stage.enemySpeedMul;
     this.moon = undefined;
   }
 
@@ -101,6 +104,7 @@ export class GameScene extends Phaser.Scene {
 
     // 背景（カメラに追従するタイル）
     this.bg = this.add.tileSprite(0, 0, cam.width, cam.height, 'bg').setOrigin(0).setScrollFactor(0).setDepth(0);
+    if (this.stage.tint !== 0xffffff) this.bg.setTint(this.stage.tint);
     this.scale.on('resize', this.onResize, this);
 
     // プール
@@ -150,11 +154,12 @@ export class GameScene extends Phaser.Scene {
 
     // システム
     this.xp = new XpSystem(this.pickups);
+    this.xp.xpMul = this.stage.xpMul;
     this.xp.onItem = (kind, value, x, y) => this.onItem(kind, value, x, y);
     this.up = new UpgradeState();
     this.up.setMain(def.startWeapon);
     this.up.recompute();
-    this.spawner = new Spawner(this, this.enemies, this.player);
+    this.spawner = new Spawner(this, this.enemies, this.player, this.stage);
     this.spawner.onBandChange = (b) => this.onBandChange(b.label, !!b.fullMoon, b.from);
     this.spawner.onBossSpawn = (boss) => this.onBossSpawn(boss);
     this.hud = new Hud(this, () => this.pause(), () => this.activateSoul(), () => this.cycleSpeed());
@@ -187,8 +192,9 @@ export class GameScene extends Phaser.Scene {
       },
     };
 
-    AudioBus.playBgm('bgm_stage');
+    AudioBus.playBgm(this.stage.bgm, 'bgm_stage');
     AudioBus.play('vo_kuya_start');
+    this.hud.banner(`${this.stage.nameEn} —— ${this.stage.name}`, Phaser.Display.Color.IntegerToColor(this.stage.color).rgba, 32);
   }
 
   private onResize(): void {
@@ -258,7 +264,7 @@ export class GameScene extends Phaser.Scene {
     this.hud.update({
       hp: p.hp, maxHp: p.maxHp, xp: this.xp.xp, xpToNext: this.xp.xpToNext, level: this.xp.level,
       time: this.elapsed, kills: this.kills, yell: this.xp.yell,
-      band: this.spawner.band?.label ?? '',
+      band: `${this.spawner.band?.label ?? ''}　${this.stage.nameEn}`,
       soul: this.soulGauge, soulActive,
       weapons: this.up.weapons.map((w) => `${w.name} ${w.level}`),
       passives: [...this.up.passives].map(([id, lv]) => `${this.passiveName(id)} ${lv}`),
@@ -845,8 +851,8 @@ export class GameScene extends Phaser.Scene {
 
   private startFullMoon(): void {
     this.fullMoon = true;
-    this.enemySpeedMul = CONFIG.fullMoon.enemySpeedMul;
-    this.xp.xpMul = CONFIG.fullMoon.xpMul;
+    this.enemySpeedMul = this.stage.enemySpeedMul * CONFIG.fullMoon.enemySpeedMul;
+    this.xp.xpMul = this.stage.xpMul * CONFIG.fullMoon.xpMul;
     const cam = this.cameras.main;
     this.moon = this.add.image(cam.width - 130, 210, 'moon').setScrollFactor(0).setDepth(1).setAlpha(0).setScale(1.2);
     this.tweens.add({ targets: this.moon, alpha: 0.95, duration: 1500 });
@@ -858,21 +864,22 @@ export class GameScene extends Phaser.Scene {
 
   private endFullMoon(): void {
     this.fullMoon = false;
-    this.enemySpeedMul = 1;
-    this.xp.xpMul = 1;
+    this.enemySpeedMul = this.stage.enemySpeedMul;
+    this.xp.xpMul = this.stage.xpMul;
     if (this.moon) {
       const m = this.moon;
       this.tweens.add({ targets: m, alpha: 0, duration: 1500, onComplete: () => m.destroy() });
       this.moon = undefined;
     }
-    this.bg.clearTint();
-    AudioBus.playBgm('bgm_stage');
+    if (this.stage.tint !== 0xffffff) this.bg.setTint(this.stage.tint);
+    else this.bg.clearTint();
+    AudioBus.playBgm(this.stage.bgm, 'bgm_stage');
   }
 
   private onBossSpawn(boss: Enemy): void {
     this.boss = boss;
     // プレイヤーの成長に合わせてHPを底上げ（固定HPだと10:00の火力で即落ちする）
-    boss.maxHp = Math.round(boss.def.hp + this.xp.level * CONFIG.boss.hpPerPlayerLevel);
+    boss.maxHp = Math.round((boss.def.hp + this.xp.level * CONFIG.boss.hpPerPlayerLevel) * this.stage.bossHpMul);
     boss.hp = boss.maxHp;
     this.hud.banner('王級 —— 出現', '#FF4D6D', 40);
     this.cameras.main.shake(300, 0.006);
@@ -973,6 +980,7 @@ export class GameScene extends Phaser.Scene {
       level: this.xp.level,
       yell: this.xp.yell,
       speed: this.speed,
+      stageId: this.stage.id,
     };
     if (!cleared) {
       this.player.play(`${this.player.def.sprite.key}_hit`);
