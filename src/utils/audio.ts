@@ -86,9 +86,13 @@ class AudioBusImpl {
       this.startBgm(key);
       return;
     }
-    // 遅延読み込み：いま動いているシーンのローダーで読む（シーン切替直後は終了中のシーンが先頭に来るので、最後の＝新しい方を使う）
-    const active = this.game.scene.getScenes(true);
-    const scene = active.find((x) => x.scene.key === 'Game') ?? active[active.length - 1];
+    // 遅延読み込み：生きているシーン（起動中〜一時停止中。create() 実行中の Game も含む）のローダーで読む。
+    // getScenes(true) は RUNNING のみを返すため、create() から呼ばれると空になり読み込めなかった（タイトル曲が続く不具合）
+    const alive = this.game.scene.getScenes(false).filter((x) => {
+      const st = x.sys.settings.status;
+      return st >= Phaser.Scenes.INIT && st <= Phaser.Scenes.PAUSED;
+    });
+    const scene = alive.find((x) => x.scene.key === 'Game') ?? alive[alive.length - 1];
     const entry = AUDIO_MANIFEST.find((e) => e.key === key);
     if (!scene || !entry) return;
     const loader = scene.load;
