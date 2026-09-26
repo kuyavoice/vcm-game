@@ -370,7 +370,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // 経験値・アイテム
-    this.xp.update(dt, now, p.x, p.y - 12, p.def.pickup * stats.pickupMul);
+    if (this.xp.update(dt, now, p.x, p.y - 12, p.def.pickup * stats.pickupMul) > 0) AudioBus.play('se_gem', 90);
     if (!this.overlayActive()) {
       if (this.xp.pendingLevelUps > 0) {
         this.xp.pendingLevelUps--;
@@ -767,6 +767,7 @@ export class GameScene extends Phaser.Scene {
     const b = this.bullets.get(o.x, o.y) as Bullet | null;
     if (!b) return null;
     b.fire(o);
+    AudioBus.play('se_shot', 70);
     return b;
   }
 
@@ -915,6 +916,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private fxSlash(x: number, y: number, r: number, color: number, angle: number, arcDeg: number): void {
+    AudioBus.play('se_slash', 80);
     const half = Phaser.Math.DegToRad(arcDeg / 2);
     const g = this.add.graphics().setDepth(26);
     g.fillStyle(color, 0.35);
