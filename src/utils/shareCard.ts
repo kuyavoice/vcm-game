@@ -172,7 +172,7 @@ export function buildPostText(r: RunResult): string {
   const ss = Math.floor(r.timeSec % 60).toString().padStart(2, '0');
   const fusions = (r.arts ?? []).filter((a) => a.fusion).length;
   const lines = [
-    `${GAME_TITLE}（仮）｜${chara?.name ?? ''}で ${stage.nameEn}「${stage.name}」`,
+    `${GAME_TITLE}｜${chara?.name ?? ''}で ${stage.nameEn}「${stage.name}」`,
     r.cleared ? 'SIGNAL CLEAR —— 声は、届いた。' : 'SIGNAL LOST —— 声が、途切れた……',
     `生存 ${mm}:${ss}／撃破 ${r.kills}／Lv${r.level}${fusions ? `／合体技 ${fusions}` : ''}`,
     SHARE_URL,

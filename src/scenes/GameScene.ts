@@ -462,6 +462,7 @@ export class GameScene extends Phaser.Scene {
     const px = p.x;
     const py = p.y - 12;
     const sep = CONFIG.separationForce;
+    this.bossGfx.clear();
 
     for (let i = 0; i < enemies.length; i++) {
       const e = enemies[i];
@@ -548,7 +549,7 @@ export class GameScene extends Phaser.Scene {
         my = r.my;
         spd = r.spd;
       } else if (def.boss) {
-        spd = this.updateBoss(e, dt, now, nx, ny);
+        spd = this.updateBoss(e, dt, now, dist, nx, ny);
         mx = e.bossState.dashing > 0 ? e.bossState.dirX : nx;
         my = e.bossState.dashing > 0 ? e.bossState.dirY : ny;
       } else if (def.ranged) {
@@ -606,7 +607,6 @@ export class GameScene extends Phaser.Scene {
     }
     // オーラ（形態変化後は常時）＋予告線
     const g = this.bossGfx;
-    g.clear();
     if (b.phase === 2) {
       const k = 0.35 + Math.sin(now / 110) * 0.12;
       g.fillStyle(0x2a0a3a, k);
@@ -743,25 +743,59 @@ export class GameScene extends Phaser.Scene {
 
   private cavalryWarnings: { at: number; x1: number; y1: number; x2: number; y2: number }[] = [];
 
-  /** 王級：突進＋周囲弾。返り値: この フレームの移動速度 */
-  private updateBoss(e: Enemy, dt: number, now: number, nx: number, ny: number): number {
+  /**
+   * 王級：周囲弾を撃ちながら、突進／狙い撃ち／踏み鳴らし／回転弾をサイクルで繰り出す。
+   * HP50%で「激昂」：1.2秒の咆哮のあと攻撃間隔が短くなり、弾数増・2連突進・召集が加わる。
+   * 返り値: このフレームの移動速度
+   */
+  private updateBoss(e: Enemy, dt: number, now: number, dist: number, nx: number, ny: number): number {
     const b = e.bossState;
     const B = CONFIG.boss;
+    const g = this.bossGfx;
+    const p = this.player;
+    // 激昂（50%を切った瞬間）
+    if (b.phase === 1 && e.hp <= e.maxHp * B.phase2At) {
+      b.phase = 2;
+      b.act = 'roar';
+      b.actT = 1.2;
+      b.windup = 0;
+      b.dashing = 0;
+      this.hud.banner(`${e.def.name} —— 激昂`, '#FF4D6D', 34);
+      this.cameras.main.shake(400, 0.007);
+      this.fxRing(e.x, e.y - 60, 240, 0xff4d6d, 10);
+    }
+    const p2 = b.phase === 2;
+    if (p2) {
+      g.fillStyle(0xff2244, 0.16 + Math.sin(now / 120) * 0.06);
+      g.fillCircle(e.x, e.y - 50, 125 + Math.sin(now / 95) * 8);
+    }
+    if (b.act === 'roar') {
+      b.actT -= dt;
+      e.x += (Math.random() - 0.5) * 8;
+      if (b.actT <= 0) { b.act = ''; b.actTimer = 1; }
+      return 0;
+    }
+
+    // 周囲弾（常時）：激昂後は弾数増・間隔短。毎回少し回転させて隙間の位置をずらす
     b.ringTimer -= dt;
     if (b.ringTimer <= 0) {
-      b.ringTimer = B.ringEverySec;
-      for (let i = 0; i < B.ringCount; i++) {
-        const a = (i / B.ringCount) * Math.PI * 2 + now / 1000;
-        this.fireEnemyBullet(e.x, e.y - 20, a, B.ringBulletSpeed, 6, B.ringBulletDamage);
-      }
+      b.ringTimer = p2 ? B.ringEverySec * 0.8 : B.ringEverySec;
+      const n = p2 ? B.ringCount + 4 : B.ringCount;
+      b.ringSpin += 0.37;
+      for (let i = 0; i < n; i++) this.fireEnemyBullet(e.x, e.y - 20, (i / n) * Math.PI * 2 + b.ringSpin, B.ringBulletSpeed, 6, B.ringBulletDamage);
     }
+
+    // 突進：予備動作（赤い予告線）→ダッシュ。激昂後は着地後すぐもう一度（2連）
     if (b.dashing > 0) {
       b.dashing -= dt;
+      if (b.dashing <= 0 && b.actLeft > 0) { b.actLeft--; b.windup = B.chargeWindupSec * 0.45; }
       return B.chargeSpeed;
     }
     if (b.windup > 0) {
       b.windup -= dt;
       e.x += (Math.random() - 0.5) * 6;
+      g.lineStyle(6, 0xff2244, 0.3 + Math.max(0, 1 - b.windup / B.chargeWindupSec) * 0.6);
+      g.lineBetween(e.x, e.y - 40, e.x + nx * 480, e.y - 40 + ny * 480);
       if (b.windup <= 0) {
         b.dashing = B.chargeDurationSec;
         b.dirX = nx;
@@ -770,12 +804,107 @@ export class GameScene extends Phaser.Scene {
       }
       return 0;
     }
-    b.chargeTimer -= dt;
-    if (b.chargeTimer <= 0) {
-      b.chargeTimer = B.chargeEverySec;
-      b.windup = B.chargeWindupSec;
-      this.fxText(e.x, e.y - 130, '!!', '#FF4D6D');
+
+    // 狙い撃ち：0.5秒の予告線 → プレイヤーへ扇状3way（激昂後5way）を0.22秒間隔で連射
+    if (b.act === 'burst') {
+      b.actT -= dt;
+      if (b.actT > 0) {
+        g.lineStyle(3, 0xffd700, 0.55);
+        g.lineBetween(e.x, e.y - 40, e.x + nx * 700, e.y - 40 + ny * 700);
+        return 0;
+      }
+      b.actTick -= dt;
+      if (b.actTick <= 0) {
+        b.actTick = 0.22;
+        b.actLeft--;
+        const a = Math.atan2(ny, nx);
+        const offs = p2 ? [-0.34, -0.17, 0, 0.17, 0.34] : [-0.2, 0, 0.2];
+        for (const off of offs) this.fireEnemyBullet(e.x + nx * 50, e.y - 40, a + off, B.burstBulletSpeed, 5, B.burstBulletDamage, 0xffd700);
+        this.fxCross(e.x + nx * 50, e.y - 40, 26, 0xffd700);
+        if (b.actLeft <= 0) b.act = '';
+      }
       return 0;
+    }
+
+    // 踏み鳴らし：1秒かけて広がる予告円 → 円内にダメージ＋衝撃波（遅い弾を全周に）
+    if (b.act === 'stomp') {
+      b.actT -= dt;
+      const R = p2 ? B.stompRadius * 1.15 : B.stompRadius;
+      const cx = e.x;
+      const cy = e.y - 30;
+      if (b.actT > 0) {
+        const k = 1 - b.actT;
+        g.fillStyle(0xff2244, 0.12 + k * 0.18);
+        g.fillCircle(cx, cy, R);
+        g.lineStyle(4, 0xff2244, 0.5 + k * 0.4);
+        g.strokeCircle(cx, cy, R * k);
+        return 0;
+      }
+      b.act = '';
+      this.cameras.main.shake(220, 0.009);
+      this.fxRing(cx, cy, R, 0xff4d6d, 8);
+      if (Math.hypot(p.x - cx, p.y - 12 - cy) < R + p.def.hitRadius) this.hurt(B.stompDamage, now);
+      const n = p2 ? 12 : 8;
+      for (let i = 0; i < n; i++) this.fireEnemyBullet(cx, cy, (i / n) * Math.PI * 2 + b.ringSpin, 110, 3.5, 8, 0xff8866);
+      return 0;
+    }
+
+    // 回転弾：ゆっくり歩きながら2本腕（激昂後3本）の渦を撒く
+    if (b.act === 'spiral') {
+      b.actT -= dt;
+      b.actTick -= dt;
+      if (b.actTick <= 0) {
+        b.actTick = 0.09;
+        b.ringSpin += 0.42;
+        const arms = p2 ? 3 : 2;
+        for (let i = 0; i < arms; i++) this.fireEnemyBullet(e.x, e.y - 30, b.ringSpin + (i / arms) * Math.PI * 2, B.spiralBulletSpeed, 6, B.ringBulletDamage, 0xff88aa);
+      }
+      if (b.actT <= 0) b.act = '';
+      return e.def.speed * 0.35;
+    }
+
+    // 次の行動（サイクル順）
+    b.actTimer -= dt;
+    if (b.actTimer <= 0) {
+      const cycle = p2 ? B.cyclePhase2 : B.cycle;
+      const act = cycle[b.pattern % cycle.length];
+      b.pattern++;
+      b.actTimer = p2 ? B.attackEverySec * 0.75 : B.attackEverySec;
+      switch (act) {
+        case 'charge':
+          b.windup = B.chargeWindupSec;
+          b.actLeft = p2 ? 1 : 0;
+          this.fxText(e.x, e.y - 130, '!!', '#FF4D6D');
+          return 0;
+        case 'burst':
+          b.act = 'burst';
+          b.actT = 0.5;
+          b.actLeft = p2 ? 4 : 3;
+          b.actTick = 0;
+          return 0;
+        case 'stomp':
+          b.act = 'stomp';
+          b.actT = 1.0;
+          return 0;
+        case 'spiral':
+          b.act = 'spiral';
+          b.actT = p2 ? 2.2 : 1.8;
+          b.actTick = 0;
+          b.ringSpin += 0.5;
+          return 0;
+        case 'summon': {
+          // 召集：周囲に雑兵（4体に1体は狩人級）
+          const n = 8;
+          for (let i = 0; i < n; i++) {
+            const a = (i / n) * Math.PI * 2 + b.ringSpin;
+            const s = this.spawner.spawnOne(i % 4 === 3 ? 'hunter' : 'grunt', e.x + Math.cos(a) * 170, e.y - 30 + Math.sin(a) * 170, this.stage.enemyHpMul);
+            if (s) this.hitSpark(s.x, s.y, 0xff4d6d, 4);
+          }
+          this.fxRing(e.x, e.y - 40, 190, 0xff4d6d, 5);
+          this.fxText(e.x, e.y - 130, '集え', '#FF4D6D');
+          return 0;
+        }
+      }
     }
     return e.def.speed;
   }

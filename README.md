@@ -1,4 +1,4 @@
-# D-STAGE SURVIVORS（仮題）
+# D-STAGE SURVIVORS
 
 『ボイスコネクトメモリアル』ファンゲーム（IF・お祭り枠）。ヴァンパイアサバイバーズ系の生存アクション。
 Vite + TypeScript + Phaser 3。縦画面 720×1280（EXPAND）。

@@ -12,7 +12,7 @@ export const CONFIG = {
   maxEnemies: 300,
   maxGems: 400,
   maxBullets: 200,
-  maxEnemyBullets: 120,
+  maxEnemyBullets: 160,
 
   // 枠数
   weaponSlots: 6,
@@ -78,6 +78,19 @@ export const CONFIG = {
     ringCount: 14,
     ringBulletSpeed: 140,
     ringBulletDamage: 10,
+    /** 行動サイクル（この順に実行）。HPが phase2At を切ると激昂：別サイクル＋間隔短縮＋弾数増 */
+    attackEverySec: 4.5,
+    phase2At: 0.5,
+    cycle: ['charge', 'burst', 'stomp', 'charge', 'spiral'] as readonly string[],
+    cyclePhase2: ['charge', 'burst', 'spiral', 'stomp', 'summon', 'charge'] as readonly string[],
+    /** 狙い撃ち（扇状の連射） */
+    burstBulletSpeed: 280,
+    burstBulletDamage: 10,
+    /** 踏み鳴らし（予告円→範囲ダメージ＋衝撃波弾） */
+    stompRadius: 250,
+    stompDamage: 25,
+    /** 回転弾 */
+    spiralBulletSpeed: 170,
   },
 
   // 声の欠片の吸引速度（px/s）

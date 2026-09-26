@@ -37,7 +37,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
   burnDps = 0;
   burnTick = 0;
   /** ボス用の行動タイマー */
-  bossState = { chargeTimer: 0, ringTimer: 0, windup: 0, dashing: 0, dirX: 0, dirY: 0 };
+  bossState = { chargeTimer: 0, ringTimer: 0, windup: 0, dashing: 0, dirX: 0, dirY: 0, phase: 1, act: '', actT: 0, actTick: 0, actLeft: 0, actTimer: 0, pattern: 0, ringSpin: 0 };
   /** 黒騎士の状態 */
   bk = { phase: 1, invulnUntil: 0, cavalryTimer: 0, barrageTimer: 0, slashWindup: 0, slashCd: 0, barrageLeft: 0, barrageTick: 0, animLock: 0 };
   /** 直線突撃（騎兵）の速度 */
@@ -65,7 +65,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     this.burnUntil = 0;
     this.burnDps = 0;
     this.burnTick = 0;
-    this.bossState = { chargeTimer: 2, ringTimer: 1.5, windup: 0, dashing: 0, dirX: 0, dirY: 0 };
+    this.bossState = { chargeTimer: 2, ringTimer: 1.5, windup: 0, dashing: 0, dirX: 0, dirY: 0, phase: 1, act: '', actT: 0, actTick: 0, actLeft: 0, actTimer: 2.5, pattern: 0, ringSpin: 0 };
     this.bk = { phase: 1, invulnUntil: 0, cavalryTimer: 3, barrageTimer: 2, slashWindup: 0, slashCd: 0, barrageLeft: 0, barrageTick: 0, animLock: 0 };
     this.charge = null;
     this.setOrigin(0.5, def.originY ?? 0.75);

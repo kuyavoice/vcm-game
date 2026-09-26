@@ -20,7 +20,7 @@ export class TitleScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off('resize', onResize));
     this.events.on('update', () => { bg.tilePositionY -= 0.15; });
 
-    // タイトル（仮題）
+    // タイトル
     const tag = this.add.rectangle(W / 2, H * 0.30, 220, 40, 0x87ceeb).setAngle(-6);
     this.add.text(tag.x, tag.y, 'VOICE CONNECT MEMORIAL', {
       fontFamily: FONT_EN, fontSize: '20px', color: '#060913', fontStyle: '700',
@@ -31,9 +31,6 @@ export class TitleScene extends Phaser.Scene {
     }).setOrigin(0.5, 0);
     this.add.text(W / 2, H * 0.36 + 118, 'SURVIVORS', {
       fontFamily: FONT_EN, fontSize: '72px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 6,
-    }).setOrigin(0.5, 0);
-    this.add.text(W / 2, H * 0.36 + 208, '— 仮題 —', {
-      fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.dim,
     }).setOrigin(0.5, 0);
 
     const tap = this.add.text(W / 2, H * 0.66, 'TAP TO START', {

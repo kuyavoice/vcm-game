@@ -2,7 +2,7 @@
   "name": "vcm-game",
   "private": true,
   "version": "0.1.0",
-  "description": "D-STAGE SURVIVORS (仮) - ボイスコネクトメモリアル ファンゲーム",
+  "description": "D-STAGE SURVIVORS - ボイスコネクトメモリアル ファンゲーム",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
