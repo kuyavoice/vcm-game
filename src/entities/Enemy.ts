@@ -72,7 +72,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     this.setPosition(x, y);
     this.setActive(true).setVisible(true);
     // 画像スプライトの敵は等倍（絵のサイズ＝画面サイズ）、コード生成の敵は spriteScale 倍
-    this.setAlpha(1).setScale(def.sheet ? 1 : CONFIG.spriteScale).clearTint();
+    this.setAlpha(1).setScale(def.sheet ? (def.scale ?? CONFIG.spriteScale) : CONFIG.spriteScale).clearTint();
     this.setDepth(def.isObject ? 8 : 10 + def.tier);
     this.play(`anim_e_${def.id}`, true);
     // アニメの位相をずらして群れの見た目をばらす

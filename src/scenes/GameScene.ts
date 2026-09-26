@@ -633,6 +633,37 @@ export class GameScene extends Phaser.Scene {
     }
     if (now < b.invulnUntil) return { mx: 0, my: 0, spd: 0 };
 
+    // 突進（両形態）：予備動作0.8秒（赤い矢印で予告）→ 0.7秒ダッシュ
+    const bs = e.bossState;
+    const B = CONFIG.boss;
+    if (bs.dashing > 0) {
+      bs.dashing -= dt;
+      if (bs.dashing <= 0) bs.chargeTimer = b.phase === 1 ? 7 : 6;
+      return { mx: bs.dirX, my: bs.dirY, spd: B.chargeSpeed * 1.1 };
+    }
+    if (bs.windup > 0) {
+      bs.windup -= dt;
+      e.x += (Math.random() - 0.5) * 6;
+      g.lineStyle(6, 0xff2244, 0.35 + (0.8 - bs.windup) * 0.6);
+      g.lineBetween(e.x, e.y - 40, e.x + nx * 520, e.y - 40 + ny * 520);
+      if (bs.windup <= 0) {
+        bs.dashing = B.chargeDurationSec;
+        bs.dirX = nx;
+        bs.dirY = ny;
+        e.play('anim_e_blackknight', true);
+        this.cameras.main.shake(120, 0.005);
+      }
+      return { mx: 0, my: 0, spd: 0 };
+    }
+    bs.chargeTimer -= dt;
+    if (bs.chargeTimer <= 0 && b.slashWindup <= 0 && b.barrageLeft <= 0) {
+      bs.windup = B.chargeWindupSec;
+      e.play('anim_e_blackknight_windup', true);
+      b.animLock = now + 800;
+      this.fxText(e.x, e.y - 150, '!!', '#FF4D6D');
+      return { mx: 0, my: 0, spd: 0 };
+    }
+
     // 騎兵突撃（前半 6秒ごと／後半 4秒ごと）：3〜5体が画面を一直線に突っ切る。1秒前に赤線で予告
     b.cavalryTimer -= dt;
     if (b.cavalryTimer <= 0) {

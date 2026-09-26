@@ -15,8 +15,8 @@ export const CONFIG = {
   maxEnemyBullets: 120,
 
   // 枠数
-  weaponSlots: 4,
-  passiveSlots: 4,
+  weaponSlots: 5,
+  passiveSlots: 5,
 
   // 必要経験値：Lv n → n+1
   xpToNext: (lv: number) => 5 + (lv - 1) * 10,
@@ -44,7 +44,7 @@ export const CONFIG = {
   selectArmDelayMs: 300,
 
   // ゲーム速度（HUDのボタンで巡回切替。倍率分だけ内部更新を分割して当たり判定の精度を保つ）
-  speedModes: [1, 1.5, 2] as readonly number[],
+  speedModes: [1, 1.5, 2, 3] as readonly number[],
 
   // 必殺『魂の共鳴』
   soul: {
