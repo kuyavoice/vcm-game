@@ -32,6 +32,8 @@ export interface BulletOpts {
   tint?: number;
   /** ブーメラン：この距離まで飛んだら折り返してプレイヤーへ戻る（帰りも当たる） */
   boomerangDist?: number;
+  /** ブーメランが戻ったあと、周囲を舞う秒数（『花傘乱舞』） */
+  orbitSec?: number;
 }
 
 /** 自弾（『宵星』の射撃・各アーツの弾） */
@@ -51,8 +53,11 @@ export class Bullet extends Phaser.GameObjects.Image {
   spin = 0;
   rotateToVel = true;
   boomerangDist = 0;
-  /** ブーメランの段階：0=行き, 1=帰り */
+  orbitSec = 0;
+  /** ブーメランの段階：0=行き, 1=帰り, 2=周囲を舞う */
   phase = 0;
+  orbitLeft = 0;
+  orbitAngle = 0;
   hit = new Set<Enemy>();
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
@@ -78,6 +83,9 @@ export class Bullet extends Phaser.GameObjects.Image {
     this.spin = o.spin ?? 0;
     this.rotateToVel = o.rotateToVel ?? true;
     this.boomerangDist = o.boomerangDist ?? 0;
+    this.orbitSec = o.orbitSec ?? 0;
+    this.orbitLeft = 0;
+    this.orbitAngle = 0;
     this.phase = 0;
     this.hit.clear();
     this.setScale(CONFIG.spriteScale * (o.scale ?? 1));

@@ -1,4 +1,4 @@
-// パッシブ（各Lv1〜5）。効果はすべて RunStats への加算で表現する。数値は初期値。
+// パッシブ（13種）。効果はすべて RunStats への加算で表現する。数値は初期値。
 
 export interface RunStats {
   damageMul: number;
@@ -13,6 +13,14 @@ export interface RunStats {
   areaMul: number;
   /** 幸運：レアドロップ・宝箱の出現率 */
   luckMul: number;
+  /** 投射物の数の加算（`projectile` タグの武器） */
+  projectileBonus: number;
+  /** 効果時間の倍率（盾・鉄柵・重力場・水衣など） */
+  durationMul: number;
+  /** 後の先：反撃ダメージ（0 で無効） */
+  counterDamage: number;
+  /** 必殺ゲージの上昇倍率 */
+  soulGainMul: number;
 }
 
 export function baseStats(): RunStats {
@@ -26,6 +34,10 @@ export function baseStats(): RunStats {
     pickupMul: 1,
     areaMul: 1,
     luckMul: 1,
+    projectileBonus: 0,
+    durationMul: 1,
+    counterDamage: 0,
+    soulGainMul: 1,
   };
 }
 
@@ -95,5 +107,29 @@ export const PASSIVES: Record<string, PassiveDef> = {
     desc: '声の欠片・アイテムの回収範囲 +25%（Lvごと）',
     maxLevel: 5, color: 0xd2b48c,
     apply: (s, lv) => { s.pickupMul *= 1 + 0.25 * lv; },
+  },
+  script: {
+    id: 'script', name: '魔術師の台本', owner: '片桐 玄人',
+    desc: '投射物（矢・弾・傘など）の数 +1（Lvごと）',
+    maxLevel: 2, color: 0x008080,
+    apply: (s, lv) => { s.projectileBonus += lv; },
+  },
+  encore: {
+    id: 'encore', name: '天宮座のアンコール', owner: '天宮 澪',
+    desc: '効果時間 +10%（Lvごと）。盾・鉄柵・重力場など',
+    maxLevel: 5, color: 0x2f4f4f,
+    apply: (s, lv) => { s.durationMul *= 1 + 0.1 * lv; },
+  },
+  gonosen: {
+    id: 'gonosen', name: '後の先', owner: '嘉地 杏子',
+    desc: '被弾すると周囲の敵に反撃する（ダメージ 20×Lv、1秒に1回）',
+    maxLevel: 5, color: 0xdc143c,
+    apply: (s, lv) => { s.counterDamage = 20 * lv; },
+  },
+  mana: {
+    id: 'mana', name: '魔力の貸与', owner: '黒崎 詩音',
+    desc: '必殺ゲージの上昇速度 +15%（Lvごと）',
+    maxLevel: 5, color: 0xc0c0ff,
+    apply: (s, lv) => { s.soulGainMul *= 1 + 0.15 * lv; },
   },
 };

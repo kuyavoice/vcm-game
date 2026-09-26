@@ -193,6 +193,16 @@ export function generateTextures(scene: Phaser.Scene) {
   g.fillCircle(6, 1, 3);
   g.generateTexture('art_ofuda', 12, 20);
 
+  // 狐火（九尾の狐火）
+  g.clear();
+  g.fillStyle(0xff6a00, 0.35);
+  g.fillCircle(9, 10, 9);
+  g.fillStyle(0xffa040, 1);
+  g.fillPoints([new Phaser.Math.Vector2(9, 0), new Phaser.Math.Vector2(15, 9), new Phaser.Math.Vector2(9, 18), new Phaser.Math.Vector2(3, 9)], true);
+  g.fillStyle(0xfff3a0, 1);
+  g.fillPoints([new Phaser.Math.Vector2(9, 5), new Phaser.Math.Vector2(12, 10), new Phaser.Math.Vector2(9, 15), new Phaser.Math.Vector2(6, 10)], true);
+  g.generateTexture('art_foxfire', 18, 18);
+
   // 傘（舞闘術）
   g.clear();
   g.fillStyle(0x2f4f4f, 1);

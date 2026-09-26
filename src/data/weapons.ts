@@ -25,6 +25,8 @@ export interface ArtStats {
   extra: Record<string, number>;
 }
 
+export type WeaponTag = 'melee' | 'projectile' | 'zone' | 'orbit' | 'support';
+
 export interface WeaponLevelDef {
   desc: string;
   apply: (s: ArtStats) => void;
@@ -50,6 +52,8 @@ export interface WeaponDef {
   color: number;
   /** main = 初期武器（枠を使わない）／art = 共鳴アーツ（4枠） */
   kind: 'main' | 'art';
+  /** 種別タグ：melee（近接）／projectile（投射）／zone（設置）／orbit（常駐）／support（補助） */
+  tags: WeaponTag[];
   maxLevel: number;
   base: ArtStats;
   /** Lv2以降の強化（index 0 = Lv1→2） */
@@ -75,7 +79,7 @@ const longer = (pct: number): WeaponLevelDef => ({ desc: `持続時間 +${pct}%`
 
 /** 『宵星』：area=斬撃範囲, speed=弾速, count=連射数, extra: shotDamage / slashArcDeg / shotRange */
 export const YOISEI: WeaponDef = {
-  id: 'yoisei', name: '宵星', owner: '宵月 空夜', kind: 'main',
+  id: 'yoisei', name: '宵星', owner: '宵月 空夜', kind: 'main', tags: ['melee', 'projectile'],
   desc: '片手剣とハンドガンを距離で自動切替。近くは斬り、遠くは撃つ。',
   color: 0x87ceeb, maxLevel: 8,
   base: stats({ damage: 12, intervalSec: 0.7, count: 1, area: 90, speed: 720, extra: { shotDamage: 8, slashArcDeg: 120, shotRange: 400 } }),
@@ -94,7 +98,7 @@ export const YOISEI: WeaponDef = {
 
 /** 『紅蓮の矢』：前方へ遠くまで飛ぶ貫通する火矢。count=本数, area=射程, pierce=貫通 */
 const GUREN: WeaponDef = {
-  id: 'guren', name: '紅蓮の矢', owner: '寿 律花', kind: 'art',
+  id: 'guren', name: '紅蓮の矢', owner: '寿 律花', kind: 'art', tags: ['projectile'],
   desc: '向いている方向へ、貫通する火矢を放つ。',
   color: 0xff4500, maxLevel: 8,
   base: stats({ damage: 14, intervalSec: 1.1, count: 1, area: 900, speed: 900, pierce: 2 }),
@@ -108,25 +112,35 @@ const GUREN: WeaponDef = {
 
 /** 『星屑の裁定』：敵を追尾する星弾。count=弾数 */
 const HOSHIKUZU: WeaponDef = {
-  id: 'hoshikuzu', name: '星屑の裁定', owner: '黒崎 詩音', kind: 'art',
+  id: 'hoshikuzu', name: '星屑の裁定', owner: '黒崎 詩音', kind: 'art', tags: ['projectile'],
   desc: '敵を追尾する星の弾を放つ。',
   color: 0xc0c0ff, maxLevel: 8,
   base: stats({ damage: 10, intervalSec: 1.3, count: 2, area: 700, speed: 520, pierce: 0 }),
   levels: [more(1, '弾数'), dmg(25), faster(15), more(1, '弾数'), dmg(25), { desc: '貫通 +1', apply: (s) => { s.pierce += 1; } }, more(2, '弾数')],
+  evolution: {
+    name: '満天の裁定', passiveId: 'mana',
+    desc: '星の矢が、画面のすべての敵を同時に狙う。',
+    apply: (s) => { s.evolved = true; s.damage *= 1.2; },
+  },
 };
 
 /** 『乱れ雪月花』：画面内のランダムな敵の位置に斬撃が閃く。count=対象数, area=各斬撃の半径 */
 const SETSUGEKKA: WeaponDef = {
-  id: 'setsugekka', name: '乱れ雪月花', owner: '狐森 雪人', kind: 'art',
+  id: 'setsugekka', name: '乱れ雪月花', owner: '狐森 雪人', kind: 'art', tags: ['melee'],
   desc: '画面のあちこちで斬撃が閃き、敵を切り伏せる。',
   color: 0xe8f4ff, maxLevel: 8,
   base: stats({ damage: 18, intervalSec: 1.6, count: 2, area: 70 }),
   levels: [more(1, '斬撃数'), dmg(25), wider(25), more(1, '斬撃数'), faster(15), dmg(25), more(2, '斬撃数')],
+  evolution: {
+    name: '雪月風花', passiveId: 'gonosen',
+    desc: '斬撃の数が増え、被弾した瞬間にも周囲へ斬撃が閃く。',
+    apply: (s) => { s.evolved = true; s.count += 3; s.damage *= 1.3; s.extra.counterRadius = 150; },
+  },
 };
 
 /** 『リフレッシュの弾丸』：画面端で跳ね返り続ける貫通弾。当たった敵を鈍化。duration=寿命, slow=鈍化 */
 const REFRESH: WeaponDef = {
-  id: 'refresh', name: 'リフレッシュの弾丸', owner: '振須 響', kind: 'art',
+  id: 'refresh', name: 'リフレッシュの弾丸', owner: '振須 響', kind: 'art', tags: ['projectile'],
   desc: '画面の端で跳ね返り続ける弾。当たった敵の動きを鈍らせる。',
   color: 0x7fffd4, maxLevel: 8,
   base: stats({ damage: 9, intervalSec: 2.2, count: 1, speed: 420, duration: 4, pierce: Infinity, slow: 0.6 }),
@@ -140,11 +154,16 @@ const REFRESH: WeaponDef = {
 
 /** 『強制・修羅場進行』：足元付近に鉄柵。area=半径, duration=持続, damage=毎秒ダメージ, slow=鈍化 */
 const SHURABA: WeaponDef = {
-  id: 'shuraba', name: '強制・修羅場進行', owner: '弼辺 徹', kind: 'art',
+  id: 'shuraba', name: '強制・修羅場進行', owner: '弼辺 徹', kind: 'art', tags: ['zone'],
   desc: '足元付近に鉄柵を組み上げる。中の敵は足止めされ、じわじわ削られる。',
   color: 0x4169e1, maxLevel: 8,
   base: stats({ damage: 8, intervalSec: 3, count: 1, area: 110, duration: 3.5, slow: 0.35 }),
   levels: [wider(20), dmg(30), longer(30), more(1, '柵の数'), dmg(30), wider(20), { desc: '柵の数 +1・持続 +30%', apply: (s) => { s.count += 1; s.duration *= 1.3; } }],
+  evolution: {
+    name: '完徹・修羅場進行', passiveId: 'patisserie',
+    desc: '鉄柵が倍に増えて、ほとんど消えなくなる。中の敵はさらに鈍る。',
+    apply: (s) => { s.evolved = true; s.count *= 2; s.duration *= 3; s.slow = 0.25; },
+  },
 };
 
 /**
@@ -152,7 +171,7 @@ const SHURABA: WeaponDef = {
  * extra.maxUptime = 実効発動間隔に対する持続の上限比率（パッシブ・必殺で間隔を縮めても常時無敵にならないようにする）
  */
 const AQUA: WeaponDef = {
-  id: 'aqua', name: 'アクアシールド', owner: '月怜 瑞穂', kind: 'art',
+  id: 'aqua', name: 'アクアシールド', owner: '月怜 瑞穂', kind: 'art', tags: ['support'],
   desc: '水の盾をまとい、しばらくのあいだダメージを防ぐ。',
   color: 0x87cefa, maxLevel: 8,
   base: stats({ damage: 0, intervalSec: 9, duration: 2.5, area: 60, extra: { heal: 0, maxUptime: 0.6 } }),
@@ -166,7 +185,7 @@ const AQUA: WeaponDef = {
 
 /** 『狐火の御札』：周囲を回り続ける御札。count=枚数, area=軌道半径, speed=回転速度(rad/s), damage=接触ダメージ */
 const OFUDA: WeaponDef = {
-  id: 'ofuda', name: '狐火の御札', owner: '呱々崎 璦萌', kind: 'art',
+  id: 'ofuda', name: '狐火の御札', owner: '呱々崎 璦萌', kind: 'art', tags: ['orbit'],
   desc: '狐火を宿した御札が、自分の周囲を回り続ける。',
   color: 0xffa040, maxLevel: 8,
   base: stats({ damage: 8, intervalSec: 0.45, count: 2, area: 90, speed: 2.4, extra: { size: 1 } }),
@@ -179,11 +198,16 @@ const OFUDA: WeaponDef = {
     { desc: '御札 +1・回転が速く', apply: (s) => { s.count += 1; s.speed *= 1.2; } },
     { desc: '御札 +1・大きく（計6枚）', apply: (s) => { s.count += 1; s.extra.size += 0.3; s.area *= 1.15; } },
   ],
+  evolution: {
+    name: '九尾の狐火', passiveId: 'finder',
+    desc: '御札が九つの狐火になって回り、触れた敵を炎上させる。',
+    apply: (s) => { s.evolved = true; s.count = 9; s.damage *= 1.2; s.extra.size = 1.4; s.extra.burnDps = 8; s.extra.burnSec = 3; },
+  },
 };
 
 /** 『岩牙』：移動方向へ短い直線状に地面が隆起。area=長さ, extra.width=幅, knockback=強い */
 const GANGA: WeaponDef = {
-  id: 'ganga', name: '岩牙', owner: '護乃 豪', kind: 'art',
+  id: 'ganga', name: '岩牙', owner: '護乃 豪', kind: 'art', tags: ['melee'],
   desc: '進む先の地面が牙のように隆起し、敵を弾き飛ばす。',
   color: 0x8b4513, maxLevel: 8,
   base: stats({ damage: 30, intervalSec: 2.4, count: 1, area: 220, knockback: 420, extra: { width: 70 } }),
@@ -197,7 +221,7 @@ const GANGA: WeaponDef = {
 
 /** 『円』：一定間隔で周囲360°を一閃。area=半径 */
 const EN: WeaponDef = {
-  id: 'en', name: '円', owner: '嘉地 杏子', kind: 'art',
+  id: 'en', name: '円', owner: '嘉地 杏子', kind: 'art', tags: ['melee'],
   desc: '一定の呼吸で、自分の周囲を円に一閃する。',
   color: 0xdc143c, maxLevel: 8,
   base: stats({ damage: 16, intervalSec: 1.8, area: 120, knockback: 120 }),
@@ -211,7 +235,7 @@ const EN: WeaponDef = {
 
 /** 『重圧の檻』：最も密集した地点に重力場。area=半径, duration=持続, damage=毎秒, count=同時数 */
 const CAGE: WeaponDef = {
-  id: 'cage', name: '重圧の檻', owner: '若宮 征士郎', kind: 'art',
+  id: 'cage', name: '重圧の檻', owner: '若宮 征士郎', kind: 'art', tags: ['zone'],
   desc: '敵が最も集まった場所に重力の檻を落とす。中の敵は動けない。',
   color: 0x191970, maxLevel: 8,
   base: stats({ damage: 10, intervalSec: 4, count: 1, area: 130, duration: 2.5 }),
@@ -225,7 +249,7 @@ const CAGE: WeaponDef = {
 
 /** 『物理演算バグ』：最寄りの敵を蹴り飛ばし、ぶつかった敵に連鎖ダメージ。count=蹴る数, speed=飛ぶ速さ */
 const BUG: WeaponDef = {
-  id: 'bug', name: '物理演算バグ', owner: '晴山 樹', kind: 'art',
+  id: 'bug', name: '物理演算バグ', owner: '晴山 樹', kind: 'art', tags: ['melee'],
   desc: '最寄りの敵を蹴り飛ばす。飛んだ敵がぶつかった相手にもダメージ。',
   color: 0x00ced1, maxLevel: 8,
   base: stats({ damage: 20, intervalSec: 1.5, count: 1, speed: 900, duration: 0.5 }),
@@ -239,16 +263,21 @@ const BUG: WeaponDef = {
 
 /** 『天宮流・舞闘術』：投げた傘が弧を描いて戻る。往復で2回当たる。area=飛距離, count=本数 */
 const BUTOU: WeaponDef = {
-  id: 'butou', name: '天宮流・舞闘術', owner: '天宮 澪', kind: 'art',
+  id: 'butou', name: '天宮流・舞闘術', owner: '天宮 澪', kind: 'art', tags: ['projectile'],
   desc: '投げた傘が弧を描いて戻ってくる。行きと帰りで二度当たる。',
   color: 0x2f4f4f, maxLevel: 8,
   base: stats({ damage: 15, intervalSec: 1.6, count: 1, area: 320, speed: 560, pierce: Infinity }),
   levels: [dmg(25), wider(20, '飛距離'), more(1, '傘の数'), faster(15), dmg(25), wider(20, '飛距離'), more(1, '傘の数')],
+  evolution: {
+    name: '天宮流・花傘乱舞', passiveId: 'encore',
+    desc: '傘が三本に増え、周囲を舞ってから戻ってくる。',
+    apply: (s) => { s.evolved = true; s.count = 3; s.damage *= 1.25; s.extra.orbitSec = 1.2; },
+  },
 };
 
 /** 『物語の具現化』：発動ごとに他の共鳴アーツ1種をランダムで再現 */
 const MONOGATARI: WeaponDef = {
-  id: 'monogatari', name: '物語の具現化', owner: '片桐 玄人', kind: 'art',
+  id: 'monogatari', name: '物語の具現化', owner: '片桐 玄人', kind: 'art', tags: ['support'],
   desc: '発動のたび、仲間のアーツのどれかをページから呼び出す。',
   color: 0x008080, maxLevel: 8,
   base: stats({ damage: 1, intervalSec: 2.4 }),

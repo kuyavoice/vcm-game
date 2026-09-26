@@ -36,6 +36,8 @@ export interface CharacterDef {
   startWeapon: string;
   /** 固有・常時パッシブ */
   uniquePassive?: 'info_control';
+  /** 自分の共鳴アーツは借りられない（レベルアップ・宝箱・『物語の具現化』の抽選から除外） */
+  excludedArts: string[];
 }
 
 export const CHARACTERS: Record<string, CharacterDef> = {
@@ -66,6 +68,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     traits: { resonanceArtsPower: 0.15 },
     startWeapon: 'yoisei',
     uniquePassive: 'info_control',
+    excludedArts: [],
   },
 };
 

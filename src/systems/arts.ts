@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { CONFIG } from '../data/config';
-import { WEAPONS, computeStats, type ArtStats } from '../data/weapons';
+import { WEAPONS, computeStats, type ArtStats, type WeaponDef } from '../data/weapons';
 import type { Enemy } from '../entities/Enemy';
 import { Weapon, type ArtBehavior, type BattleContext } from './WeaponSystem';
 
@@ -11,6 +11,11 @@ let hitStamp = 0;
 const artDmg = (ctx: BattleContext, s: ArtStats) => s.damage * ctx.stats.damageMul * ctx.artDamageMul;
 const facingAngle = (ctx: BattleContext) => Math.atan2(ctx.player.facing.y, ctx.player.facing.x);
 const chest = (ctx: BattleContext) => ({ x: ctx.player.x, y: ctx.player.y - 16 });
+/** 投射物の数（魔術師の台本の加算込み） */
+const projCount = (ctx: BattleContext, s: ArtStats, def: WeaponDef) =>
+  s.count + (def.tags.includes('projectile') ? ctx.stats.projectileBonus : 0);
+/** 効果時間（天宮座のアンコール込み） */
+const dur = (ctx: BattleContext, s: ArtStats) => s.duration * ctx.stats.durationMul;
 
 function shuffle<T>(arr: T[]): T[] {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -50,6 +55,7 @@ const yoisei: ArtBehavior = {
     const dist = Phaser.Math.Distance.Between(c.x, c.y, target.x, target.y);
     const angle = Math.atan2(target.y - c.y, target.x - c.x);
     const range = s.area * ctx.stats.areaMul;
+    const shots = projCount(ctx, s, w.def);
 
     // 斬撃の判定は敵の当たり半径の分だけ手前で切り替える
     if (dist - target.radius <= range) {
@@ -68,9 +74,9 @@ const yoisei: ArtBehavior = {
       }
       ctx.fx.slash(c.x, c.y, range, w.def.color, angle, s.extra.slashArcDeg);
       // 蒼天の連撃：斬撃のあと至近三連射
-      if (s.evolved) w.state.burst = { angle, left: s.count, timer: 0.1 } as Burst;
+      if (s.evolved) w.state.burst = { angle, left: shots, timer: 0.1 } as Burst;
     } else {
-      w.state.burst = { angle, left: s.count, timer: 0 } as Burst;
+      w.state.burst = { angle, left: shots, timer: 0 } as Burst;
     }
   },
 };
@@ -84,35 +90,51 @@ const guren: ArtBehavior = {
     const c = chest(ctx);
     const base = facingAngle(ctx);
     const spread = s.evolved ? 0.16 : 0.1;
-    for (let i = 0; i < s.count; i++) {
-      const off = (i - (s.count - 1) / 2) * spread;
+    const n = projCount(ctx, s, w.def);
+    for (let i = 0; i < n; i++) {
+      const off = (i - (n - 1) / 2) * spread;
       ctx.fireBullet({
         x: c.x, y: c.y, angle: base + off, speed: s.speed, damage: artDmg(ctx, s),
         range: s.area * ctx.stats.areaMul, pierce: s.pierce, texture: 'art_arrow',
         scale: s.evolved ? 1.4 : 1, knockback: 90, tint: s.evolved ? 0xff8c00 : undefined,
       });
     }
-    void w;
   },
 };
 
-/** 『星屑の裁定』：追尾する星弾 */
+/** 『星屑の裁定』：追尾する星弾。進化『満天の裁定』：画面内の全敵を同時に狙う */
 const hoshikuzu: ArtBehavior = {
   mimicable: true,
-  fire(ctx, s) {
+  fire(ctx, s, w) {
     const c = chest(ctx);
-    for (let i = 0; i < s.count; i++) {
+    const life = (s.area * ctx.stats.areaMul) / s.speed + 1.2;
+    const dmg = artDmg(ctx, s);
+    if (s.evolved) {
+      const targets = ctx.onScreenEnemies().slice(0, 40);
+      const n = Math.max(targets.length, projCount(ctx, s, w.def));
+      for (let i = 0; i < n; i++) {
+        const t = targets[i];
+        const angle = t ? Math.atan2(t.y - c.y, t.x - c.x) : Math.random() * Math.PI * 2;
+        ctx.fireBullet({
+          x: c.x, y: c.y, angle, speed: s.speed * 1.2, damage: dmg, life, pierce: s.pierce, homing: true,
+          texture: 'art_star', spin: 8, rotateToVel: false, knockback: 40, tint: 0xfff3a0,
+        });
+      }
+      ctx.fx.ring(c.x, c.y, 90, 0xc0c0ff, 3);
+      return;
+    }
+    const n = projCount(ctx, s, w.def);
+    for (let i = 0; i < n; i++) {
       const angle = Math.random() * Math.PI * 2;
       ctx.fireBullet({
-        x: c.x, y: c.y, angle, speed: s.speed, damage: artDmg(ctx, s),
-        life: (s.area * ctx.stats.areaMul) / s.speed + 1.2, pierce: s.pierce, homing: true,
+        x: c.x, y: c.y, angle, speed: s.speed, damage: dmg, life, pierce: s.pierce, homing: true,
         texture: 'art_star', spin: 6, rotateToVel: false, knockback: 40,
       });
     }
   },
 };
 
-/** 『乱れ雪月花』：画面内のランダムな敵の位置に斬撃 */
+/** 『乱れ雪月花』：画面内のランダムな敵の位置に斬撃。進化『雪月風花』：被弾時にも周囲へ斬撃 */
 const setsugekka: ArtBehavior = {
   mimicable: true,
   fire(ctx, s, w) {
@@ -129,18 +151,36 @@ const setsugekka: ArtBehavior = {
       });
     });
   },
+  onPlayerHit(ctx, s, w) {
+    if (!s.evolved) return;
+    const c = chest(ctx);
+    const r = (s.extra.counterRadius ?? 150) * ctx.stats.areaMul;
+    const dmg = artDmg(ctx, s);
+    tmp.length = 0;
+    ctx.enemiesInCircle(c.x, c.y, r, tmp);
+    for (const e of tmp) {
+      const a = Math.atan2(e.y - c.y, e.x - c.x);
+      ctx.damage(e, dmg, Math.cos(a) * 200, Math.sin(a) * 200);
+    }
+    for (let i = 0; i < 3; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const d = Math.random() * r * 0.7;
+      ctx.fx.cross(c.x + Math.cos(a) * d, c.y + Math.sin(a) * d, r * 0.5, w.def.color);
+    }
+  },
 };
 
 /** 『リフレッシュの弾丸』：画面端で跳ね返る貫通弾。鈍化 */
 const refresh: ArtBehavior = {
   mimicable: true,
-  fire(ctx, s) {
+  fire(ctx, s, w) {
     const c = chest(ctx);
-    for (let i = 0; i < s.count; i++) {
+    const n = projCount(ctx, s, w.def);
+    for (let i = 0; i < n; i++) {
       const t = ctx.nearestEnemy(c.x, c.y, 600);
-      const angle = t ? Math.atan2(t.y - c.y, t.x - c.x) + (i - (s.count - 1) / 2) * 0.5 : Math.random() * Math.PI * 2;
+      const angle = t ? Math.atan2(t.y - c.y, t.x - c.x) + (i - (n - 1) / 2) * 0.5 : Math.random() * Math.PI * 2;
       ctx.fireBullet({
-        x: c.x, y: c.y, angle, speed: s.speed, damage: artDmg(ctx, s), life: s.duration,
+        x: c.x, y: c.y, angle, speed: s.speed, damage: artDmg(ctx, s), life: dur(ctx, s),
         pierce: Infinity, bounce: true, slow: s.slow, slowSec: 2.5, texture: 'art_refresh',
         scale: s.evolved ? 1.7 : 1.2, spin: 4, rotateToVel: false, knockback: 30,
       });
@@ -148,7 +188,7 @@ const refresh: ArtBehavior = {
   },
 };
 
-/** 『強制・修羅場進行』：足元付近に鉄柵 */
+/** 『強制・修羅場進行』：足元付近に鉄柵（進化『完徹』：数×2・持続×3・鈍化強） */
 const shuraba: ArtBehavior = {
   mimicable: true,
   fire(ctx, s, w) {
@@ -157,7 +197,7 @@ const shuraba: ArtBehavior = {
       const d = 40 + Math.random() * 150;
       ctx.addZone({
         x: ctx.player.x + Math.cos(a) * d, y: ctx.player.y + Math.sin(a) * d,
-        radius: s.area * ctx.stats.areaMul, duration: s.duration, dps: artDmg(ctx, s),
+        radius: s.area * ctx.stats.areaMul, duration: dur(ctx, s), dps: artDmg(ctx, s),
         slow: s.slow, stun: false, color: w.def.color, shape: 'fence',
       });
     }
@@ -174,13 +214,13 @@ const aqua: ArtBehavior = {
   fire(ctx, s, w) {
     // 常時無敵の防止：持続は「実効発動間隔 × maxUptime」を上限にする
     const effInterval = s.intervalSec * ctx.stats.intervalMul * ctx.artIntervalMul;
-    const duration = Math.min(s.duration, effInterval * (s.extra.maxUptime ?? 0.6));
+    const duration = Math.min(dur(ctx, s), effInterval * (s.extra.maxUptime ?? 0.6));
     ctx.player.shieldUntil = Math.max(ctx.player.shieldUntil, ctx.now + duration * 1000);
     ctx.fx.ring(ctx.player.x, ctx.player.y - 40, 70, w.def.color, 4);
   },
 };
 
-/** 『狐火の御札』：周囲を回り続ける御札（常駐） */
+/** 『狐火の御札』：周囲を回り続ける御札（常駐）。進化『九尾の狐火』：9つの狐火・炎上 */
 const ofuda: ArtBehavior = {
   mimicable: false,
   fire() {
@@ -193,8 +233,11 @@ const ofuda: ArtBehavior = {
       w.state.orbs = orbs;
       w.state.angle = 0;
     }
-    while (orbs.length < s.count) {
-      orbs.push(ctx.scene.add.image(0, 0, 'art_ofuda').setDepth(23));
+    const tex = s.evolved ? 'art_foxfire' : 'art_ofuda';
+    while (orbs.length < s.count) orbs.push(ctx.scene.add.image(0, 0, tex).setDepth(23));
+    if (w.state.tex !== tex) {
+      w.state.tex = tex;
+      for (const o of orbs) o.setTexture(tex);
     }
     const angle = ((w.state.angle as number) + s.speed * dt) % (Math.PI * 2);
     w.state.angle = angle;
@@ -206,7 +249,7 @@ const ofuda: ArtBehavior = {
     for (let i = 0; i < orbs.length; i++) {
       const a = angle + (i * Math.PI * 2) / orbs.length;
       const o = orbs[i];
-      o.setPosition(c.x + Math.cos(a) * radius, c.y + Math.sin(a) * radius).setScale(size).setRotation(a + Math.PI / 2);
+      o.setPosition(c.x + Math.cos(a) * radius, c.y + Math.sin(a) * radius).setScale(size).setRotation(s.evolved ? 0 : a + Math.PI / 2);
       o.setAlpha(0.8 + Math.sin(ctx.now / 90 + i) * 0.2);
       tmp.length = 0;
       ctx.enemiesInCircle(o.x, o.y, hitR, tmp);
@@ -214,6 +257,7 @@ const ofuda: ArtBehavior = {
         if (ctx.now < e.orbitHitUntil) continue;
         e.orbitHitUntil = ctx.now + s.intervalSec * 1000;
         ctx.damage(e, dmg, Math.cos(a + Math.PI / 2) * 80, Math.sin(a + Math.PI / 2) * 80);
+        if (s.evolved && s.extra.burnDps) e.burn(s.extra.burnDps * ctx.stats.damageMul * ctx.artDamageMul, s.extra.burnSec ?? 3, ctx.now);
       }
     }
   },
@@ -301,7 +345,7 @@ const cage: ArtBehavior = {
     if (picked.length === 0) picked.push({ x: c.x + (Math.random() - 0.5) * 200, y: c.y + (Math.random() - 0.5) * 200 } as Enemy);
     for (const p of picked) {
       ctx.addZone({
-        x: p.x, y: p.y, radius: r, duration: s.duration, dps: artDmg(ctx, s),
+        x: p.x, y: p.y, radius: r, duration: dur(ctx, s), dps: artDmg(ctx, s),
         slow: 0, stun: true, color: w.def.color, shape: 'circle',
       });
     }
@@ -324,30 +368,35 @@ const bug: ArtBehavior = {
   },
 };
 
-/** 『天宮流・舞闘術』：傘のブーメラン（往復で2回当たる） */
+/** 『天宮流・舞闘術』：傘のブーメラン（往復で2回当たる）。進化『花傘乱舞』：3本・戻る前に周囲を舞う */
 const butou: ArtBehavior = {
   mimicable: true,
-  fire(ctx, s) {
+  fire(ctx, s, w) {
     const c = chest(ctx);
     const t = ctx.nearestEnemy(c.x, c.y, 700);
     const base = t ? Math.atan2(t.y - c.y, t.x - c.x) : facingAngle(ctx);
-    for (let i = 0; i < s.count; i++) {
-      const angle = base + (i - (s.count - 1) / 2) * 0.55;
+    const n = projCount(ctx, s, w.def);
+    for (let i = 0; i < n; i++) {
+      const angle = base + (i - (n - 1) / 2) * 0.55;
       ctx.fireBullet({
         x: c.x, y: c.y, angle, speed: s.speed, damage: artDmg(ctx, s), pierce: Infinity,
         texture: 'art_umbrella', spin: 12, rotateToVel: false, knockback: 50,
         // 往復：GameScene 側が boomerangDist を見て折り返し・帰還を処理
-        life: 6, boomerangDist: s.area * ctx.stats.areaMul,
+        life: 8, boomerangDist: s.area * ctx.stats.areaMul,
+        orbitSec: s.evolved ? (s.extra.orbitSec ?? 1.2) * ctx.stats.durationMul : 0,
+        tint: s.evolved ? 0xffb7c5 : undefined,
       });
     }
   },
 };
 
-/** 『物語の具現化』：他のアーツをランダムに再現 */
+/** 『物語の具現化』：他のアーツをランダムに再現（操作キャラ自身のアーツは除く） */
 const monogatari: ArtBehavior = {
   mimicable: false,
   fire(ctx, s, w) {
-    const pool = Object.values(WEAPONS).filter((d) => d.kind === 'art' && d.id !== 'monogatari' && ARTS[d.id].mimicable);
+    const pool = Object.values(WEAPONS).filter(
+      (d) => d.kind === 'art' && d.id !== 'monogatari' && ARTS[d.id].mimicable && !ctx.excludedArts.has(d.id),
+    );
     for (let i = 0; i < s.count; i++) {
       const def = pool[Math.floor(Math.random() * pool.length)];
       const st = computeStats(def, w.level, false);

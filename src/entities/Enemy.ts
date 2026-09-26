@@ -30,6 +30,10 @@ export class Enemy extends Phaser.GameObjects.Sprite {
   fly: FlyState | null = null;
   /** 常駐物（御札など）の連続ヒット防止 */
   orbitHitUntil = 0;
+  /** 炎上（継続ダメージ） */
+  burnUntil = 0;
+  burnDps = 0;
+  burnTick = 0;
   /** ボス用の行動タイマー */
   bossState = { chargeTimer: 0, ringTimer: 0, windup: 0, dashing: 0, dirX: 0, dirY: 0 };
 
@@ -52,6 +56,9 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     this.stunUntil = 0;
     this.fly = null;
     this.orbitHitUntil = 0;
+    this.burnUntil = 0;
+    this.burnDps = 0;
+    this.burnTick = 0;
     this.bossState = { chargeTimer: 2, ringTimer: 1.5, windup: 0, dashing: 0, dirX: 0, dirY: 0 };
     this.setPosition(x, y);
     this.setActive(true).setVisible(true);
@@ -77,6 +84,12 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     if (this.def.boss) return;
     this.slowMul = Math.min(this.slowMul < 1 && now < this.slowUntil ? this.slowMul : 1, mul);
     this.slowUntil = Math.max(this.slowUntil, now + sec * 1000);
+  }
+
+  /** 炎上：sec 秒間、毎秒 dps（重ねがけは強い方・長い方を採用） */
+  burn(dps: number, sec: number, now: number): void {
+    this.burnDps = Math.max(now < this.burnUntil ? this.burnDps : 0, dps);
+    this.burnUntil = Math.max(this.burnUntil, now + sec * 1000);
   }
 
   stun(sec: number, now: number): void {

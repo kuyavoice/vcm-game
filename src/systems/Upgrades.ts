@@ -33,6 +33,8 @@ export class UpgradeState {
   arts: Weapon[] = [];
   passives = new Map<string, number>();
   stats: RunStats = baseStats();
+  /** 操作キャラ自身のアーツ（抽選から除外） */
+  excluded = new Set<string>();
 
   get weapons(): Weapon[] {
     return [this.main, ...this.arts];
@@ -63,6 +65,7 @@ export class UpgradeState {
     }
     if (this.arts.length < CONFIG.weaponSlots) {
       for (const id of ART_IDS) {
+        if (this.excluded.has(id)) continue;
         if (this.arts.some((w) => w.def.id === id)) continue;
         const d = WEAPONS[id];
         pool.push({ kind: 'weapon', id, title: d.name, owner: d.owner, tag: 'NEW', desc: d.desc, color: d.color });

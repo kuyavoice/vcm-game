@@ -34,6 +34,8 @@ export interface BattleContext {
   artDamageMul: number;
   /** アーツ用発動間隔倍率（必殺） */
   artIntervalMul: number;
+  /** 操作キャラ自身のアーツ（『物語の具現化』の抽選から除外） */
+  excludedArts: Set<string>;
   damage: (e: Enemy, dmg: number, kx: number, ky: number) => void;
   /** 最寄りの敵（オブジェクトは含まない） */
   nearestEnemy: (x: number, y: number, maxDist: number) => Enemy | null;
@@ -61,6 +63,8 @@ export interface ArtBehavior {
   fire: (ctx: BattleContext, s: ArtStats, w: Weapon) => void;
   /** 常駐物の更新（御札・盾など） */
   update?: (dt: number, ctx: BattleContext, s: ArtStats, w: Weapon) => void;
+  /** プレイヤー被弾時（『雪月風花』の反撃など） */
+  onPlayerHit?: (ctx: BattleContext, s: ArtStats, w: Weapon) => void;
   /** 『物語の具現化』で再現可能か（常駐型は不可） */
   mimicable: boolean;
 }

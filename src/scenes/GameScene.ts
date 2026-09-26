@@ -158,6 +158,7 @@ export class GameScene extends Phaser.Scene {
     this.xp.onItem = (kind, value, x, y) => this.onItem(kind, value, x, y);
     this.up = new UpgradeState();
     this.up.setMain(def.startWeapon);
+    for (const id of def.excludedArts) this.up.excluded.add(id);
     this.up.recompute();
     this.spawner = new Spawner(this, this.enemies, this.player, this.stage);
     this.spawner.onBandChange = (b) => this.onBandChange(b.label, !!b.fullMoon, b.from);
@@ -176,6 +177,7 @@ export class GameScene extends Phaser.Scene {
       now: 0,
       artDamageMul: 1,
       artIntervalMul: 1,
+      excludedArts: this.up.excluded,
       damage: (e, dmg, kx, ky) => this.damageEnemy(e, dmg, kx, ky),
       nearestEnemy: (x, y, maxDist) => this.nearestEnemy(x, y, maxDist),
       enemiesInCircle: (x, y, r, out) => this.enemiesInCircle(x, y, r, out),
@@ -380,6 +382,17 @@ export class GameScene extends Phaser.Scene {
       }
       if (def.isObject) continue;
 
+      // 炎上（0.25秒ごとに刻む）
+      if (now < e.burnUntil) {
+        e.burnTick += dt;
+        if (e.burnTick >= 0.25) {
+          e.burnTick -= 0.25;
+          this.hitSpark(e.x, e.y - 10, 0xff8c00, 2);
+          this.damageEnemy(e, e.burnDps * 0.25, 0, 0);
+          if (!e.active) continue;
+        }
+      }
+
       const dx = px - e.x;
       const dy = py - e.y;
       const dist = Math.hypot(dx, dy) || 1;
@@ -570,10 +583,34 @@ export class GameScene extends Phaser.Scene {
           const tx = p.x;
           const ty = p.y - 16;
           const d = Math.hypot(tx - b.x, ty - b.y);
-          if (d < 30) { b.despawn(); continue; }
-          const spd = Math.hypot(b.vx, b.vy);
-          b.vx = ((tx - b.x) / d) * spd;
-          b.vy = ((ty - b.y) / d) * spd;
+          if (d < 30) {
+            if (b.orbitSec > 0) {
+              // 花傘乱舞：戻ったあと周囲を舞う
+              b.phase = 2;
+              b.orbitLeft = b.orbitSec;
+              b.orbitAngle = Math.atan2(b.y - ty, b.x - tx);
+              b.hit.clear();
+            } else {
+              b.despawn();
+              continue;
+            }
+          } else {
+            const spd = Math.hypot(b.vx, b.vy);
+            b.vx = ((tx - b.x) / d) * spd;
+            b.vy = ((ty - b.y) / d) * spd;
+          }
+        }
+        if (b.phase === 2) {
+          b.orbitLeft -= dt;
+          if (b.orbitLeft <= 0) { b.despawn(); continue; }
+          const r = 130;
+          b.orbitAngle += dt * 5;
+          const nx = p.x + Math.cos(b.orbitAngle) * r;
+          const ny = p.y - 16 + Math.sin(b.orbitAngle) * r;
+          b.vx = (nx - b.x) / dt;
+          b.vy = (ny - b.y) / dt;
+          // 1周ごとに当たり直せる
+          if (Math.floor(b.orbitAngle / (Math.PI * 2)) !== Math.floor((b.orbitAngle - dt * 5) / (Math.PI * 2))) b.hit.clear();
         }
       }
 
@@ -708,7 +745,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     this.kills++;
-    this.soulGauge = Math.min(1, this.soulGauge + 1 / CONFIG.soul.killsToFull);
+    this.soulGauge = Math.min(1, this.soulGauge + this.up.stats.soulGainMul / CONFIG.soul.killsToFull);
     this.xp.drop(e.x, e.y, def.xp, this.ctx.now, this.up.stats.luckMul);
     if (def.tier >= 2 && !def.boss && Math.random() < ITEMS.chest.dropChance * this.up.stats.luckMul) {
       this.xp.spawn(e.x, e.y, 'chest', 1, this.ctx.now);
@@ -770,10 +807,28 @@ export class GameScene extends Phaser.Scene {
     this.particles.explode(n, x, y);
   }
 
+  private counterUntil = 0;
+
   private onPlayerHit(): void {
     this.cameras.main.shake(90, 0.004);
     AudioBus.play('se_hit', 120);
     AudioBus.play('vo_kuya_hit', 2500);
+    const now = this.ctx.now;
+    // 後の先：周囲120pxへ反撃（1秒に1回）
+    const cd = this.up.stats.counterDamage;
+    if (cd > 0 && now >= this.counterUntil) {
+      this.counterUntil = now + 1000;
+      const p = this.player;
+      this.tmp.length = 0;
+      this.enemiesInCircle(p.x, p.y - 16, 120, this.tmp);
+      for (const e of this.tmp) {
+        const a = Math.atan2(e.y - (p.y - 16), e.x - p.x);
+        this.damageEnemy(e, cd * this.up.stats.damageMul, Math.cos(a) * 180, Math.sin(a) * 180);
+      }
+      this.fxRing(p.x, p.y - 16, 120, 0xdc143c, 5);
+    }
+    // 被弾で反応するアーツ（『雪月風花』など）
+    for (const w of this.up.arts) w.behavior.onPlayerHit?.(this.ctx, w.stats, w);
   }
 
   // ─────────────────────────── 演出 ───────────────────────────
