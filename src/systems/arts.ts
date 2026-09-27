@@ -555,6 +555,96 @@ const engo: ArtBehavior = {
 // ───────────────────────── 合体アーツ（v2 §5.5） ─────────────────────────
 
 /** 点が三角形の内側か */
+/** 『瞬影』：影がプレイヤーの位置に現れ、近くの敵を次々と斬り抜ける。進化『瞬影・双』：影が2体、斬られた敵は鈍る */
+const shunei: ArtBehavior = {
+  mimicable: true,
+  fire(ctx, s, w) {
+    const c = chest(ctx);
+    const dmg = artDmg(ctx, s, w.def);
+    const used = new Set<Enemy>();
+    const shadows = s.extra.shadows ?? 1;
+    for (let k = 0; k < shadows; k++) {
+      // 経路：いまの位置からいちばん近い、まだ斬っていない敵へ順に飛ぶ
+      const path: Enemy[] = [];
+      let x = c.x;
+      let y = c.y;
+      let range = s.area * ctx.stats.areaMul;
+      for (let i = 0; i < s.count; i++) {
+        tmp.length = 0;
+        ctx.enemiesInCircle(x, y, range, tmp);
+        let best: Enemy | null = null;
+        let bd = Infinity;
+        for (const e of tmp) {
+          if (used.has(e)) continue;
+          const d = Phaser.Math.Distance.Between(x, y, e.x, e.y);
+          if (d < bd) { bd = d; best = e; }
+        }
+        if (!best) break;
+        used.add(best);
+        path.push(best);
+        x = best.x;
+        y = best.y;
+        range = (s.extra.hop ?? 260) * ctx.stats.areaMul;
+      }
+      if (path.length === 0) continue;
+
+      const step = (s.duration * 1000) / path.length;
+      const shade = ctx.scene.add.image(c.x + (k === 0 ? -14 : 14), c.y, 'art_shadow').setDepth(27).setScale(CONFIG.spriteScale).setAlpha(0.75);
+      const points = path.map((e) => ({ x: e.x, y: e.y - 10 }));
+      ctx.scene.tweens.chain({
+        targets: shade,
+        tweens: [
+          ...points.map((p) => ({ x: p.x, y: p.y, duration: step, ease: 'Cubic.out' })),
+          { alpha: 0, duration: 140 },
+        ],
+        onComplete: () => shade.destroy(),
+      });
+      path.forEach((e, i) => {
+        ctx.scene.time.delayedCall(step * (i + 0.7), () => {
+          const from = i === 0 ? { x: c.x, y: c.y } : points[i - 1];
+          const to = points[i];
+          // 斬撃の軌跡（短く光って消える）
+          const g = ctx.scene.add.graphics().setDepth(26);
+          g.lineStyle(5, w.def.color, 0.55);
+          g.lineBetween(from.x, from.y, to.x, to.y);
+          g.lineStyle(2, 0xffffff, 0.95);
+          g.lineBetween(from.x, from.y, to.x, to.y);
+          ctx.scene.tweens.add({ targets: g, alpha: 0, duration: 260, onComplete: () => g.destroy() });
+          if (!e.active) return;
+          const a = Math.atan2(to.y - from.y, to.x - from.x);
+          ctx.damage(e, dmg, Math.cos(a) * 60, Math.sin(a) * 60);
+          ctx.fx.cross(to.x, to.y, 22, 0xffffff);
+          if (e.active && s.slow < 1) e.applySlow(s.slow, s.extra.blindSec ?? 1, ctx.now);
+        });
+      });
+    }
+  },
+};
+
+/** 『制圧射撃』：進む方向の前方を連射で左右に掃射（1回ごとに向きを変える）。進化『全弾制圧』：150°・貫通 */
+const seiatsu: ArtBehavior = {
+  mimicable: true,
+  fire(ctx, s, w) {
+    const n = projCount(ctx, s, w.def);
+    const arc = Phaser.Math.DegToRad(s.extra.arcDeg ?? 90);
+    const dmg = artDmg(ctx, s, w.def);
+    const flip = (w.state.sweep as number | undefined) === 1 ? -1 : 1;
+    w.state.sweep = flip;
+    for (let i = 0; i < n; i++) {
+      ctx.scene.time.delayedCall((i / n) * s.duration * 1000, () => {
+        const c = chest(ctx);
+        const base = facingAngle(ctx);
+        const t = n > 1 ? i / (n - 1) : 0.5;
+        const a = base + (t - 0.5) * arc * flip;
+        ctx.fireBullet({
+          x: c.x + Math.cos(a) * 18, y: c.y + Math.sin(a) * 18, angle: a, speed: s.speed, damage: dmg,
+          range: s.area * ctx.stats.areaMul, pierce: s.pierce, texture: 'art_tracer', scale: 1, knockback: 20,
+        });
+      });
+    }
+  },
+};
+
 function inTriangle(px: number, py: number, a: { x: number; y: number }, b: { x: number; y: number }, c: { x: number; y: number }): boolean {
   const s1 = (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x);
   const s2 = (c.x - b.x) * (py - b.y) - (c.y - b.y) * (px - b.x);
@@ -749,6 +839,8 @@ export const ARTS: Record<string, ArtBehavior> = {
   monogatari,
   sandan,
   engo,
+  shunei,
+  seiatsu,
   tristar,
   nekobako,
   meteocage,

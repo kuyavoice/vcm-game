@@ -4,6 +4,7 @@ import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { SelectGuard } from '../ui/SelectGuard';
 import { loadSave, writeSave } from '../utils/storage';
 import { makeButton } from '../ui/Button';
+import { PORTRAITS, portraitKey } from '../data/portraits';
 
 export interface LevelUpData {
   level: number;
@@ -69,16 +70,39 @@ export class LevelUpScene extends Phaser.Scene {
         fontFamily: FONT_EN, fontSize: '22px', color: c.tag === 'NEW' ? '#060913' : COLOR_HEX.accent, fontStyle: '700',
         backgroundColor: c.tag === 'NEW' ? '#87CEEB' : undefined, padding: { x: 8, y: 2 },
       }).setOrigin(1, 0);
-      const title = this.add.text(-cardW / 2 + 32, -cardH / 2 + 18, c.title, {
+      // 由来キャラの顔（共鳴アーツもサポートも同じ扱い。顔画像が無いものは名前だけ）
+      const faceId = PORTRAITS[c.owner.split('・')[0].trim()];
+      const faceKey = faceId ? portraitKey(faceId) : '';
+      const hasFace = !!faceKey && this.textures.exists(faceKey);
+      const fr = compact ? 34 : 38;
+      const fx = -cardW / 2 + 30 + fr;
+      const tx = hasFace ? fx + fr + 16 : -cardW / 2 + 32;
+      const title = this.add.text(tx, -cardH / 2 + 18, c.title, {
         fontFamily: FONT_JP, fontSize: '30px', color: COLOR_HEX.white, fontStyle: '700',
       }).setOrigin(0, 0);
-      const owner = this.add.text(-cardW / 2 + 32, -cardH / 2 + 62, c.owner, {
+      const owner = this.add.text(tx, -cardH / 2 + 62, hasFace ? `― ${c.owner}` : c.owner, {
         fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim,
       }).setOrigin(0, 0);
-      const desc = this.add.text(-cardW / 2 + 32, -cardH / 2 + (compact ? 92 : 100), c.desc, {
-        fontFamily: FONT_JP, fontSize: compact ? '20px' : '22px', color: COLOR_HEX.white, wordWrap: { width: cardW - 64, useAdvancedWrap: true },
+      const desc = this.add.text(tx, -cardH / 2 + (compact ? 92 : 100), c.desc, {
+        fontFamily: FONT_JP, fontSize: compact ? '20px' : '22px', color: COLOR_HEX.white, wordWrap: { width: cardW / 2 - 24 - tx, useAdvancedWrap: true },
       }).setOrigin(0, 0);
       cont.add([shadow, bg, stripe, tag, title, owner, desc]);
+      if (hasFace) {
+        const face = this.add.image(fx, 0, faceKey).setDisplaySize(fr * 2.2, fr * 2.2);
+        const maskG = this.make.graphics({ x: 0, y: 0 }, false);
+        maskG.fillStyle(0xffffff, 1);
+        maskG.fillCircle(fx, 0, fr);
+        face.setMask(maskG.createGeometryMask());
+        const ring = this.add.graphics();
+        ring.lineStyle(3, c.color, 1);
+        ring.strokeCircle(fx, 0, fr + 1);
+        cont.add([face, ring]);
+        // マスクはカードの外にあるので、カードの位置に合わせ続ける
+        const sync = () => maskG.setPosition(cont.x, cont.y);
+        this.events.on(Phaser.Scenes.Events.UPDATE, sync);
+        sync();
+        this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { this.events.off(Phaser.Scenes.Events.UPDATE, sync); maskG.destroy(); });
+      }
       cont.setAlpha(0).setX(W / 2 + 40);
       this.tweens.add({ targets: cont, alpha: 1, x: W / 2, duration: 220, delay: 60 * i, ease: 'Cubic.out' });
 

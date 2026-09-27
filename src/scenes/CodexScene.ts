@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
 import { WEAPONS, type WeaponDef } from '../data/weapons';
+
+/** 図鑑の1項目（共鳴アーツ・合体アーツ・サポートで共通に使う部分） */
+type CodexDef = Pick<WeaponDef, 'id' | 'name' | 'owner' | 'desc' | 'color'> & { evolution?: WeaponDef['evolution'] };
 import { PASSIVES } from '../data/passives';
 import { FUSIONS } from '../data/fusions';
 import { PORTRAITS, portraitKey } from '../data/portraits';
@@ -8,7 +11,7 @@ import { loadSave } from '../utils/storage';
 import { makeButton } from '../ui/Button';
 
 /**
- * 共鳴アーツ図鑑（v2 §10.5）。一度手に入れたアーツ・進化・合体が登録される。
+ * 共鳴アーツ図鑑（v2 §10.5）。一度手に入れたアーツ・進化・合体・サポートが登録される（サポートは追補パッチ⑥で追加）。
  * 未発見は「???」。ヒントは半分だけ示す。
  */
 export class CodexScene extends Phaser.Scene {
@@ -32,12 +35,13 @@ export class CodexScene extends Phaser.Scene {
     this.add.text(W / 2, top, 'RESONANCE CODEX', { fontFamily: FONT_EN, fontSize: '44px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 5 }).setOrigin(0.5);
     this.add.text(W / 2, top + 42, '共鳴アーツ図鑑 —— 借りた声の記録', { fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim }).setOrigin(0.5);
 
-    // 項目：共鳴アーツ（合体以外）→ 合体アーツ
+    // 項目：共鳴アーツ（合体以外）→ 合体アーツ → サポート
     const arts = Object.values(WEAPONS).filter((w) => w.kind === 'art' && !w.fusion);
     const fusions = FUSIONS.map((f) => ({ f, def: WEAPONS[f.id] }));
-    const rows: { def: WeaponDef; fusionHint?: string; fusionOf?: [string, string]; requiredChara?: string }[] = [
+    const rows: { def: CodexDef; fusionHint?: string; fusionOf?: [string, string]; requiredChara?: string; passiveId?: string }[] = [
       ...arts.map((def) => ({ def })),
       ...fusions.map(({ f, def }) => ({ def, fusionHint: f.hint, fusionOf: [f.a, f.b] as [string, string], requiredChara: f.requiredChara })),
+      ...Object.values(PASSIVES).map((p) => ({ def: { id: `passive:${p.id}`, name: p.name, owner: p.owner, desc: p.desc, color: p.color }, passiveId: p.id })),
     ];
     const perPage = 6;
     const pages = Math.ceil(rows.length / perPage);
@@ -86,7 +90,7 @@ export class CodexScene extends Phaser.Scene {
       }
 
       const title = known ? def.name : '???';
-      const sub = known ? def.owner : r.fusionOf ? '合体アーツ' : '共鳴アーツ';
+      const sub = known ? `${r.passiveId ? 'サポート　' : ''}${def.owner}` : r.fusionOf ? '合体アーツ' : r.passiveId ? 'サポート' : '共鳴アーツ';
       this.add.text(tx, y + 10, title, { fontFamily: FONT_JP, fontSize: '24px', color: known ? COLOR_HEX.white : '#5A6488', fontStyle: '700' });
       this.add.text(tx, y + 40, sub, { fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.dim });
       const descW = rowW - (tx - left) - 16;
@@ -106,6 +110,10 @@ export class CodexScene extends Phaser.Scene {
         const kb = found.has(b) ? WEAPONS[b].name : '???';
         line = known ? `合体：『${ka}』×『${kb}』${r.requiredChara ? '　※空夜でのみ' : ''}` : `素材：『${ka}』×『${kb}』…両方Lv8で宝箱を${r.requiredChara ? '（空夜でのみ）' : ''}`;
         if (known) lineColor = COLOR_HEX.gold;
+      } else if (r.passiveId) {
+        // このサポートを相方にして進化するアーツ（見つけたものだけ名前を出す）
+        const partners = arts.filter((a) => a.evolution?.passiveId === r.passiveId);
+        if (known && partners.length) line = `進化の相方：${partners.map((a) => (found.has(a.id) ? `『${a.name}』` : '『???』')).join('')}`;
       } else if (def.id === 'monogatari' || def.id === 'sandan') {
         line = known ? '進化：なし' : '';
       }

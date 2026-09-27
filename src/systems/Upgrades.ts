@@ -64,6 +64,8 @@ export class UpgradeState {
   banned = new Set<string>();
   /** 合体の素材になったアーツ（そのプレイ中はレベルアップの候補に戻さない） */
   fusedSources = new Set<string>();
+  /** いま開けている宝箱で、進化の相方として使ったパッシブ（大当たりで複数引くときの重複防止） */
+  private chestEvoPassives = new Set<string>();
 
   get weapons(): Weapon[] {
     return [this.main, ...this.arts];
@@ -147,6 +149,7 @@ export class UpgradeState {
       }
     } else if (c.kind === 'passive') {
       this.passives.set(c.id, (this.passives.get(c.id) ?? 0) + 1);
+      recordCodex(`passive:${c.id}`);
     } else if (c.kind === 'heal') {
       return { maxHpDelta: 0, heal: 0.3 };
     }
@@ -176,6 +179,7 @@ export class UpgradeState {
    * 幸運に応じて稀に大当たり（報酬3つ）。何も無ければエール。
    */
   openChest(luckMul = 1): ChestResult {
+    this.chestEvoPassives.clear();
     const jackpot = Math.random() < CHEST.jackpotChance * luckMul;
     const n = jackpot ? CHEST.jackpotRewards : 1;
     const rewards: ChestReward[] = [];
@@ -210,9 +214,11 @@ export class UpgradeState {
       };
     }
     // ② 進化
-    const evolvable = this.arts.filter((w) => w.canEvolve(this.passives));
+    // 同じパッシブを相方にする進化が複数成立していても、1回の宝箱ではどれか1つだけ（残りは次の宝箱で）
+    const evolvable = this.arts.filter((w) => w.canEvolve(this.passives) && !this.chestEvoPassives.has(w.def.evolution!.passiveId));
     if (evolvable.length > 0) {
       const w = evolvable[Math.floor(Math.random() * evolvable.length)];
+      this.chestEvoPassives.add(w.def.evolution!.passiveId);
       const fromName = w.name;
       w.evolve();
       recordCodex(`${w.def.id}:evo`);

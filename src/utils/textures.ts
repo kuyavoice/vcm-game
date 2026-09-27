@@ -278,6 +278,28 @@ export function generateTextures(scene: Phaser.Scene) {
   g.strokePath();
   g.generateTexture('art_wave', 18, 32);
 
+  // 影（瞬影）：猫耳フードの小さな人影。半透明で使う
+  g.clear();
+  g.fillStyle(0x14141f, 1);
+  g.fillTriangle(5, 6, 8, 0, 11, 6);
+  g.fillTriangle(13, 6, 16, 0, 19, 6);
+  g.fillCircle(12, 9, 6);
+  g.fillTriangle(12, 12, 3, 30, 21, 30);
+  g.fillStyle(0xffffff, 0.95);
+  g.fillRect(20, 16, 2, 9);
+  g.fillStyle(0xd2b48c, 1);
+  g.fillRect(9, 8, 2, 2);
+  g.fillRect(13, 8, 2, 2);
+  g.generateTexture('art_shadow', 24, 30);
+
+  // 曳光弾（制圧射撃）：細い線、右向き
+  g.clear();
+  g.fillStyle(0xd8ff8a, 0.5);
+  g.fillRect(0, 0, 22, 4);
+  g.fillStyle(0xffffff, 1);
+  g.fillRect(8, 1, 14, 2);
+  g.generateTexture('art_tracer', 22, 4);
+
   // 焔の猟犬（炎の玉）
   g.clear();
   g.fillStyle(0xff4500, 0.4);

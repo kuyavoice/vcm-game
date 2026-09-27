@@ -1,4 +1,4 @@
-// 武器（初期武器『宵星』＋共鳴アーツ13種）の定義。挙動は systems/arts.ts、ここは数値とテキストのみ。
+// 武器（初期武器5種＋共鳴アーツ17種＋合体アーツ5種）の定義。挙動は systems/arts.ts、ここは数値とテキストのみ。
 // ゲーム内テキストは技の説明と軽い雰囲気づけに留める（本編の出来事には触れない）。
 
 /** 全武器共通のパラメータ。各アーツは必要な項目だけ使う（意味は各アーツのコメント参照） */
@@ -35,7 +35,7 @@ export interface WeaponLevelDef {
 export interface EvolutionDef {
   /** 進化後の名前 */
   name: string;
-  /** 必要なパッシブ（所持していればLvは問わない） */
+  /** 必要なパッシブ（所持していればLvは問わない）。1つのパッシブを複数の進化で共有してよい（追補パッチ⑥） */
   passiveId: string;
   desc: string;
   apply: (s: ArtStats) => void;
@@ -48,7 +48,7 @@ export interface WeaponDef {
   owner: string;
   desc: string;
   color: number;
-  /** main = 初期武器（枠を使わない）／art = 共鳴アーツ（4枠） */
+  /** main = 初期武器（枠を使わない）／art = 共鳴アーツ（枠数は CONFIG.weaponSlots） */
   kind: 'main' | 'art';
   /** 種別タグ：melee（近接）／projectile（投射）／zone（設置）／orbit（常駐）／support（補助） */
   tags: WeaponTag[];
@@ -368,6 +368,53 @@ const ENGO: WeaponDef = {
   },
 };
 
+/**
+ * 『瞬影』（ミヤコ）：影がプレイヤーの位置に現れ、近くの敵を次々と斬り抜けて消える。
+ * count=斬り抜ける数, area=最初の敵を探す範囲, duration=一連の動きの秒数, extra.hop=次の敵へ飛べる距離, extra.shadows=影の数,
+ * slow / extra.blindSec=斬られた敵が見失う（鈍る）倍率と秒数（進化）
+ */
+const SHUNEI: WeaponDef = {
+  id: 'shunei', name: '瞬影', owner: '孤ヶ爪 ミヤコ', kind: 'art', tags: ['melee'],
+  desc: '影がそばに現れ、近くの敵を次々と斬り抜けて消える。',
+  color: 0xd2b48c, maxLevel: 8,
+  base: stats({ damage: 18, intervalSec: 2.0, count: 3, area: 300, duration: 0.4, extra: { hop: 260, shadows: 1, blindSec: 0 } }),
+  levels: [
+    dmg(25), more(1, '斬り抜ける数'), faster(12), more(1, '斬り抜ける数'), dmg(25), more(1, '斬り抜ける数'),
+    { desc: '斬り抜ける数 +1・発動間隔 −12%', apply: (s) => { s.count += 1; s.intervalSec *= 0.88; } },
+  ],
+  // 進化の名前は仮（データを差し替えるだけで変えられる）
+  evolution: {
+    name: '瞬影・双', passiveId: 'scout',
+    desc: '影が二つに増え、それぞれが敵を斬り抜ける。斬られた敵は、しばらくこちらを見失う。',
+    apply: (s) => { s.evolved = true; s.count = 6; s.extra.shadows = 2; s.slow = 0.4; s.extra.blindSec = 1; },
+  },
+};
+
+/**
+ * 『制圧射撃』（瀬田）：進む方向の前方を、連射で左右に掃射する。
+ * count=弾数, duration=掃射の秒数, area=射程, extra.arcDeg=掃射の角度
+ * 射撃系の区別：『宵星（援護射撃）』＝強敵を狙撃／『換装・散弾』＝前後の近距離散弾／『制圧射撃』＝前方を弾幕で面制圧
+ */
+const SEIATSU: WeaponDef = {
+  id: 'seiatsu', name: '制圧射撃', owner: '瀬田 奏真', kind: 'art', tags: ['projectile'],
+  desc: '進む方向の前方を、連射で左右に薙ぎ払う。',
+  color: 0x9acd32, maxLevel: 8,
+  base: stats({ damage: 5, intervalSec: 2.5, count: 20, area: 350, speed: 900, duration: 1.0, pierce: 0, extra: { arcDeg: 90 } }),
+  levels: [
+    more(4, '弾数'), dmg(25),
+    { desc: '掃射時間 +20%・弾数 +4', apply: (s) => { s.duration *= 1.2; s.count += 4; } },
+    dmg(25), more(4, '弾数'),
+    { desc: '掃射時間 +20%・弾数 +4', apply: (s) => { s.duration *= 1.2; s.count += 4; } },
+    dmg(30),
+  ],
+  // 進化の名前は仮
+  evolution: {
+    name: '全弾制圧', passiveId: 'route',
+    desc: '掃射が前方いっぱいに広がり、弾がすべてを貫く。',
+    apply: (s) => { s.evolved = true; s.extra.arcDeg = 150; s.pierce = Infinity; s.duration = Math.max(s.duration, 1.5); },
+  },
+};
+
 // ───────────────────────── 合体アーツ（v2 §5.5） ─────────────────────────
 
 // 数値は「素材2つ（Lv8）の合計を少し上回る」水準（2026-09-27 引き上げ）。合体して弱くならないこと。
@@ -441,6 +488,8 @@ export const WEAPONS: Record<string, WeaponDef> = {
   monogatari: MONOGATARI,
   sandan: SANDAN,
   engo: ENGO,
+  shunei: SHUNEI,
+  seiatsu: SEIATSU,
   tristar: TRISTAR,
   nekobako: NEKOBAKO,
   meteocage: METEOCAGE,
