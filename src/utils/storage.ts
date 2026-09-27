@@ -34,6 +34,8 @@ export interface SaveData {
   secretNew: Record<string, 'pending' | 'shown'>;
   /** ギャラリーで解放した絵のID */
   gallery: string[];
+  /** ミュージックで解放した曲のID */
+  music: string[];
 }
 
 const DEFAULT: SaveData = {
@@ -51,6 +53,7 @@ const DEFAULT: SaveData = {
   scoreRanking: [],
   secretNew: {},
   gallery: [],
+  music: [],
 };
 
 export function loadSave(): SaveData {
@@ -73,6 +76,7 @@ export function loadSave(): SaveData {
       scoreRanking: [...(parsed.scoreRanking ?? [])],
       secretNew: { ...(parsed.secretNew ?? {}) },
       gallery: [...(parsed.gallery ?? [])],
+      music: [...(parsed.music ?? [])],
     };
     // 旧形式の移行：best → bests[1]
     if (data.best && !data.bests['1']) {

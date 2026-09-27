@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { visibleGallery } from './GalleryScene';
+import { visibleMusic } from './MusicScene';
 import { getSafeInsets } from '../utils/safeArea';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave } from '../utils/storage';
@@ -69,14 +70,21 @@ export class TitleScene extends Phaser.Scene {
       fontFamily: FONT_EN, fontSize: '13px', color: COLOR_HEX.dim, letterSpacing: 1,
     }).setOrigin(0.5).setAlpha(0.8);
 
-    // オプション（音量）。左上
-    makeButton(this, 24 + 80, Math.max(H * 0.06, 50), 'OPTION', () => this.scene.launch('Option', { from: 'Title' }), { width: 160, height: 52, fontSize: 22 });
-    // 図鑑（ボタンは pointerdown を止めるので TAP TO START と干渉しない）
-    makeButton(this, W - 24 - 90, Math.max(H * 0.06, 50), '図鑑', () => this.scene.start('Codex'), { width: 160, height: 52, fontSize: 22 });
-    // ギャラリー（絵が1枚も置かれていなければ、入口ごと出さない）
-    if (visibleGallery(loadSave()).length > 0) {
-      makeButton(this, W - 24 - 90 - 176, Math.max(H * 0.06, 50), 'GALLERY', () => this.scene.start('Gallery'), { width: 160, height: 52, fontSize: 22 });
-    }
+    // 上部のメニュー（横一列・中央寄せ）。ボタンは pointerdown を止めるので TAP TO START と干渉しない。
+    // ギャラリーとミュージックは、中身が1つも無ければ入口ごと出さない
+    const sv0 = loadSave();
+    const menu: { label: string; run: () => void }[] = [
+      { label: 'OPTION', run: () => this.scene.launch('Option', { from: 'Title' }) },
+    ];
+    if (visibleMusic(sv0).length > 0) menu.push({ label: 'MUSIC', run: () => this.scene.start('Music') });
+    if (visibleGallery(sv0).length > 0) menu.push({ label: 'GALLERY', run: () => this.scene.start('Gallery') });
+    menu.push({ label: '図鑑', run: () => this.scene.start('Codex') });
+    const mGap = 10;
+    const mW = Math.min(160, Math.floor((W - 32 - mGap * (menu.length - 1)) / menu.length));
+    const mLeft = (W - (mW * menu.length + mGap * (menu.length - 1))) / 2;
+    menu.forEach((m, i) => {
+      makeButton(this, mLeft + mW / 2 + i * (mW + mGap), Math.max(H * 0.06, 50), m.label, m.run, { width: mW, height: 52, fontSize: 21 });
+    });
 
     let started = false;
     const start = () => {

@@ -119,8 +119,19 @@ class AudioBusImpl {
   private startBgm(key: string): void {
     if (!this.game) return;
     this.stopBgm();
+    this.wantedBgm = key; // stopBgm が消すので入れ直す
     this.bgm = this.game.sound.add(key, { loop: true, volume: this.volumes.bgm });
     this.bgm.play();
+  }
+
+  /** 音声ファイルが置かれているか（起動時の存在確認の結果） */
+  isAvailable(key: string): boolean {
+    return this.available.has(key);
+  }
+
+  /** いま流している（流そうとしている）曲のキー。無ければ空文字 */
+  currentKey(): string {
+    return this.bgm ? this.bgm.key : this.wantedBgm;
   }
 
   stopBgm(): void {
