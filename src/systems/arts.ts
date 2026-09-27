@@ -196,12 +196,20 @@ const hoshikuzu: ArtBehavior = {
       for (let i = 0; i < n; i++) {
         const t = targets[i];
         const angle = t ? Math.atan2(t.y - c.y, t.x - c.x) : Math.random() * Math.PI * 2;
+        // 進化後は星を大きく・濃い金色にする（淡い色のままだと、まっすぐ飛び去って見失いやすい）
         ctx.fireBullet({
           x: c.x, y: c.y, angle, speed: s.speed * 1.2, damage: dmg, life, pierce: s.pierce, homing: true,
-          texture: 'art_star', spin: 8, rotateToVel: false, knockback: 40, tint: 0xfff3a0,
+          texture: 'art_star', scale: 1.5, spin: 8, rotateToVel: false, knockback: 40, tint: 0xffd54a,
         });
       }
-      ctx.fx.ring(c.x, c.y, 90, 0xc0c0ff, 3);
+      // 狙いの光：撃った瞬間、それぞれの敵へ細い光の筋が走る（どこを狙ったかが分かるように）
+      if (targets.length > 0) {
+        const rays = ctx.scene.add.graphics().setDepth(24);
+        rays.lineStyle(2, 0xffe89a, 0.5);
+        for (const t of targets) rays.lineBetween(c.x, c.y, t.x, t.y - 10);
+        ctx.scene.tweens.add({ targets: rays, alpha: 0, duration: 200, onComplete: () => rays.destroy() });
+      }
+      ctx.fx.ring(c.x, c.y, 90, 0xffd54a, 3);
       return;
     }
     const n = projCount(ctx, s, w.def);
