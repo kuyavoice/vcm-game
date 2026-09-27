@@ -290,13 +290,34 @@ const aqua: ArtBehavior = {
   mimicable: true,
   update(dt, ctx, s, w) {
     if (w.def.id !== 'aqua') return;
-    if (s.evolved && ctx.now < ctx.player.shieldUntil) ctx.player.heal(s.extra.heal * dt);
+    const p = ctx.player;
+    const active = ctx.now < p.shieldUntil;
+    if (s.evolved && active) p.heal(s.extra.heal * dt);
+    // 盾が消えた（時間切れ・割れた）瞬間：周囲へ水のしぶき（Lv6〜）
+    if (w.state.wasActive && !active) {
+      const broken = p.shieldBrokenAt >= 0 && ctx.now - p.shieldBrokenAt < 200;
+      if (broken) ctx.fx.text(p.x, p.y - 110, 'BREAK', '#87CEFA');
+      if ((s.extra.burstDamage ?? 0) > 0) {
+        const c = chest(ctx);
+        const r = (s.extra.burstRadius ?? 140) * ctx.stats.areaMul;
+        const dmg = artDmg(ctx, { ...s, damage: s.extra.burstDamage }, w.def);
+        tmp.length = 0;
+        ctx.enemiesInCircle(c.x, c.y, r, tmp);
+        for (const e of tmp) {
+          const a = Math.atan2(e.y - c.y, e.x - c.x);
+          ctx.damage(e, dmg, Math.cos(a) * s.knockback, Math.sin(a) * s.knockback);
+        }
+        ctx.fx.ring(c.x, c.y, r, w.def.color, 6);
+      }
+    }
+    w.state.wasActive = active;
   },
   fire(ctx, s, w) {
     // 常時無敵の防止：持続は「実効発動間隔 × maxUptime」を上限にする
     const effInterval = s.intervalSec * ctx.stats.intervalMul * ctx.artIntervalMul;
     const duration = Math.min(dur(ctx, s), effInterval * (s.extra.maxUptime ?? 0.6));
     ctx.player.shieldUntil = Math.max(ctx.player.shieldUntil, ctx.now + duration * 1000);
+    ctx.player.shieldHeavyLeft = s.extra.heavyHits ?? 1;
     ctx.fx.ring(ctx.player.x, ctx.player.y - 40, 70, w.def.color, 4);
   },
 };

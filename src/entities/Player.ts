@@ -17,6 +17,10 @@ export class Player extends Phaser.GameObjects.Sprite {
   shadow: Phaser.GameObjects.Image;
   /** 『アクアシールド』：この時刻まで被弾を防ぐ */
   shieldUntil = 0;
+  /** 盾が重い攻撃をあと何回耐えるか（0 になると割れる） */
+  shieldHeavyLeft = 0;
+  /** 盾が割れた時刻（演出・判定用） */
+  shieldBrokenAt = -1;
   /** 『夢見る猫箱』：あと何回の被弾を防ぐか */
   hitShield = 0;
   private shieldFx: Phaser.GameObjects.Image;
@@ -90,7 +94,8 @@ export class Player extends Phaser.GameObjects.Sprite {
   }
 
   /** 被弾。返り値: 実際に受けたら true */
-  takeDamage(amount: number, now: number): boolean {
+  /** raw：軽減前のダメージ（盾が割れるかの判定に使う） */
+  takeDamage(amount: number, now: number, raw = amount): boolean {
     if (now < this.invulnUntil) return false;
     if (this.hitShield > 0) {
       this.hitShield--;
@@ -100,6 +105,18 @@ export class Player extends Phaser.GameObjects.Sprite {
       return false;
     }
     if (now < this.shieldUntil) {
+      // 重い攻撃を防ぐと盾が割れる（この一撃は防ぐ。直後の追い打ちを避けるため通常の被弾と同じ無敵を付ける）
+      if (raw >= CONFIG.shieldHeavyDamage) {
+        this.shieldHeavyLeft--;
+        if (this.shieldHeavyLeft <= 0) {
+          this.shieldUntil = now;
+          this.shieldBrokenAt = now;
+          this.invulnUntil = now + CONFIG.invulnSeconds * 1000;
+          this.shieldFx.setAlpha(1).setScale(CONFIG.spriteScale * 2.4);
+          this.scene.tweens.add({ targets: this.shieldFx, scale: CONFIG.spriteScale * 1.6, alpha: 0, duration: 260 });
+          return false;
+        }
+      }
       // 盾が受け止める（短い無敵で連続ヒットのちらつきを防ぐ）
       this.invulnUntil = now + 120;
       this.shieldFx.setAlpha(1).setScale(CONFIG.spriteScale * 1.9);

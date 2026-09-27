@@ -294,6 +294,17 @@ export class GameScene extends Phaser.Scene {
         },
       },
       {
+        label: '連撃',
+        run: () => {
+          used();
+          for (const b of this.bosses) {
+            if (!b.active || b.def.id !== 'blackknight') continue;
+            b.bk.forceCombo = true;
+            b.bossState.chargeTimer = 0;
+          }
+        },
+      },
+      {
         label: 'ボスHP50%',
         run: () => {
           used();
@@ -734,7 +745,7 @@ export class GameScene extends Phaser.Scene {
       bs.dashing -= dt;
       if (bs.dashing <= 0) {
         bs.chargeTimer = b.phase === 1 ? 7 : 6;
-        if (b.phase === 2) this.startKnightFollow(e, now);
+        if (b.phase === 2 || b.forceCombo) this.startKnightFollow(e, now);
       }
       return { mx: bs.dirX, my: bs.dirY, spd: B.chargeSpeed * 1.1 };
     }
@@ -866,6 +877,18 @@ export class GameScene extends Phaser.Scene {
   private startKnightFollow(e: Enemy, now: number): void {
     const b = e.bk;
     const K = CONFIG.blackKnight;
+    // 連撃（低確率）：すぐ斬撃 → 連射かばらまき
+    if (b.forceCombo || Math.random() < K.comboChance) {
+      b.forceCombo = false;
+      b.lastFollow = 'combo';
+      b.follow = 'comboSlash';
+      b.followT = K.comboSlashWindupSec;
+      b.comboAngle = Math.atan2(this.player.y - 12 - (e.y - 40), this.player.x - e.x);
+      this.fxText(e.x, e.y - 170, '連撃', '#FF4D6D');
+      e.play('anim_e_blackknight_windup', true);
+      b.animLock = now + 450;
+      return;
+    }
     const options = ['scatter', 'cleave', 'barrage'].filter((x) => x !== b.lastFollow);
     const pick = options[Math.floor(Math.random() * options.length)];
     b.lastFollow = pick;
@@ -899,6 +922,35 @@ export class GameScene extends Phaser.Scene {
       e.bossState.chargeTimer = K.followChargeDelaySec;
     };
     b.followT -= dt;
+
+    // 連撃の一段目：突進の勢いのまま前方を斬る（予兆は短い）→ 連射かばらまきへ
+    if (b.follow === 'comboSlash') {
+      const half = Phaser.Math.DegToRad(K.comboSlashArcDeg / 2);
+      if (b.followT > 0) {
+        const k = 1 - b.followT / K.comboSlashWindupSec;
+        g.fillStyle(0xff2244, 0.18 + k * 0.25);
+        g.slice(cx, cy, K.comboSlashRadius, b.comboAngle - half, b.comboAngle + half, false);
+        g.fillPath();
+        return still;
+      }
+      const rx = p.x - cx;
+      const ry = p.y - 12 - cy;
+      if (Math.hypot(rx, ry) < K.comboSlashRadius + p.def.hitRadius && Math.abs(Phaser.Math.Angle.Wrap(Math.atan2(ry, rx) - b.comboAngle)) <= half) this.hurt(K.comboSlashDamage, now);
+      e.play('anim_e_blackknight_slash', true);
+      b.animLock = now + 300;
+      this.fxSlash(cx, cy, K.comboSlashRadius, 0x9d4dff, b.comboAngle, K.comboSlashArcDeg);
+      this.cameras.main.shake(100, 0.004);
+      AudioBus.play('se_slash', 60);
+      if (Math.random() < 0.5) {
+        b.follow = 'barrage';
+        b.followT = K.barrageWindupSec + K.barrageBursts * K.barrageTickSec;
+      } else {
+        b.follow = 'scatter';
+        b.followT = K.scatterWindupSec + K.scatterSec;
+      }
+      b.followTick = 0;
+      return still;
+    }
 
     if (b.follow === 'scatter') {
       if (b.followT > K.scatterSec) {
@@ -1601,7 +1653,7 @@ export class GameScene extends Phaser.Scene {
     }
     let mul = this.up.stats.damageTakenMul;
     if (now < this.soulUntil && def.special.id === 'aqua_lament') mul *= 0.3;
-    if (p.takeDamage(amount * mul, now)) {
+    if (p.takeDamage(amount * mul, now, amount)) {
       this.onPlayerHit();
       if (this.stage.scoreMode) { this.combo = 0; this.comboMul = 1; this.scoreNoDamageBreak(); }
     }

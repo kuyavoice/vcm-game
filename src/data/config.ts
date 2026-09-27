@@ -54,6 +54,9 @@ export const CONFIG = {
   // 強化できるものが無いときのレベルアップ：選択画面を出さずにこの割合だけ回復
   levelUpFallbackHeal: 0.3,
 
+  // 『アクアシールド』：この値以上の攻撃（軽減前の値）を防ぐと盾が割れる。雑魚の接触・弾では割れない
+  shieldHeavyDamage: 20,
+
   // 必殺『魂の共鳴』
   soul: {
     /** ゲージ満タンに必要な撃破数 */
@@ -139,6 +142,12 @@ export const CONFIG = {
     rushIntervalSec: 0.9,
     rushCavalry: 4,
     rushChargeDelaySec: 1.1,
+    /** 連撃（後半・低確率）：突進 → すぐ斬撃（短い予兆）→ 連射かばらまきのどちらか */
+    comboChance: 0.2,
+    comboSlashWindupSec: 0.45,
+    comboSlashRadius: 200,
+    comboSlashArcDeg: 150,
+    comboSlashDamage: 25,
     /** 追撃が終わってから次の突進まで */
     followChargeDelaySec: 4.5,
     /** 後半の接近速度倍率 */

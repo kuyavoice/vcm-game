@@ -207,17 +207,25 @@ const SHURABA: WeaponDef = {
 /**
  * 『アクアシールド』：一定時間ダメージを防ぐ水の盾。duration=持続, extra.heal=進化時の回復。
  * extra.maxUptime = 実効発動間隔に対する持続の上限比率（パッシブ・必殺で間隔を縮めても常時無敵にならないようにする）
+ * extra.heavyHits = 重い攻撃（CONFIG.shieldHeavyDamage 以上）を何回まで耐えるか。使い切ると盾が割れる
+ * extra.burstDamage / burstRadius = 盾が消える（割れる）ときに周囲へ与えるダメージ（Lv6〜）
  */
 const AQUA: WeaponDef = {
   id: 'aqua', name: 'アクアシールド', owner: '月怜 瑞穂', kind: 'art', tags: ['support'],
   desc: '水の盾をまとい、しばらくのあいだダメージを防ぐ。',
   color: 0x87cefa, maxLevel: 8,
-  base: stats({ damage: 0, intervalSec: 9, duration: 2.5, area: 60, extra: { heal: 0, maxUptime: 0.6 } }),
-  levels: [longer(25), faster(12), longer(25), faster(12), longer(25), faster(12), { desc: '持続 +40%', apply: (s) => { s.duration *= 1.4; } }],
+  base: stats({ damage: 0, intervalSec: 9, duration: 2.5, area: 60, knockback: 220, extra: { heal: 0, maxUptime: 0.6, heavyHits: 1, burstDamage: 0, burstRadius: 140 } }),
+  levels: [
+    longer(25), faster(12), longer(25), faster(12),
+    // Lv6〜8：稼働率は上限（60%）に届くので、持続ではなく別の効果を足す
+    { desc: '盾が消えるとき、周囲の敵にダメージ', apply: (s) => { s.extra.burstDamage = 40; } },
+    faster(12),
+    { desc: '重い攻撃を2回まで耐える', apply: (s) => { s.extra.heavyHits = 2; } },
+  ],
   evolution: {
     name: 'アクア・メディック', passiveId: 'tuning',
     desc: '盾をまとう間、傷をゆっくりと癒す。',
-    apply: (s) => { s.evolved = true; s.duration *= 1.3; s.extra.heal = 6; },
+    apply: (s) => { s.evolved = true; s.extra.heal = 6; },
   },
 };
 
