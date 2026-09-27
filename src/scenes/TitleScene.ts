@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { getSafeInsets } from '../utils/safeArea';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave } from '../utils/storage';
 import { AudioBus } from '../utils/audio';
@@ -55,9 +56,17 @@ export class TitleScene extends Phaser.Scene {
       }).setOrigin(0.5);
     }
 
-    this.add.text(W / 2, H - 40, 'ファンゲーム（IF・お祭り枠）　M1 build', {
+    // フッター：位置づけ／AI利用の表記（ポータルと同じ文言）／コピーライト。ホームバーなどのセーフエリア分だけ上げる
+    const fb = getSafeInsets(this.scale).bottom;
+    this.add.text(W / 2, H - 92 - fb, 'ファンゲーム（IF・お祭り枠）', {
       fontFamily: FONT_JP, fontSize: '16px', color: COLOR_HEX.dim,
     }).setOrigin(0.5);
+    this.add.text(W / 2, H - 64 - fb, '画像・楽曲等の一部制作にAI技術を活用しています。', {
+      fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.dim,
+    }).setOrigin(0.5).setAlpha(0.8);
+    this.add.text(W / 2, H - 38 - fb, '© 2025-2026 言峰空也 / VOICE CONNECT MEMORIAL PROJECT', {
+      fontFamily: FONT_EN, fontSize: '13px', color: COLOR_HEX.dim, letterSpacing: 1,
+    }).setOrigin(0.5).setAlpha(0.8);
 
     // 図鑑（ボタンは pointerdown を止めるので TAP TO START と干渉しない）
     makeButton(this, W - 24 - 90, Math.max(H * 0.06, 50), '図鑑', () => this.scene.start('Codex'), { width: 160, height: 52, fontSize: 22 });
