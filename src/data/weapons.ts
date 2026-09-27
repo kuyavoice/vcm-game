@@ -107,12 +107,12 @@ export const REISUISEN: WeaponDef = {
   ],
 };
 
-/** 大剣（雪人）：最後に移動した方向へ180°・半径110pxの薙ぎ払い。強ノックバック */
+/** 大剣（雪人）：最後に移動した方向へ180°・半径140pxの薙ぎ払い。強ノックバック（空夜の斬撃は半径90・120°） */
 export const GREATSWORD: WeaponDef = {
   id: 'greatsword', name: '大剣', owner: '狐森 雪人', kind: 'main', tags: ['melee'],
   desc: '進む方向へ大剣を薙ぎ払う。半円の範囲を強く弾き飛ばす。',
   color: 0xe8f4ff, maxLevel: 8,
-  base: stats({ damage: 30, intervalSec: 1.3, area: 110, knockback: 320, extra: { arcDeg: 180, waveDamage: 25, waveRange: 400 } }),
+  base: stats({ damage: 30, intervalSec: 1.3, area: 140, knockback: 320, extra: { arcDeg: 180, waveDamage: 25, waveRange: 400 } }),
   levels: [
     dmg(25), wider(15), faster(10), dmg(25), wider(15), faster(10),
     { desc: '『アクセル・レイド』：薙ぎ払いの後、前方へ衝撃波が走る', apply: (s) => { s.evolved = true; s.damage *= 1.15; } },
