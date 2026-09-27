@@ -919,6 +919,11 @@ export class GameScene extends Phaser.Scene {
     } else {
       b.follow = 'cleaveR';
       b.followT = K.cleaveWindupSec;
+      // 軸は突進直後のプレイヤー位置で固定（黒騎士 → プレイヤーの少し先）
+      const ax = this.player.x - e.x;
+      const ay = this.player.y - 12 - (e.y - 40);
+      b.cleaveAngle = Math.atan2(ay, ax);
+      b.cleaveLen = Phaser.Math.Clamp(Math.hypot(ax, ay) + K.cleaveBeyond, K.cleaveMinLen, K.cleaveMaxLen);
     }
     e.play('anim_e_blackknight_windup', true);
     b.animLock = now + 500;
@@ -1013,26 +1018,49 @@ export class GameScene extends Phaser.Scene {
       return still;
     }
 
-    // 二連斬（画面の左右基準）
+    // 二連斬：黒騎士を頂点にした三角形を、中心軸で右半分 → 左半分の順に斬る（左右は黒騎士から見た向き）
     const right = b.follow === 'cleaveR';
+    const dx = Math.cos(b.cleaveAngle);
+    const dy = Math.sin(b.cleaveAngle);
+    // 進行方向に対して右手側の向き（画面は下が +y）
+    const px = -dy;
+    const py = dx;
+    const L = b.cleaveLen;
+    const side = right ? 1 : -1;
+    const mx = cx + dx * L;
+    const my = cy + dy * L;
+    const bx = mx + px * K.cleaveHalfWidth * side;
+    const by = my + py * K.cleaveHalfWidth * side;
     if (b.followT > 0) {
       const k = 1 - b.followT / (right ? K.cleaveWindupSec : K.cleaveSecondWindupSec);
-      g.fillStyle(0xff2244, 0.14 + k * 0.22);
-      g.slice(cx, cy, K.cleaveRadius, right ? -Math.PI / 2 : Math.PI / 2, right ? Math.PI / 2 : Math.PI * 1.5, false);
-      g.fillPath();
-      g.lineStyle(3, 0xff2244, 0.8);
-      g.lineBetween(cx, cy - K.cleaveRadius, cx, cy + K.cleaveRadius);
+      // 全体の輪郭（うっすら）＋これから斬る半分（赤）＋中心軸
+      g.lineStyle(2, 0xff2244, 0.35);
+      g.strokeTriangle(cx, cy, mx + px * K.cleaveHalfWidth, my + py * K.cleaveHalfWidth, mx - px * K.cleaveHalfWidth, my - py * K.cleaveHalfWidth);
+      g.fillStyle(0xff2244, 0.16 + k * 0.26);
+      g.fillTriangle(cx, cy, mx, my, bx, by);
+      g.lineStyle(3, 0xffffff, 0.75);
+      g.lineBetween(cx, cy, mx, my);
       this.knightSlashSe(e, b.followT, right);
       return still;
     }
     this.knightSlashSe(e, 0, right);
     b.slashSePlayed = false;
+    // 当たり判定：軸に沿った距離（along）と、軸からの横ずれ（perp。右手側が＋）
     const rx = p.x - cx;
     const ry = p.y - 12 - cy;
-    if (Math.hypot(rx, ry) < K.cleaveRadius && (right ? rx > 0 : rx < 0)) this.hurt(K.cleaveDamage, now);
+    const along = rx * dx + ry * dy;
+    const perp = (rx * px + ry * py) * side;
+    const width = K.cleaveHalfWidth * Phaser.Math.Clamp(along / L, 0, 1);
+    if (along > 0 && along < L && perp > -K.cleaveAxisMargin && perp < width + p.def.hitRadius) this.hurt(K.cleaveDamage, now);
     e.play('anim_e_blackknight_slash', true);
     b.animLock = now + 400;
-    this.fxSlash(cx, cy, K.cleaveRadius, 0x9d4dff, right ? 0 : Math.PI, 180, false);
+    // 斬った半分を紫の閃光で見せる
+    const flash = this.add.graphics().setDepth(26);
+    flash.fillStyle(0x9d4dff, 0.55);
+    flash.fillTriangle(cx, cy, mx, my, bx, by);
+    flash.lineStyle(4, 0xffffff, 0.9);
+    flash.lineBetween(cx, cy, bx, by);
+    this.fadeOut(flash, 260);
     this.cameras.main.shake(100, 0.004);
     if (right) {
       b.follow = 'cleaveL';

@@ -125,9 +125,19 @@ export const CONFIG = {
     scatterSpeedMax: 250,
     scatterDamage: 8,
     /** 二連斬：右半分（予兆）→ 左半分（予兆）。画面の左右基準 */
-    cleaveRadius: 260,
-    cleaveWindupSec: 1.1,
-    cleaveSecondWindupSec: 0.8,
+    /**
+     * 二連斬：黒騎士を頂点、プレイヤーの少し先（cleaveBeyond）を底辺の中心にした三角形を、中心軸で右半分・左半分に割って順に斬る。
+     * 軸は突進直後のプレイヤー位置で固定。軸の反対側へ少しずれれば避けられる（cleaveAxisMargin）
+     */
+    cleaveBeyond: 120,
+    cleaveMinLen: 300,
+    cleaveMaxLen: 560,
+    /** 底辺の半分の幅（三角形の広がり） */
+    cleaveHalfWidth: 210,
+    /** 軸からこの距離だけ反対側へ出れば当たらない */
+    cleaveAxisMargin: 10,
+    cleaveWindupSec: 0.9,
+    cleaveSecondWindupSec: 0.7,
     cleaveDamage: 25,
     /** 連射（従来のマシンガン）：予告線 → 狙いを追いながら扇状3連を連射 */
     barrageWindupSec: 0.4,
