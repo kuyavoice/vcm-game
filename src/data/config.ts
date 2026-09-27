@@ -114,6 +114,16 @@ export const CONFIG = {
     spiralBulletSpeed: 170,
   },
 
+  // 赤騎士（EXステージ「悪夢」）：黒騎士との違い。予兆の長さは変えない（見て避けられることは保つ）
+  redKnight: {
+    /** 行動の間隔を短くし、突進を速くする倍率（移動の速さは enemies.ts の speed） */
+    tempoMul: 1.3,
+    /** 突進の直後が「連撃」になる確率（黒騎士は comboChance） */
+    comboChance: 0.35,
+    /** 二連斬が三連になる（右 → 左 → 右） */
+    cleaveSwings: 3,
+  },
+
   // 黒騎士・後半：突進の直後に出す追撃
   blackKnight: {
     /** ばらまき：足元の輪で予兆 → 自身を中心にランダムな向き・速さの弾 */

@@ -17,7 +17,7 @@ export class Spawner {
   /** ボスが生きている間は true（スピーカーを置かない） */
   bossActive = false;
   /** index／total：同じ時間帯に出すボスの何体目か（字幕・効果音は1体目だけ） */
-  onBossSpawn?: (boss: Enemy, hpMul: number, index: number, total: number) => void;
+  onBossSpawn?: (boss: Enemy, hpMul: number, index: number, total: number, enraged: boolean) => void;
   onBandChange?: (band: WaveBand) => void;
   constructor(
     private scene: Phaser.Scene,
@@ -69,8 +69,8 @@ export class Spawner {
       for (let i = 0; i < n; i++) {
         const pos = this.ringPoint();
         const id = band.boss === 'king' && this.stage.bossId && !this.stage.waves ? this.stage.bossId : band.boss;
-        const boss = this.spawnOne(id, pos.x, pos.y, 1);
-        if (boss) { this.bossActive = true; this.onBossSpawn?.(boss, band.bossHpMul ?? 1, i, n); }
+        const boss = this.spawnBoss(id, pos.x, pos.y);
+        if (boss) { this.bossActive = true; this.onBossSpawn?.(boss, band.bossHpMul ?? 1, i, n, !!band.bossEnraged); }
       }
     }
 
@@ -152,6 +152,21 @@ export class Spawner {
     const a = Math.random() * Math.PI * 2;
     const d = Phaser.Math.Between(ITEMS.speaker.minDist, ITEMS.speaker.maxDist);
     this.spawnOne('speaker', this.target.x + Math.cos(a) * d, this.target.y + Math.sin(a) * d, 1);
+  }
+
+  /** ボスは、敵の数が上限に達していても必ず出す（いちばん遠い雑魚を1体消して枠を空ける） */
+  private spawnBoss(id: EnemyId, x: number, y: number): Enemy | null {
+    if (this.enemies.countActive(true) >= CONFIG.maxEnemies) {
+      let far: Enemy | null = null;
+      let farDist = -1;
+      for (const e of this.enemies.getChildren() as Enemy[]) {
+        if (!e.active || e.def.boss || e.def.isObject) continue;
+        const d = (e.x - this.target.x) ** 2 + (e.y - this.target.y) ** 2;
+        if (d > farDist) { farDist = d; far = e; }
+      }
+      far?.despawn();
+    }
+    return this.spawnOne(id, x, y, 1);
   }
 
   spawnOne(id: EnemyId, x: number, y: number, hpMul: number): Enemy | null {

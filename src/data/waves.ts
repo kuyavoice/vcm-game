@@ -29,6 +29,8 @@ export interface WaveBand {
   bossCount?: number;
   /** この帯のボスHP倍率（既定1） */
   bossHpMul?: number;
+  /** ボスが最初から後半の行動（王級は激昂、黒騎士は形態変化後）で出る */
+  bossEnraged?: boolean;
 }
 
 export const WAVES: WaveBand[] = [

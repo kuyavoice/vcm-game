@@ -6,7 +6,7 @@ import { AudioBus } from '../utils/audio';
 import { FONT_EN } from '../utils/fonts';
 import { OPTIONAL_IMAGES, isLazyImage, hasOptionalImage } from '../utils/optionalAssets';
 import { PORTRAITS, PORTRAIT_DIR, portraitKey } from '../data/portraits';
-import { createCharAnims } from '../utils/recolor';
+import { createCharAnims, ensureEnemyRecolor } from '../utils/recolor';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -31,7 +31,7 @@ export class BootScene extends Phaser.Scene {
     }
     // 画像スプライトの敵（黒騎士・騎兵）
     for (const e of Object.values(ENEMIES)) {
-      if (e.sheet) this.load.spritesheet(`e_${e.id}`, e.sheet.file, { frameWidth: e.sheet.frameWidth, frameHeight: e.sheet.frameHeight });
+      if (e.sheet && !e.recolorOf) this.load.spritesheet(`e_${e.id}`, e.sheet.file, { frameWidth: e.sheet.frameWidth, frameHeight: e.sheet.frameHeight });
     }
     // カットイン用の顔画像（ポータルの立ち絵から切り出した 256px webp）
     for (const id of new Set(Object.values(PORTRAITS))) this.load.image(portraitKey(id), `${PORTRAIT_DIR}${id}.webp`);
@@ -50,7 +50,9 @@ export class BootScene extends Phaser.Scene {
     for (const e of Object.values(ENEMIES)) {
       if (e.sheet) {
         const key = `e_${e.id}`;
-        if (e.id === 'blackknight') {
+        // 色違いの敵は、元の絵を染めて作る
+        if (e.recolorOf) ensureEnemyRecolor(this, `e_${e.recolorOf}`, key, e.sheet.frameWidth, e.sheet.frameHeight, { hue: 0.985, minSat: 0.62, val: 1.25 });
+        if (e.knight) {
           // 1〜4移動／5剣閃の振りかぶり／6剣閃／7闇の弾幕／8騎兵召喚／9被弾・形態変化
           this.anims.create({ key: `anim_e_${e.id}`, frames: this.anims.generateFrameNumbers(key, { frames: [0, 1, 2, 3] }), frameRate: 6, repeat: -1 });
           this.anims.create({ key: `anim_e_${e.id}_windup`, frames: this.anims.generateFrameNumbers(key, { frames: [4] }), frameRate: 1, repeat: 0 });

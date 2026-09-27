@@ -1,5 +1,6 @@
 import type { EnemyId } from './enemies';
 import type { WaveBand } from './waves';
+import { NIGHTMARE_STAGE } from './nightmare';
 
 // ステージ定義。前のステージをクリアすると次が解放される。数値は初期値。
 
@@ -37,6 +38,10 @@ export interface StageDef {
   ramp?: { hpPerMin: number; spawnPerMin: number; speedPerMin: number };
   /** スコアアタック */
   scoreMode?: boolean;
+  /** 敵の攻撃力の倍率（接触・弾・ボスの攻撃すべて。既定1） */
+  enemyDamageMul?: number;
+  /** このボスを倒すとクリア（それまでのボスを倒しても続く）。未指定なら、最初に倒したボスでクリア */
+  finalBoss?: EnemyId;
 }
 
 export const STAGES: StageDef[] = [
@@ -67,6 +72,7 @@ export const STAGES: StageDef[] = [
 
 export function stageById(id: number): StageDef {
   if (id === 99) return SCORE_STAGE_REF.value;
+  if (id === NIGHTMARE_STAGE.id) return NIGHTMARE_STAGE;
   return STAGES.find((s) => s.id === id) ?? STAGES[0];
 }
 

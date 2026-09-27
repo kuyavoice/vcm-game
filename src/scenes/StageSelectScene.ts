@@ -3,10 +3,14 @@ import { CHARACTERS } from '../data/characters';
 import { resolveCharacter } from '../utils/unlock';
 import { STAGES, type StageDef } from '../data/stages';
 import { SCORE_STAGE } from '../data/score';
+import { NIGHTMARE_STAGE } from '../data/nightmare';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, isStageUnlocked } from '../utils/storage';
 import { SelectGuard } from '../ui/SelectGuard';
 import { makeButton } from '../ui/Button';
+
+/** EXステージ「悪夢」は調整中。URLに `?ex` を付けたときだけ選択画面に出す（公開するときはこの条件を外す） */
+const EX_PREVIEW = typeof location !== 'undefined' && /[?&]ex(?:[&=]|$)/.test(location.search);
 
 /** ステージ選択（タイトル → ここ → ゲーム）。前ステージのクリアで解放 */
 export class StageSelectScene extends Phaser.Scene {
@@ -37,11 +41,15 @@ export class StageSelectScene extends Phaser.Scene {
     const characterId = resolveCharacter(save);
     const guard = new SelectGuard(this);
     const cardW = Math.min(640, W - 40);
-    const cardH = 176;
-    const gap = 16;
-    const allStages = [...STAGES, SCORE_STAGE];
+    const allStages = [...STAGES, SCORE_STAGE, ...(EX_PREVIEW ? [NIGHTMARE_STAGE] : [])];
+    // 5枚のときは、見出しと下のボタンの間に収まる高さに詰める
+    const compact = allStages.length > 4;
+    const gap = compact ? 12 : 16;
+    const areaTop = H * 0.11 + 104;
+    const areaBottom = H - Math.max(90, H * 0.08) - 44;
+    const cardH = compact ? Math.min(176, Math.floor((areaBottom - areaTop - gap * (allStages.length - 1)) / allStages.length)) : 176;
     const total = allStages.length * cardH + (allStages.length - 1) * gap;
-    let y = H / 2 - total / 2 + cardH / 2 - 10;
+    let y = compact ? (areaTop + areaBottom) / 2 - total / 2 + cardH / 2 : H / 2 - total / 2 + cardH / 2 - 10;
 
     allStages.forEach((st, i) => {
       const unlocked = st.scoreMode ? STAGES.every((x) => save.cleared.includes(x.id)) : isStageUnlocked(save, st.unlockAfter);
@@ -71,7 +79,7 @@ export class StageSelectScene extends Phaser.Scene {
     // PC：1〜3キー
     this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
       const n = parseInt(ev.key, 10);
-      const st = [...STAGES, SCORE_STAGE][n - 1];
+      const st = allStages[n - 1];
       const ok = st && (st.scoreMode ? STAGES.every((x) => save.cleared.includes(x.id)) : isStageUnlocked(save, st.unlockAfter));
       if (!ok || !guard.confirm()) return;
       this.scene.start('Game', { characterId, stageId: st.id });
@@ -95,7 +103,7 @@ export class StageSelectScene extends Phaser.Scene {
       const desc = this.add.text(-cardW / 2 + 32, -cardH / 2 + 96, st.desc, {
         fontFamily: FONT_JP, fontSize: '19px', color: COLOR_HEX.white, wordWrap: { width: cardW - 64, useAdvancedWrap: true },
       });
-      const mods = this.add.text(cardW / 2 - 20, -cardH / 2 + 18, `HP ×${st.enemyHpMul}　SPD ×${st.enemySpeedMul}　NUM ×${st.spawnMul}`, {
+      const mods = this.add.text(cardW / 2 - 20, -cardH / 2 + 18, `HP ×${st.enemyHpMul}　SPD ×${st.enemySpeedMul}　NUM ×${st.spawnMul}${st.enemyDamageMul ? `　ATK ×${st.enemyDamageMul}` : ''}`, {
         fontFamily: FONT_EN, fontSize: '16px', color: COLOR_HEX.dim, fontStyle: '700',
       }).setOrigin(1, 0);
       cont.add([desc, mods]);

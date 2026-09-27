@@ -72,6 +72,33 @@ export function ensureColorVariant(scene: Phaser.Scene, def: CharacterDef, varia
   return key;
 }
 
+/**
+ * 敵のスプライトシートを1色に染めた版を作る（赤騎士など）。
+ * 元の明暗はそのまま、色相を hue に揃え、彩度を minSat 以上に持ち上げる。
+ */
+export function ensureEnemyRecolor(scene: Phaser.Scene, srcKey: string, dstKey: string, frameWidth: number, frameHeight: number, o: { hue: number; minSat: number; val: number }): void {
+  if (scene.textures.exists(dstKey) || !scene.textures.exists(srcKey)) return;
+  const src = scene.textures.get(srcKey).getSourceImage() as HTMLImageElement | HTMLCanvasElement;
+  const cv = document.createElement('canvas');
+  cv.width = src.width;
+  cv.height = src.height;
+  const g = cv.getContext('2d');
+  if (!g) return;
+  g.drawImage(src, 0, 0);
+  const img = g.getImageData(0, 0, cv.width, cv.height);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] === 0) continue;
+    const [, s, v] = rgb2hsv(d[i] / 255, d[i + 1] / 255, d[i + 2] / 255);
+    const [r, gg, b] = hsv2rgb(o.hue, Math.min(1, Math.max(s, o.minSat)), Math.min(1, v * o.val));
+    d[i] = Math.round(r * 255);
+    d[i + 1] = Math.round(gg * 255);
+    d[i + 2] = Math.round(b * 255);
+  }
+  g.putImageData(img, 0, 0);
+  scene.textures.addSpriteSheet(dstKey, cv as unknown as HTMLImageElement, { frameWidth, frameHeight });
+}
+
 function recolorPixels(d: Uint8ClampedArray, v: ColorVariantDef): void {
   for (let i = 0; i < d.length; i += 4) {
     if (d[i + 3] === 0) continue;
