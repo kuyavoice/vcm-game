@@ -142,6 +142,8 @@ export const CONFIG = {
     rushIntervalSec: 0.9,
     rushCavalry: 4,
     rushChargeDelaySec: 1.1,
+    /** 斬撃音は当たる瞬間よりこの秒数だけ早く鳴らし始める（素材の音の山が約0.45秒後にあるため） */
+    slashSeLeadSec: 0.35,
     /** 連撃（後半・低確率）：突進 → すぐ斬撃（短い予兆）→ 連射かばらまきのどちらか */
     comboChance: 0.2,
     comboSlashWindupSec: 0.45,

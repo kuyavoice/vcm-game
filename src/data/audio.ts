@@ -19,6 +19,8 @@ export const AUDIO_MANIFEST: AudioEntry[] = [
   { key: 'bgm_fullmoon', path: 'assets/audio/bgm/fullmoon.mp3', category: 'bgm', loop: true },
   { key: 'bgm_boss', path: 'assets/audio/bgm/boss.mp3', category: 'bgm', loop: true },
   { key: 'bgm_boss_blackknight', path: 'assets/audio/bgm/boss_blackknight.mp3', category: 'bgm', loop: true },
+  // 黒騎士の形態変化後（無ければ boss_blackknight のまま）
+  { key: 'bgm_boss_blackknight2', path: 'assets/audio/bgm/boss_blackknight2.mp3', category: 'bgm', loop: true },
   // 道中はキャラソンのバトルアレンジ（無ければ stageN → stage）
   { key: 'bgm_chara_kuya', path: 'assets/audio/bgm/chara_kuya.mp3', category: 'bgm', loop: true },
   { key: 'bgm_chara_mizuho', path: 'assets/audio/bgm/chara_mizuho.mp3', category: 'bgm', loop: true },
@@ -32,8 +34,11 @@ export const AUDIO_MANIFEST: AudioEntry[] = [
   { key: 'bgm_clear_ritsuka', path: 'assets/audio/bgm/clear_ritsuka.mp3', category: 'bgm', loop: true },
   // SE
   { key: 'se_slash', path: 'assets/audio/se/slash.mp3', category: 'se' },
-  // 黒騎士の斬撃（剣閃・二連斬・連撃）。重い音。未配置なら slash で代用
+  // 黒騎士の斬撃（剣閃・二連斬・連撃）。重い音。右向きは heavy、左向きは heavy2。未配置なら slash で代用
   { key: 'se_slash_heavy', path: 'assets/audio/se/slash_heavy.mp3', category: 'se' },
+  { key: 'se_slash_heavy2', path: 'assets/audio/se/slash_heavy2.mp3', category: 'se' },
+  // 黒騎士の突進（予備動作の開始から鳴らす。元素材『鉄の騎馬』を1.6秒に切ってフェードアウト）
+  { key: 'se_knight_charge', path: 'assets/audio/se/knight_charge.mp3', category: 'se' },
   { key: 'se_shot', path: 'assets/audio/se/shot.mp3', category: 'se' },
   { key: 'se_hit', path: 'assets/audio/se/hit.mp3', category: 'se' },
   { key: 'se_kill', path: 'assets/audio/se/kill.mp3', category: 'se' },

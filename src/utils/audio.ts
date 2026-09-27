@@ -87,6 +87,19 @@ class AudioBusImpl {
       this.startBgm(key);
       return;
     }
+    this.loadBgm(key, () => {
+      if (this.wantedBgm === key && this.has(key)) this.startBgm(key);
+    });
+  }
+
+  /** 先読み：近いうちに切り替える曲を読んでおく（再生はしない）。ボスの形態変化で曲が途切れないように */
+  preloadBgm(key: string): void {
+    if (!this.game || !this.available.has(key) || this.has(key)) return;
+    this.loadBgm(key);
+  }
+
+  private loadBgm(key: string, onLoaded?: () => void): void {
+    if (!this.game) return;
     // 遅延読み込み：生きているシーン（起動中〜一時停止中。create() 実行中の Game も含む）のローダーで読む。
     // getScenes(true) は RUNNING のみを返すため、create() から呼ばれると空になり読み込めなかった（タイトル曲が続く不具合）
     const alive = this.game.scene.getScenes(false).filter((x) => {
@@ -99,9 +112,7 @@ class AudioBusImpl {
     const loader = scene.load;
     loader.audio(key, entry.path);
     // ファイル単位の完了で受ける（全体の COMPLETE だと、読み込み中に別の曲を足したとき取りこぼす）
-    loader.once(`filecomplete-audio-${key}`, () => {
-      if (this.wantedBgm === key && this.has(key)) this.startBgm(key);
-    });
+    if (onLoaded) loader.once(`filecomplete-audio-${key}`, onLoaded);
     if (!loader.isLoading()) loader.start();
   }
 

@@ -708,6 +708,7 @@ export class GameScene extends Phaser.Scene {
       e.play('anim_e_blackknight_hit', true);
       this.cameras.main.shake(400, 0.006);
       this.hud.banner('黒騎士 —— 形態変化', '#9D4DFF', 34);
+      this.resumeBgm();
       this.fxRing(e.x, e.y - 60, 220, 0x9d4dff, 10);
     }
     // オーラ（形態変化後は常時）＋予告線
@@ -771,6 +772,7 @@ export class GameScene extends Phaser.Scene {
       e.play('anim_e_blackknight_windup', true);
       b.animLock = now + 800;
       this.fxText(e.x, e.y - 150, '!!', '#FF4D6D');
+      AudioBus.play('se_knight_charge', 300);
       return { mx: 0, my: 0, spd: 0 };
     }
 
@@ -793,6 +795,7 @@ export class GameScene extends Phaser.Scene {
           e.play('anim_e_blackknight_windup', true);
           b.animLock = now + 800;
           this.fxText(e.x, e.y - 150, '!!', '#FF4D6D');
+          AudioBus.play('se_knight_charge', 300);
         }
       }
       return { mx: 0, my: 0, spd: 0 };
@@ -819,11 +822,13 @@ export class GameScene extends Phaser.Scene {
       g.fillStyle(0xff2244, 0.18);
       g.slice(e.x, e.y - 40, 180, a - Phaser.Math.DegToRad(75), a + Phaser.Math.DegToRad(75), false);
       g.fillPath();
+      this.knightSlashSe(e, b.slashWindup, nx >= 0);
       if (b.slashWindup <= 0) {
+        b.slashSePlayed = false;
         e.play('anim_e_blackknight_slash', true);
         b.animLock = now + 400;
         if (dist < 180 + p.def.hitRadius && Math.abs(Phaser.Math.Angle.Wrap(Math.atan2(p.y - 12 - (e.y - 40), p.x - e.x) - a)) <= Phaser.Math.DegToRad(75)) this.hurt(25, now);
-        this.fxSlash(e.x, e.y - 40, 180, 0x9d4dff, a, 150, true);
+        this.fxSlash(e.x, e.y - 40, 180, 0x9d4dff, a, 150, false);
         this.cameras.main.shake(100, 0.004);
       }
       return { mx: 0, my: 0, spd: 0 };
@@ -839,6 +844,17 @@ export class GameScene extends Phaser.Scene {
     if (now > b.animLock && e.anims.currentAnim?.key !== 'anim_e_blackknight') e.play('anim_e_blackknight', true);
     // 後半は少し速く詰める（弾幕は突進直後の追撃に移した）
     return { mx: nx, my: ny, spd: e.def.speed * (b.phase === 2 ? CONFIG.blackKnight.phase2SpeedMul : 1) };
+  }
+
+  /**
+   * 黒騎士の斬撃音。当たる瞬間より少し前（slashSeLeadSec）に鳴らし始めて、音の山を斬撃に合わせる。
+   * 右へ振るときは heavy、左へ振るときは heavy2。1回の斬撃につき1度だけ鳴らす。
+   */
+  private knightSlashSe(e: Enemy, remainingSec: number, toRight: boolean): void {
+    const b = e.bk;
+    if (b.slashSePlayed || remainingSec > CONFIG.blackKnight.slashSeLeadSec) return;
+    b.slashSePlayed = true;
+    AudioBus.play(toRight ? 'se_slash_heavy' : 'se_slash_heavy2', 0, 'se_slash');
   }
 
   /** 騎兵の一斉突撃を予約：n体が横（または縦）一直線に画面を突っ切る。1秒前から赤線で予告 */
@@ -931,14 +947,17 @@ export class GameScene extends Phaser.Scene {
         g.fillStyle(0xff2244, 0.18 + k * 0.25);
         g.slice(cx, cy, K.comboSlashRadius, b.comboAngle - half, b.comboAngle + half, false);
         g.fillPath();
+        this.knightSlashSe(e, b.followT, Math.cos(b.comboAngle) >= 0);
         return still;
       }
+      this.knightSlashSe(e, 0, Math.cos(b.comboAngle) >= 0);
+      b.slashSePlayed = false;
       const rx = p.x - cx;
       const ry = p.y - 12 - cy;
       if (Math.hypot(rx, ry) < K.comboSlashRadius + p.def.hitRadius && Math.abs(Phaser.Math.Angle.Wrap(Math.atan2(ry, rx) - b.comboAngle)) <= half) this.hurt(K.comboSlashDamage, now);
       e.play('anim_e_blackknight_slash', true);
       b.animLock = now + 300;
-      this.fxSlash(cx, cy, K.comboSlashRadius, 0x9d4dff, b.comboAngle, K.comboSlashArcDeg, true);
+      this.fxSlash(cx, cy, K.comboSlashRadius, 0x9d4dff, b.comboAngle, K.comboSlashArcDeg, false);
       this.cameras.main.shake(100, 0.004);
       if (Math.random() < 0.5) {
         b.follow = 'barrage';
@@ -1003,14 +1022,17 @@ export class GameScene extends Phaser.Scene {
       g.fillPath();
       g.lineStyle(3, 0xff2244, 0.8);
       g.lineBetween(cx, cy - K.cleaveRadius, cx, cy + K.cleaveRadius);
+      this.knightSlashSe(e, b.followT, right);
       return still;
     }
+    this.knightSlashSe(e, 0, right);
+    b.slashSePlayed = false;
     const rx = p.x - cx;
     const ry = p.y - 12 - cy;
     if (Math.hypot(rx, ry) < K.cleaveRadius && (right ? rx > 0 : rx < 0)) this.hurt(K.cleaveDamage, now);
     e.play('anim_e_blackknight_slash', true);
     b.animLock = now + 400;
-    this.fxSlash(cx, cy, K.cleaveRadius, 0x9d4dff, right ? 0 : Math.PI, 180, true);
+    this.fxSlash(cx, cy, K.cleaveRadius, 0x9d4dff, right ? 0 : Math.PI, 180, false);
     this.cameras.main.shake(100, 0.004);
     if (right) {
       b.follow = 'cleaveL';
@@ -1685,10 +1707,9 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: g, alpha: 0, duration: ms, onComplete: () => g.destroy() });
   }
 
-  /** heavy：黒騎士の斬撃用の重い音（未配置なら通常の斬撃音） */
-  private fxSlash(x: number, y: number, r: number, color: number, angle: number, arcDeg: number, heavy = false): void {
-    if (heavy) AudioBus.play('se_slash_heavy', 80, 'se_slash');
-    else AudioBus.play('se_slash', 80);
+  /** playSe：false なら音は鳴らさない（黒騎士の斬撃は knightSlashSe が先に鳴らす） */
+  private fxSlash(x: number, y: number, r: number, color: number, angle: number, arcDeg: number, playSe = true): void {
+    if (playSe) AudioBus.play('se_slash', 80);
     const half = Phaser.Math.DegToRad(arcDeg / 2);
     const g = this.add.graphics().setDepth(26);
     g.fillStyle(color, 0.35);
@@ -1798,7 +1819,14 @@ export class GameScene extends Phaser.Scene {
   private resumeBgm(): void {
     const boss = this.bosses.find((b) => b.active);
     if (boss) {
-      if (boss.def.id === 'blackknight') AudioBus.playBgm('bgm_boss_blackknight', 'bgm_boss');
+      if (boss.def.id === 'blackknight') {
+        // 形態変化後は専用の曲（無ければ前半の曲のまま）。前半のうちに先読みしておく
+        if (boss.bk.phase === 2) AudioBus.playBgm('bgm_boss_blackknight2', 'bgm_boss_blackknight', 'bgm_boss');
+        else {
+          AudioBus.playBgm('bgm_boss_blackknight', 'bgm_boss');
+          AudioBus.preloadBgm('bgm_boss_blackknight2');
+        }
+      }
       else AudioBus.playBgm('bgm_boss', 'bgm_boss_blackknight');
       return;
     }
