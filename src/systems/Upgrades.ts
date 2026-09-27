@@ -3,6 +3,7 @@ import { PASSIVES, baseStats, type RunStats } from '../data/passives';
 import { ART_IDS, WEAPONS } from '../data/weapons';
 import { CHEST, PERMANENT } from '../data/shop';
 import { FUSIONS, type FusionDef } from '../data/fusions';
+import { ITEMS } from '../data/items';
 import type { Weapon } from './WeaponSystem';
 import { createWeapon } from './arts';
 import { recordCodex } from '../utils/storage';
@@ -222,7 +223,7 @@ export class UpgradeState {
     for (const w of this.arts) if (!w.isMaxLevel) cands.push({ kind: 'weapon', weapon: w });
     for (const [id, lv] of this.passives) if (lv < PASSIVES[id].maxLevel) cands.push({ kind: 'passive', id });
     if (cands.length === 0) {
-      return { kind: 'yell', title: 'エール +20', sub: '強化できるものが無いので、代わりに', color: 0xffd700, yell: 20 };
+      return { kind: 'yell', title: `エール +${ITEMS.chest.yellFallback}`, sub: '強化できるものが無いので、代わりに', color: 0xffd700, yell: ITEMS.chest.yellFallback };
     }
     const c = cands[Math.floor(Math.random() * cands.length)];
     if (c.kind === 'weapon') {

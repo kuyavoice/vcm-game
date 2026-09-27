@@ -90,6 +90,7 @@ export class GameScene extends Phaser.Scene {
   private comboUntil = 0;
   private noDamageSec = 0;
   private timeUp = false;
+  private lastMinuteShown = false;
   /** 拾った宝箱の未開封数（重ね画面を避けるため update で順に開く） */
   private pendingChests = 0;
   /** ゲーム速度（×1 / ×1.5 / ×2） */
@@ -137,6 +138,7 @@ export class GameScene extends Phaser.Scene {
     this.comboUntil = 0;
     this.noDamageSec = 0;
     this.timeUp = false;
+    this.lastMinuteShown = false;
     this.pendingChests = 0;
     this.gameNow = 0;
     this.haltFrame = false;
@@ -433,6 +435,8 @@ export class GameScene extends Phaser.Scene {
       soul: this.soulGauge, soulActive,
       boss: (() => { const b = this.bosses.find((x) => x.active) ?? null; return b ? { name: this.bosses.filter((x) => x.active).length > 1 ? `${b.def.name} ×${this.bosses.filter((x) => x.active).length}` : b.def.name, hp: b.hp, maxHp: b.maxHp } : null; })(),
       score: this.stage.scoreMode ? { score: Math.round(this.score), combo: this.comboMul } : null,
+      // スコアアタック：時間切れが近づいたら残り時間を出す
+      remainSec: this.stage.scoreMode && SCORE.timeLimitSec - this.elapsed <= SCORE.countdownFromSec ? Math.max(0, SCORE.timeLimitSec - this.elapsed) : null,
     });
     if (this.debug) {
       while (this.dmgLog.length && this.dmgLog[0].t < now - 5000) this.dmgLog.shift();
@@ -499,6 +503,11 @@ export class GameScene extends Phaser.Scene {
       this.noDamageSec += dt;
       if (now > this.comboUntil && this.combo > 0) { this.combo = 0; this.comboMul = 1; }
       if (this.elapsed >= SCORE.timeLimitSec && !this.timeUp) { this.timeUp = true; }
+      // 残り1分の知らせ（1回だけ）
+      if (!this.lastMinuteShown && SCORE.timeLimitSec - this.elapsed <= 60) {
+        this.lastMinuteShown = true;
+        this.hud.banner('残り 1:00', '#FF4D6D', 36);
+      }
     }
 
     // 空間ハッシュ再構築
@@ -1969,9 +1978,9 @@ export class GameScene extends Phaser.Scene {
     }
     // 強化できるものが無いときは開封画面を出さず、その場でエール＋HP回復（v2）
     if (!this.up.hasChestReward()) {
-      this.xp.yell += 20;
+      this.xp.yell += ITEMS.chest.yellFallback;
       this.player.heal(10);
-      this.fxText(this.player.x - 30, this.player.y - 110, '+20 ★', '#FFD700');
+      this.fxText(this.player.x - 30, this.player.y - 110, `+${ITEMS.chest.yellFallback} ★`, '#FFD700');
       this.fxText(this.player.x + 40, this.player.y - 130, '+10', '#87CEFA');
       AudioBus.play('se_item');
       return;

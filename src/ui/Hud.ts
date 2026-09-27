@@ -5,6 +5,8 @@ import { getSafeInsets } from '../utils/safeArea';
 export interface HudState {
   hp: number; maxHp: number; xp: number; xpToNext: number; level: number;
   time: number; kills: number; yell: number; band: string;
+  /** 残り時間（秒）。出すときだけ値を入れる */
+  remainSec?: number | null;
   /** 必殺ゲージ 0〜1 と発動中か */
   soul: number; soulActive: boolean;
   boss?: { name: string; hp: number; maxHp: number } | null;
@@ -167,7 +169,15 @@ export class Hud {
     this.lvText.setText(`Lv ${d.level}`);
     if (d.score) this.scoreText.setText(`${d.score.score.toLocaleString()} pt${d.score.combo > 1 ? `  ×${d.score.combo.toFixed(1)}` : ''}`).setVisible(true);
     else this.scoreText.setVisible(false);
-    this.bandText.setText(d.boss ? '' : d.band).setPosition(this.w / 2, xpY + 14);
+    if (d.remainSec !== undefined && d.remainSec !== null) {
+      // 残り時間（時間帯の名前の位置に出す。1分を切ったら赤）
+      const rm = Math.floor(d.remainSec / 60);
+      const rs = Math.floor(d.remainSec % 60).toString().padStart(2, '0');
+      this.bandText.setText(`残り ${rm}:${rs}`).setColor(d.remainSec <= 60 ? '#FF4D6D' : COLOR_HEX.white).setFontStyle('700');
+    } else {
+      this.bandText.setText(d.boss ? '' : d.band).setColor(COLOR_HEX.dim).setFontStyle('normal');
+    }
+    this.bandText.setPosition(this.w / 2, xpY + 14);
 
     // 必殺ボタン
     const sg = this.soulGfx;
