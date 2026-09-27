@@ -3,14 +3,12 @@ import { CHARACTERS } from '../data/characters';
 import { resolveCharacter } from '../utils/unlock';
 import { STAGES, type StageDef } from '../data/stages';
 import { SCORE_STAGE } from '../data/score';
-import { NIGHTMARE_STAGE } from '../data/nightmare';
+import { NIGHTMARE_STAGE, NIGHTMARE_AVAILABLE } from '../data/nightmare';
+import { unlockSecret } from '../utils/unlock';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, isStageUnlocked } from '../utils/storage';
 import { SelectGuard } from '../ui/SelectGuard';
 import { makeButton } from '../ui/Button';
-
-/** EXステージ「悪夢」は調整中。URLに `?ex` を付けたときだけ選択画面に出す（公開するときはこの条件を外す） */
-const EX_PREVIEW = typeof location !== 'undefined' && /[?&]ex(?:[&=]|$)/.test(location.search);
 
 /** ステージ選択（タイトル → ここ → ゲーム）。前ステージのクリアで解放 */
 export class StageSelectScene extends Phaser.Scene {
@@ -37,11 +35,13 @@ export class StageSelectScene extends Phaser.Scene {
       fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.dim,
     }).setOrigin(0.5);
 
+    // スコアアタックをクリア済みなのに隠し要素が未解放のセーブ（古い版でクリアした場合）を、ここで揃える
+    if (loadSave().cleared.includes(SCORE_STAGE.id)) unlockSecret('shion');
     const save = loadSave();
     const characterId = resolveCharacter(save);
     const guard = new SelectGuard(this);
     const cardW = Math.min(640, W - 40);
-    const allStages = [...STAGES, SCORE_STAGE, ...(EX_PREVIEW ? [NIGHTMARE_STAGE] : [])];
+    const allStages = [...STAGES, SCORE_STAGE, ...(NIGHTMARE_AVAILABLE ? [NIGHTMARE_STAGE] : [])];
     // 5枚のときは、見出しと下のボタンの間に収まる高さに詰める
     const compact = allStages.length > 4;
     const gap = compact ? 12 : 16;
@@ -116,7 +116,7 @@ export class StageSelectScene extends Phaser.Scene {
         cont.add(bestText);
       }
     } else {
-      const lock = this.add.text(-cardW / 2 + 32, -cardH / 2 + 100, st.scoreMode ? '全ステージをクリアで解放' : `STAGE ${st.unlockAfter} をクリアで解放`, {
+      const lock = this.add.text(-cardW / 2 + 32, -cardH / 2 + 100, st.scoreMode ? '全ステージをクリアで解放' : st.unlockAfter === SCORE_STAGE.id ? 'スコアアタックをクリアで解放' : `STAGE ${st.unlockAfter} をクリアで解放`, {
         fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.dim,
       });
       const icon = this.add.text(cardW / 2 - 24, -cardH / 2 + 14, 'LOCKED', {

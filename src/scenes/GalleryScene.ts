@@ -13,9 +13,9 @@ export function galleryImageKey(def: GalleryDef): string {
   return hasOptionalImage(k) ? k : '';
 }
 
-/** 一覧に出してよい項目：画像が置かれていて、隠しキャラの絵ならそのキャラを解放済み */
+/** 一覧に出してよい項目：画像が置かれていて、隠しキャラの絵ならそのキャラを解放済み。クリア報酬は手に入れたものだけ */
 export function visibleGallery(save: SaveData): GalleryDef[] {
-  return GALLERY.filter((g) => galleryImageKey(g) && (!g.secretOf || isCharacterUnlocked(g.secretOf, save)));
+  return GALLERY.filter((g) => galleryImageKey(g) && (!g.secretOf || isCharacterUnlocked(g.secretOf, save)) && (!g.rewardOf || save.gallery.includes(g.id)));
 }
 
 /**
@@ -60,7 +60,7 @@ export class GalleryScene extends Phaser.Scene {
     const imgH = Math.round(cardW * 1.5);
     const cardH = imgH + 104;
     const left = (W - gridW) / 2;
-    const gridTop = top + 120;
+    let gridTop = top + 120;
     let buying = false;
     let viewing = false;
 
@@ -69,7 +69,37 @@ export class GalleryScene extends Phaser.Scene {
       this.tweens.add({ targets: t, alpha: 0, y: t.y - 20, duration: 900, delay: 300, onComplete: () => t.destroy() });
     };
 
-    items.forEach((g, i) => {
+    // 特別なイラスト（クリア報酬・横長）：1枚ずつ横幅いっぱいの枠で、キービジュアルの上に並べる
+    const wides = items.filter((g) => g.wide);
+    const normals = items.filter((g) => !g.wide);
+    const wideImgH = Math.round(gridW * 0.6);
+    const wideCardH = wideImgH + 66;
+    wides.forEach((g) => {
+      const cx = W / 2;
+      const cy = gridTop;
+      const key = galleryThumbKey(g.id);
+      this.add.rectangle(cx + 5, cy + 5 + wideCardH / 2, gridW, wideCardH, 0x000000, 0.5);
+      const frame = this.add.rectangle(cx, cy + wideCardH / 2, gridW, wideCardH, 0x111a3a, 1).setStrokeStyle(2, g.color, 0.9);
+      if (this.textures.exists(key)) {
+        this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
+        const img = this.add.image(cx, cy + 4 + wideImgH / 2, key);
+        const sc = Math.max((gridW - 8) / img.width, (wideImgH - 8) / img.height);
+        img.setScale(sc).setCrop((img.width - (gridW - 8) / sc) / 2, (img.height - (wideImgH - 8) / sc) / 2, (gridW - 8) / sc, (wideImgH - 8) / sc);
+        frame.setInteractive({ useHandCursor: true });
+        frame.on('pointerup', (p: Phaser.Input.Pointer) => {
+          if (viewing || Math.abs(p.y - p.downY) > 12) return;
+          viewing = true;
+          this.openViewer(g, () => { viewing = false; });
+        });
+      }
+      this.add.rectangle(left + 6, cy + wideImgH + 12, 6, 40, g.color, 1).setOrigin(0, 0);
+      this.add.text(left + 20, cy + wideImgH + 10, g.title, { fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.white, fontStyle: '700' });
+      this.add.text(left + 20, cy + wideImgH + 38, g.sub, { fontFamily: FONT_EN, fontSize: '13px', color: COLOR_HEX.gold, fontStyle: '700', letterSpacing: 2 });
+      this.add.text(left + gridW - 12, cy + wideImgH + 24, 'TAP TO VIEW', { fontFamily: FONT_EN, fontSize: '13px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 1 }).setOrigin(1, 0);
+      gridTop += wideCardH + gap;
+    });
+
+    normals.forEach((g, i) => {
       const cx = left + (i % cols) * (cardW + gap) + cardW / 2;
       const cy = gridTop + Math.floor(i / cols) * (cardH + gap);
       const owned = save.gallery.includes(g.id);
@@ -124,7 +154,7 @@ export class GalleryScene extends Phaser.Scene {
       }
     });
 
-    const rows = Math.ceil(items.length / cols);
+    const rows = Math.ceil(normals.length / cols);
     const by = Math.max(H - Math.max(90, H * 0.08), gridTop + rows * (cardH + gap) + 50);
     makeButton(this, W / 2, by, 'TITLE', () => this.scene.start('Title'), { width: 240, height: 60, fontSize: 24 });
 

@@ -9,6 +9,8 @@ import { renderShareCard, shareOrDownload, buildPostText, openXPost } from '../u
 import { SCORE } from '../data/score';
 import { OPTIONAL_IMAGES, hasOptionalImage } from '../utils/optionalAssets';
 import { unlockSecret } from '../utils/unlock';
+import { NIGHTMARE_STAGE, NIGHTMARE_AVAILABLE } from '../data/nightmare';
+import { GALLERY } from '../data/gallery';
 
 export interface RunResult {
   characterId: string;
@@ -106,6 +108,15 @@ export class ResultScene extends Phaser.Scene {
       save.cleared.push(stage.id);
       const next = STAGES.find((s) => s.unlockAfter === stage.id);
       if (next) unlocked = `${next.nameEn} 「${next.name}」 解放！`;
+      else if (NIGHTMARE_AVAILABLE && NIGHTMARE_STAGE.unlockAfter === stage.id) unlocked = `${NIGHTMARE_STAGE.nameEn} 「${NIGHTMARE_STAGE.name}」 解放！`;
+    }
+    // EXステージ「悪夢」のクリア報酬：特別なイラスト（ギャラリーに加わる）
+    if (!r.debug && r.cleared && stage.id === NIGHTMARE_STAGE.id) {
+      const rewards = GALLERY.filter((g) => g.rewardOf === 'nightmare' && !save.gallery.includes(g.id));
+      if (rewards.length > 0) {
+        for (const g of rewards) save.gallery.push(g.id);
+        unlocked = '特別なイラストが解放されました';
+      }
     }
     if (!r.debug) {
       save.totalYell += r.yell;

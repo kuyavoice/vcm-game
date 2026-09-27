@@ -18,6 +18,10 @@ export interface GalleryDef {
   price: number;
   /** このキャラを解放するまで、枠ごと出さない */
   secretOf?: string;
+  /** クリア報酬（エールでは買えない）。手に入れるまで枠ごと出さない */
+  rewardOf?: 'nightmare';
+  /** 横長の絵（一覧では横幅いっぱいの枠で見せる） */
+  wide?: boolean;
 }
 
 export const GALLERY_DIR = 'assets/images/gallery/';
@@ -45,8 +49,24 @@ const kv = (fileId: string, name: string, color: number, secretOf?: string): Gal
   secretOf,
 });
 
+/** EXステージ「悪夢」のクリア報酬。どちらも隠しキャラが描かれているので secretOf を付ける */
+const special = (fileId: string, title: string, color: number): GalleryDef => ({
+  id: `sp_${fileId}`,
+  title,
+  sub: 'SPECIAL',
+  color,
+  file: `${GALLERY_DIR}sp_${fileId}.webp`,
+  thumb: `${GALLERY_DIR}thumb/sp_${fileId}.webp`,
+  price: 0,
+  secretOf: 'shion',
+  rewardOf: 'nightmare',
+  wide: true,
+});
+
 // 並びはポータルサイトのキャラ番号順。ファイル名は受け取ったときの綴りのまま（ituki／kenshiro／seishiro）
 export const GALLERY: GalleryDef[] = [
+  special('stainedglass', 'ステンドグラス', 0xffd700),
+  special('congratulation', 'CONGRATULATIONS!', 0xffd700),
   kv('kuya', '宵月 空夜', 0x00bfff),
   kv('yukihito', '狐森 雪人', 0xc0c0c0),
   kv('shion', '黒崎 詩音', 0xc0c0ff, 'shion'),

@@ -192,7 +192,7 @@ export class GameScene extends Phaser.Scene {
     this.player = new Player(this, 0, 0, def, spriteKey);
     // 永続強化（セーブ）を反映してから最大HPを決める
     this.up = new UpgradeState();
-    this.up.permanent = loadSave().permanent;
+    this.up.permanent = this.stage.noPermanent ? {} : loadSave().permanent;
     this.up.setMain(def.startWeapon);
     for (const id of def.excludedArts) this.up.excluded.add(id);
     this.up.traitDamageMul = def.traits.damageMul;

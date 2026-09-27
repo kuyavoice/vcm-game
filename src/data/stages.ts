@@ -40,6 +40,8 @@ export interface StageDef {
   scoreMode?: boolean;
   /** 敵の攻撃力の倍率（接触・弾・ボスの攻撃すべて。既定1） */
   enemyDamageMul?: number;
+  /** 永続強化（ショップの PERMANENT）を無効にする */
+  noPermanent?: boolean;
   /** このボスを倒すとクリア（それまでのボスを倒しても続く）。未指定なら、最初に倒したボスでクリア */
   finalBoss?: EnemyId;
 }

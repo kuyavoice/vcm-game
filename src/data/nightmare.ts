@@ -20,15 +20,19 @@ export const NIGHTMARE_WAVES: WaveBand[] = [
   { label: '赤騎士', from: 900, to: 9999, spawnPerSecStart: 3.0, spawnPerSecEnd: 3.0, weights: { grunt: 1, hunter: 0.4, knight: 0.1 }, hpMul: 2.4, boss: 'redknight', bossHpMul: 5.0, bossEnraged: true },
 ];
 
-/** EXステージ「悪夢」のステージ定義 */
+/** 調整中は、URLに `?ex` を付けたときだけ選べる（公開するときは true にする） */
+export const NIGHTMARE_AVAILABLE = typeof location !== 'undefined' && /[?&]ex(?:[&=]|$)/.test(location.search);
+
+/** EXステージ「悪夢」のステージ定義。スコアアタックをクリアすると解放。永続強化は効かない */
 export const NIGHTMARE_STAGE: StageDef = {
   id: 98, name: '悪夢', nameEn: 'EX STAGE',
-  desc: '15分。王級、黒騎士、そして赤騎士。群れは止まらず、一撃が重い。',
+  desc: '15分。王級、黒騎士、そして赤騎士。一撃が重く、永続強化は効かない。',
   enemyHpMul: 2.5, enemySpeedMul: 1.35, spawnMul: 2.0, bossHpMul: 1, xpMul: 1.4,
   enemyDamageMul: 1.5,
   extraWeights: {},
   tint: 0xffffff, color: 0xff2244, bgm: 'bgm_stage3',
-  unlockAfter: 3, weather: 'snow',
+  unlockAfter: 99, weather: 'snow',
   waves: NIGHTMARE_WAVES,
   finalBoss: 'redknight',
+  noPermanent: true,
 };
