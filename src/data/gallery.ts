@@ -65,7 +65,7 @@ const special = (fileId: string, title: string, color: number): GalleryDef => ({
 
 // 並びはポータルサイトのキャラ番号順。ファイル名は受け取ったときの綴りのまま（ituki／kenshiro／seishiro）
 export const GALLERY: GalleryDef[] = [
-  special('stainedglass', 'ステンドグラス', 0xffd700),
+  special('stainedglass', 'VERSE', 0xffd700),
   special('congratulation', 'CONGRATULATIONS!', 0xffd700),
   kv('kuya', '宵月 空夜', 0x00bfff),
   kv('yukihito', '狐森 雪人', 0xc0c0c0),
