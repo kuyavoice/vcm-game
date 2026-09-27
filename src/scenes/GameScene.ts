@@ -20,6 +20,8 @@ import { CutIn } from '../ui/CutIn';
 import { PASSIVES } from '../data/passives';
 import { SPECIALS, type SpecialHost } from '../systems/specials';
 import { AudioBus } from '../utils/audio';
+import { makeButton } from '../ui/Button';
+import { getSafeInsets } from '../utils/safeArea';
 import { FONT_JP } from '../utils/fonts';
 import { loadSave, writeSave } from '../utils/storage';
 import { ensureColorVariant } from '../utils/recolor';
@@ -96,6 +98,10 @@ export class GameScene extends Phaser.Scene {
   private haltFrame = false;
   /** `?debug` でボスHP・DPS などを表示 */
   private debug = typeof location !== 'undefined' && /debug/.test(location.search);
+  /** デバッグ操作を使ったプレイは記録・エールを保存しない */
+  private debugUsed = false;
+  private debugInvincible = false;
+  private debugNoSpawn = false;
   private fullMoon = false;
   private enemySpeedMul = 1;
 
@@ -255,6 +261,75 @@ export class GameScene extends Phaser.Scene {
     AudioBus.playBgm(`bgm_chara_${def.id}`, this.stage.bgm, 'bgm_stage');
     this.vo('start');
     this.hud.banner(`${this.stage.nameEn} —— ${this.stage.name}`, Phaser.Display.Color.IntegerToColor(this.stage.color).rgba, 32);
+    if (this.debug) this.buildDebugPanel();
+  }
+
+  /**
+   * デバッグパネル（URLに `?debug` を付けたときだけ）：ボスの即出現・HP50%・無敵・雑魚の停止・Lv+5。
+   * 一度でも使うと、そのプレイの記録・エールは保存しない。
+   */
+  private buildDebugPanel(): void {
+    const used = () => { this.debugUsed = true; };
+    const spawnBoss = (id: 'king' | 'blackknight') => {
+      used();
+      const boss = this.spawner.spawnOne(id, this.player.x, this.player.y - 420, 1);
+      if (!boss) return;
+      this.spawner.bossActive = true;
+      this.onBossSpawn(boss, 1);
+    };
+    const items: { label: string; run: (setLabel: (s: string) => void) => void }[] = [
+      { label: '王級', run: () => spawnBoss('king') },
+      { label: '黒騎士', run: () => spawnBoss('blackknight') },
+      {
+        label: 'ボスHP50%',
+        run: () => {
+          used();
+          for (const b of this.bosses) if (b.active) b.hp = Math.min(b.hp, Math.floor(b.maxHp * 0.5));
+        },
+      },
+      {
+        label: '無敵 OFF',
+        run: (set) => {
+          used();
+          this.debugInvincible = !this.debugInvincible;
+          set(this.debugInvincible ? '無敵 ON' : '無敵 OFF');
+        },
+      },
+      {
+        label: '雑魚 ON',
+        run: (set) => {
+          used();
+          this.debugNoSpawn = !this.debugNoSpawn;
+          set(this.debugNoSpawn ? '雑魚 OFF' : '雑魚 ON');
+          if (this.debugNoSpawn) {
+            for (const e of this.enemies.getChildren() as Enemy[]) {
+              if (e.active && !e.def.boss && !e.def.isObject) e.despawn();
+            }
+          }
+        },
+      },
+      {
+        label: 'Lv +5',
+        run: () => {
+          used();
+          this.xp.level += 5;
+          this.xp.pendingLevelUps += 5;
+        },
+      },
+    ];
+    const buttons = items.map((it) => {
+      const c = makeButton(this, 0, 0, it.label, () => it.run((s) => (c.list[2] as Phaser.GameObjects.Text).setText(s)), { width: 132, height: 44, fontSize: 18, armDelayMs: 0 });
+      c.setDepth(1000).setScrollFactor(0).setAlpha(0.85);
+      c.each((o: Phaser.GameObjects.GameObject) => (o as unknown as Phaser.GameObjects.Components.ScrollFactor).setScrollFactor(0));
+      return c;
+    });
+    const layout = () => {
+      const top = Math.max(getSafeInsets(this.scale).top, 16) + 8;
+      buttons.forEach((c, i) => c.setPosition(24 + 66, top + 160 + i * 54));
+    };
+    layout();
+    this.scale.on('resize', layout);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off('resize', layout));
   }
 
   private onResize(): void {
@@ -394,7 +469,7 @@ export class GameScene extends Phaser.Scene {
 
     // 時間・湧き
     this.elapsed += dt;
-    this.spawner.update(dt, this.elapsed);
+    if (!this.debugNoSpawn) this.spawner.update(dt, this.elapsed);
     if (this.stage.ramp) this.enemySpeedMul = this.stage.enemySpeedMul * (1 + this.stage.ramp.speedPerMin * (this.elapsed / 60)) * (this.fullMoon ? CONFIG.fullMoon.enemySpeedMul : 1);
     if (this.stage.scoreMode) {
       this.noDamageSec += dt;
@@ -1405,6 +1480,7 @@ export class GameScene extends Phaser.Scene {
 
   /** プレイヤーへのダメージ入口：被ダメ倍率・必殺の軽減・完全看破の回避 */
   private hurt(amount: number, now: number): void {
+    if (this.debugInvincible) return;
     const p = this.player;
     const def = p.def;
     if (now < p.invulnUntil) return;
@@ -1721,6 +1797,7 @@ export class GameScene extends Phaser.Scene {
       speed: this.speed,
       stageId: this.stage.id,
       arts: this.up.arts.map((w) => ({ name: w.name, level: w.level, color: w.def.color, evolved: w.evolved, fusion: !!w.def.fusion })),
+      debug: this.debugUsed,
     };
     if (!cleared) {
       this.player.play(`${this.player.spriteKey}_hit`);

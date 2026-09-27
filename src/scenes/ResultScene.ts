@@ -23,6 +23,8 @@ export interface RunResult {
   timeUp?: boolean;
   /** 所持していたアーツ（共有画像・ポスト用） */
   arts?: { name: string; level: number; color: number; evolved: boolean; fusion: boolean }[];
+  /** デバッグ操作を使ったプレイ（記録・エールを保存しない） */
+  debug?: boolean;
 }
 
 export class ResultScene extends Phaser.Scene {
@@ -46,12 +48,12 @@ export class ResultScene extends Phaser.Scene {
     const save = loadSave();
     const score = (x: { kills: number; timeSec: number }) => x.timeSec * 10 + x.kills;
     const prev = save.bests[key];
-    const isBest = !prev || score(r) > score(prev);
+    const isBest = !r.debug && (!prev || score(r) > score(prev));
     if (isBest) save.bests[key] = { kills: r.kills, timeSec: r.timeSec, level: r.level, yell: r.yell, cleared: r.cleared || !!prev?.cleared };
-    else if (r.cleared && !prev.cleared) save.bests[key] = { ...prev, cleared: true };
+    else if (!r.debug && r.cleared && prev && !prev.cleared) save.bests[key] = { ...prev, cleared: true };
     // スコアアタックのランキング（端末内ベスト10）
     let rank = 0;
-    if (stage.scoreMode && r.score !== undefined) {
+    if (stage.scoreMode && r.score !== undefined && !r.debug) {
       const entry = { score: r.score, kills: r.kills, timeSec: r.timeSec, character: r.characterId, date: new Date().toISOString().slice(0, 10), cleared: r.cleared };
       save.scoreRanking.push(entry);
       save.scoreRanking.sort((a, b) => b.score - a.score);
@@ -59,13 +61,15 @@ export class ResultScene extends Phaser.Scene {
       rank = save.scoreRanking.indexOf(entry) + 1;
     }
     let unlocked: string | null = null;
-    if (r.cleared && !save.cleared.includes(stage.id)) {
+    if (!r.debug && r.cleared && !save.cleared.includes(stage.id)) {
       save.cleared.push(stage.id);
       const next = STAGES.find((s) => s.unlockAfter === stage.id);
       if (next) unlocked = `${next.nameEn} 「${next.name}」 解放！`;
     }
-    save.totalYell += r.yell;
-    writeSave(save);
+    if (!r.debug) {
+      save.totalYell += r.yell;
+      writeSave(save);
+    }
 
     this.add.tileSprite(0, 0, W, H, 'bg').setOrigin(0);
 
@@ -89,6 +93,11 @@ export class ResultScene extends Phaser.Scene {
     this.add.text(W / 2, H * 0.10 + 62, sub, {
       fontFamily: FONT_JP, fontSize: '26px', color: COLOR_HEX.white, stroke: '#060913', strokeThickness: 6,
     }).setOrigin(0.5);
+    if (r.debug) {
+      this.add.text(W / 2, H * 0.10 + 104, 'DEBUG：このプレイの記録・エールは保存されません', {
+        fontFamily: FONT_JP, fontSize: '20px', color: '#00FF88', stroke: '#060913', strokeThickness: 6,
+      }).setOrigin(0.5);
+    }
     if (unlocked) {
       const t = this.add.text(W / 2, H * 0.10 + 104, unlocked, {
         fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.gold, fontStyle: '700', stroke: '#060913', strokeThickness: 6,
