@@ -593,7 +593,17 @@ const nekobako: ArtBehavior = {
     const p = ctx.player;
     if (p.hitShield > 0) {
       w.state.brokenAt = undefined;
+      w.state.hadShield = true;
       return;
+    }
+    // 盾が攻撃を防いで割れた瞬間：アクア・メディックを引き継いでいれば回復
+    if (w.state.hadShield) {
+      w.state.hadShield = false;
+      if (w.state.medic) {
+        const heal = s.extra.medicHeal ?? 15;
+        p.heal(heal);
+        ctx.fx.text(p.x, p.y - 110, `+${heal}`, '#87CEFA');
+      }
     }
     if (w.state.brokenAt === undefined) w.state.brokenAt = ctx.now;
     else if (ctx.now - (w.state.brokenAt as number) >= (s.extra.shieldRegenSec ?? 5) * 1000 * (1 / ctx.stats.durationMul)) {

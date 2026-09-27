@@ -39,8 +39,6 @@ export interface EvolutionDef {
   passiveId: string;
   desc: string;
   apply: (s: ArtStats) => void;
-  /** 相方のパッシブが仕様上「未定」で、こちらで仮に決めたもの */
-  provisional?: boolean;
 }
 
 export interface WeaponDef {
@@ -56,8 +54,6 @@ export interface WeaponDef {
   tags: WeaponTag[];
   /** 合体アーツ（レベルアップの抽選・『物語の具現化』の対象外。宝箱の合体でのみ入手） */
   fusion?: boolean;
-  /** 名前が仮のもの */
-  provisionalName?: boolean;
   maxLevel: number;
   base: ArtStats;
   /** Lv2以降の強化（index 0 = Lv1→2） */
@@ -188,7 +184,7 @@ const REFRESH: WeaponDef = {
   base: stats({ damage: 9, intervalSec: 2.2, count: 1, speed: 420, duration: 4, pierce: Infinity, slow: 0.6 }),
   levels: [dmg(25), longer(30), more(1, '弾数'), { desc: '鈍化が強くなる', apply: (s) => { s.slow = 0.45; } }, dmg(25), longer(30), more(1, '弾数')],
   evolution: {
-    name: 'フリスクNEO', passiveId: 'scout', provisional: true,
+    name: 'フリスクNEO', passiveId: 'scout',
     desc: '大きく速い弾が長く跳ね回り、触れた敵を強く鈍らせる。',
     apply: (s) => { s.evolved = true; s.damage *= 1.6; s.duration *= 1.5; s.speed *= 1.25; s.slow = 0.35; },
   },
@@ -269,7 +265,7 @@ const EN: WeaponDef = {
   base: stats({ damage: 16, intervalSec: 1.8, area: 120, knockback: 120 }),
   levels: [wider(20), dmg(30), faster(12), wider(20), dmg(30), faster(12), wider(25)],
   evolution: {
-    name: '円と波紋', passiveId: 'poem', provisional: true,
+    name: '円と波紋', passiveId: 'poem',
     desc: '一閃のあと、斬撃の輪が波紋のように外へ広がる。',
     apply: (s) => { s.evolved = true; s.damage *= 1.3; s.extra.ripple = 1.9; },
   },
@@ -283,7 +279,7 @@ const CAGE: WeaponDef = {
   base: stats({ damage: 10, intervalSec: 4, count: 1, area: 130, duration: 2.5 }),
   levels: [wider(20), dmg(30), longer(30), faster(15), dmg(30), wider(20), longer(30)],
   evolution: {
-    name: '十重の檻', passiveId: 'gear', provisional: true,
+    name: '十重の檻', passiveId: 'gear',
     desc: '重力場が多重に展開し、逃げ場を奪う。',
     apply: (s) => { s.evolved = true; s.count = 3; s.damage *= 1.3; },
   },
@@ -297,7 +293,7 @@ const BUG: WeaponDef = {
   base: stats({ damage: 20, intervalSec: 1.5, count: 1, speed: 900, duration: 0.5 }),
   levels: [dmg(30), faster(15), { desc: '飛距離 +30%', apply: (s) => { s.duration *= 1.3; } }, dmg(30), more(1, '蹴る数'), faster(15), dmg(30)],
   evolution: {
-    name: 'BVキック', passiveId: 'route', provisional: true,
+    name: 'BVキック', passiveId: 'route',
     desc: 'まとめて蹴り飛ばす。飛んだ敵はさらに遠くまで転がる。',
     apply: (s) => { s.evolved = true; s.count += 2; s.damage *= 1.5; s.duration *= 1.4; },
   },
@@ -326,7 +322,7 @@ const MONOGATARI: WeaponDef = {
   levels: [faster(10), { desc: '再現の威力 +20%', apply: (s) => { s.damage *= 1.2; } }, faster(10), { desc: '再現の威力 +20%', apply: (s) => { s.damage *= 1.2; } }, faster(10), { desc: '再現の威力 +20%', apply: (s) => { s.damage *= 1.2; } }, { desc: '2種を同時に再現', apply: (s) => { s.count = 2; } }],
 };
 
-/** 『換装・散弾』（響・名前は仮）：移動方向の前後へ扇状（30°）に各 count 発。area=射程 */
+/** 『換装・散弾』（響）：移動方向の前後へ扇状（30°）に各 count 発。area=射程 */
 const SANDAN: WeaponDef = {
   id: 'sandan', name: '換装・散弾', owner: '振須 響', kind: 'art', tags: ['projectile'],
   desc: '前と後ろへ同時に散弾を撃つ。近い敵を弾き飛ばす。',
@@ -362,18 +358,21 @@ const TRISTAR: WeaponDef = {
   levels: [],
 };
 
-/** 『夢見る猫箱』：1回分のダメージを防ぐ盾（割れて3秒で再生）＋前方180°へ大きな貫通炎矢5本 */
+/**
+ * 『夢見る猫箱』：1回分のダメージを防ぐ盾（割れて3秒で再生）＋前方180°へ大きな貫通炎矢5本。
+ * 素材の『アクアシールド』が進化済み（アクア・メディック）なら癒しを引き継ぐ：盾が攻撃を防いだ瞬間に extra.medicHeal 回復
+ */
 const NEKOBAKO: WeaponDef = {
   id: 'nekobako', name: '夢見る猫箱', owner: '寿 律花・月怜 瑞穂', kind: 'art', tags: ['projectile', 'support'], fusion: true,
   desc: '一撃を防ぐ水の盾をまとい、前方へ大きな炎の矢を放つ。',
   color: 0xff69b4, maxLevel: 1,
-  base: stats({ damage: 45, intervalSec: 1.2, count: 5, area: 900, speed: 820, pierce: Infinity, extra: { shieldRegenSec: 3 } }),
+  base: stats({ damage: 45, intervalSec: 1.2, count: 5, area: 900, speed: 820, pierce: Infinity, extra: { shieldRegenSec: 3, medicHeal: 15 } }),
   levels: [],
 };
 
-/** 『星墜の檻（メテオ・ケージ）』（仮）：前方の半円に星が降り注ぎ、着弾範囲にダメージ＋0.5秒縫い止め */
+/** 『星墜の檻（メテオ・ケージ）』：前方の半円に星が降り注ぎ、着弾範囲にダメージ＋縫い止め */
 const METEOCAGE: WeaponDef = {
-  id: 'meteocage', name: '星墜の檻', owner: '黒崎 詩音・若宮 征士郎', kind: 'art', tags: ['projectile', 'zone'], fusion: true, provisionalName: true,
+  id: 'meteocage', name: '星墜の檻', owner: '黒崎 詩音・若宮 征士郎', kind: 'art', tags: ['projectile', 'zone'], fusion: true,
   desc: '前方の空から星が降り、着弾した場所の敵を縫い止める。',
   color: 0x9d4dff, maxLevel: 1,
   base: stats({ damage: 35, intervalSec: 2.2, count: 10, area: 260, duration: 1.0, extra: { blastRadius: 80 } }),
@@ -389,9 +388,9 @@ const HONJIN: WeaponDef = {
   levels: [],
 };
 
-/** 『跳弾バグ（リコシェ・グリッチ）』（仮）：蹴り飛ばした敵が画面端で最大5回跳ね返り、ぶつかった敵にダメージ。発動ごとに響の跳ね返る弾も1発撃ち、飛んでいる敵に当たると加速 */
+/** 『跳弾バグ（リコシェ・グリッチ）』：蹴り飛ばした敵が画面端で最大5回跳ね返り、ぶつかった敵にダメージ。発動ごとに響の跳ね返る弾も1発撃ち、飛んでいる敵に当たると加速 */
 const RICOCHET: WeaponDef = {
-  id: 'ricochet', name: '跳弾バグ', owner: '振須 響・晴山 樹', kind: 'art', tags: ['melee'], fusion: true, provisionalName: true,
+  id: 'ricochet', name: '跳弾バグ', owner: '振須 響・晴山 樹', kind: 'art', tags: ['melee'], fusion: true,
   desc: '蹴り飛ばした敵が画面の端で跳ね回り、ぶつかった敵を巻き込む。',
   color: 0x00ced1, maxLevel: 1,
   base: stats({ damage: 50, intervalSec: 1.6, count: 3, speed: 900, duration: 6, slow: 0.45, extra: { bounces: 5, shotDamage: 14, shotSpeed: 420, shotLife: 6 } }),

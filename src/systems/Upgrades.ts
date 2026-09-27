@@ -197,11 +197,15 @@ export class UpgradeState {
       this.fusedSources.add(f.a);
       this.fusedSources.add(f.b);
       const fused = createWeapon(f.id);
+      // 『夢見る猫箱』：素材のアクアシールドが進化済み（アクア・メディック）なら癒しを引き継ぐ
+      const medic = f.id === 'nekobako' && [wa, wb].some((w) => w.def.id === 'aqua' && w.evolved);
+      if (medic) fused.state.medic = true;
       this.arts.push(fused);
       recordCodex(f.id);
       return {
         kind: 'fusion', title: fused.name, sub: `『${wa.name}』×『${wb.name}』`, color: fused.def.color,
-        owner: fused.def.owner, weapon: fused, owners: [wa.def.owner, wb.def.owner], fromNames: [wa.name, wb.name], desc: fused.def.desc,
+        owner: fused.def.owner, weapon: fused, owners: [wa.def.owner, wb.def.owner], fromNames: [wa.name, wb.name],
+        desc: medic ? `${fused.def.desc}盾が攻撃を防ぐたび、傷を癒す。` : fused.def.desc,
       };
     }
     // ② 進化
