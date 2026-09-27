@@ -97,7 +97,8 @@ class AudioBusImpl {
     if (!scene || !entry) return;
     const loader = scene.load;
     loader.audio(key, entry.path);
-    loader.once(Phaser.Loader.Events.COMPLETE, () => {
+    // ファイル単位の完了で受ける（全体の COMPLETE だと、読み込み中に別の曲を足したとき取りこぼす）
+    loader.once(`filecomplete-audio-${key}`, () => {
       if (this.wantedBgm === key && this.has(key)) this.startBgm(key);
     });
     if (!loader.isLoading()) loader.start();

@@ -591,7 +591,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** 黒騎士（STAGE 3）：前半は騎兵突撃と剣閃、50%で形態変化、後半は離脱して闇の弾幕 */
+  /** 黒騎士（STAGE 3）：前半は騎兵突撃と剣閃、50%で形態変化、後半は突進の直後に追撃（ばらまき／右→左の二連斬） */
   private updateBlackKnight(e: Enemy, dt: number, now: number, dist: number, nx: number, ny: number): { mx: number; my: number; spd: number } {
     const b = e.bk;
     const p = this.player;
@@ -638,9 +638,14 @@ export class GameScene extends Phaser.Scene {
     const B = CONFIG.boss;
     if (bs.dashing > 0) {
       bs.dashing -= dt;
-      if (bs.dashing <= 0) bs.chargeTimer = b.phase === 1 ? 7 : 6;
+      if (bs.dashing <= 0) {
+        bs.chargeTimer = b.phase === 1 ? 7 : 6;
+        if (b.phase === 2) this.startKnightFollow(e, now);
+      }
       return { mx: bs.dirX, my: bs.dirY, spd: B.chargeSpeed * 1.1 };
     }
+    // 後半：突進の直後の追撃中は他の行動をしない
+    if (b.follow) return this.updateKnightFollow(e, dt, now);
     if (bs.windup > 0) {
       bs.windup -= dt;
       e.x += (Math.random() - 0.5) * 6;
@@ -656,7 +661,7 @@ export class GameScene extends Phaser.Scene {
       return { mx: 0, my: 0, spd: 0 };
     }
     bs.chargeTimer -= dt;
-    if (bs.chargeTimer <= 0 && b.slashWindup <= 0 && b.barrageLeft <= 0) {
+    if (bs.chargeTimer <= 0 && b.slashWindup <= 0) {
       bs.windup = B.chargeWindupSec;
       e.play('anim_e_blackknight_windup', true);
       b.animLock = now + 800;
@@ -712,40 +717,102 @@ export class GameScene extends Phaser.Scene {
       return { mx: 0, my: 0, spd: 0 };
     }
 
-    // 後半：300px程度離れて闇の弾幕（扇状3連バースト×12発、弾速220、1発8）
-    if (b.phase === 2) {
-      b.barrageTimer -= dt;
-      if (b.barrageLeft > 0) {
-        b.barrageTick -= dt;
-        if (b.barrageTick <= 0) {
-          b.barrageTick = 0.12;
-          b.barrageLeft--;
-          const a = Math.atan2(ny, nx);
-          for (const off of [-0.18, 0, 0.18]) this.fireEnemyBullet(e.x + nx * 40, e.y - 40, a + off + (Math.random() - 0.5) * 0.05, 220, 5, 8, 0x9d4dff);
-        }
-        e.play('anim_e_blackknight_barrage', true);
-        b.animLock = now + 200;
-        return { mx: 0, my: 0, spd: 0 };
-      }
-      if (b.barrageTimer <= 0) {
-        b.barrageTimer = 4;
-        b.barrageLeft = 12;
-        b.barrageTick = 0;
-      }
-      // 距離取り
-      if (dist < 260) return { mx: -nx, my: -ny, spd: e.def.speed * 1.4 };
-      if (dist > 360) return { mx: nx, my: ny, spd: e.def.speed };
-      return { mx: -ny * 0.5, my: nx * 0.5, spd: e.def.speed * 0.8 };
-    }
     if (now > b.animLock && e.anims.currentAnim?.key !== 'anim_e_blackknight') e.play('anim_e_blackknight', true);
-    return { mx: nx, my: ny, spd: e.def.speed };
+    // 後半は少し速く詰める（弾幕は突進直後の追撃に移した）
+    return { mx: nx, my: ny, spd: e.def.speed * (b.phase === 2 ? CONFIG.blackKnight.phase2SpeedMul : 1) };
+  }
+
+  /** 黒騎士・後半：突進直後の追撃を選ぶ（ばらまき or 二連斬。同じものは3回続けない） */
+  private startKnightFollow(e: Enemy, now: number): void {
+    const b = e.bk;
+    const K = CONFIG.blackKnight;
+    let pick = Math.random() < 0.5 ? 'scatter' : 'cleave';
+    if (pick === b.lastFollow && b.followStreak >= 2) pick = pick === 'scatter' ? 'cleave' : 'scatter';
+    b.followStreak = pick === b.lastFollow ? b.followStreak + 1 : 1;
+    b.lastFollow = pick;
+    if (pick === 'scatter') {
+      b.follow = 'scatter';
+      b.followT = K.scatterWindupSec + K.scatterSec;
+      b.followTick = 0;
+    } else {
+      b.follow = 'cleaveR';
+      b.followT = K.cleaveWindupSec;
+    }
+    e.play('anim_e_blackknight_windup', true);
+    b.animLock = now + 500;
+  }
+
+  /** 黒騎士・後半の追撃。ばらまき：足元の輪で予兆 → 全方位へランダム弾／二連斬：右半分（予兆）→ 左半分（予兆） */
+  private updateKnightFollow(e: Enemy, dt: number, now: number): { mx: number; my: number; spd: number } {
+    const b = e.bk;
+    const K = CONFIG.blackKnight;
+    const g = this.bossGfx;
+    const p = this.player;
+    const cx = e.x;
+    const cy = e.y - 40;
+    const still = { mx: 0, my: 0, spd: 0 };
+    const finish = () => {
+      b.follow = '';
+      e.bossState.chargeTimer = K.followChargeDelaySec;
+    };
+    b.followT -= dt;
+
+    if (b.follow === 'scatter') {
+      if (b.followT > K.scatterSec) {
+        const k = 1 - (b.followT - K.scatterSec) / K.scatterWindupSec;
+        g.lineStyle(5, 0x9d4dff, 0.4 + k * 0.5);
+        g.strokeCircle(cx, cy, 60 + k * 90);
+        g.lineStyle(2, 0x9d4dff, 0.5);
+        g.strokeCircle(cx, cy, 150);
+        return still;
+      }
+      b.followTick -= dt;
+      if (b.followTick <= 0) {
+        b.followTick = K.scatterTickSec;
+        for (let i = 0; i < K.scatterPerTick; i++) {
+          this.fireEnemyBullet(cx, cy, Math.random() * Math.PI * 2, Phaser.Math.Between(K.scatterSpeedMin, K.scatterSpeedMax), 5, K.scatterDamage, 0x9d4dff);
+        }
+      }
+      e.play('anim_e_blackknight_barrage', true);
+      b.animLock = now + 200;
+      if (b.followT <= 0) finish();
+      return still;
+    }
+
+    // 二連斬（画面の左右基準）
+    const right = b.follow === 'cleaveR';
+    if (b.followT > 0) {
+      const k = 1 - b.followT / (right ? K.cleaveWindupSec : K.cleaveSecondWindupSec);
+      g.fillStyle(0xff2244, 0.14 + k * 0.22);
+      g.slice(cx, cy, K.cleaveRadius, right ? -Math.PI / 2 : Math.PI / 2, right ? Math.PI / 2 : Math.PI * 1.5, false);
+      g.fillPath();
+      g.lineStyle(3, 0xff2244, 0.8);
+      g.lineBetween(cx, cy - K.cleaveRadius, cx, cy + K.cleaveRadius);
+      return still;
+    }
+    const rx = p.x - cx;
+    const ry = p.y - 12 - cy;
+    if (Math.hypot(rx, ry) < K.cleaveRadius && (right ? rx > 0 : rx < 0)) this.hurt(K.cleaveDamage, now);
+    e.play('anim_e_blackknight_slash', true);
+    b.animLock = now + 400;
+    this.fxSlash(cx, cy, K.cleaveRadius, 0x9d4dff, right ? 0 : Math.PI, 180);
+    this.cameras.main.shake(100, 0.004);
+    AudioBus.play('se_slash', 60);
+    if (right) {
+      b.follow = 'cleaveL';
+      b.followT = K.cleaveSecondWindupSec;
+    } else {
+      finish();
+    }
+    return still;
   }
 
   private cavalryWarnings: { at: number; x1: number; y1: number; x2: number; y2: number }[] = [];
 
   /**
-   * 王級：周囲弾を撃ちながら、突進／狙い撃ち／踏み鳴らし／回転弾をサイクルで繰り出す。
-   * HP50%で「激昂」：1.2秒の咆哮のあと攻撃間隔が短くなり、弾数増・2連突進・召集が加わる。
+   * 王級：周囲弾を撃ちながら、突進／狙い撃ち／踏み鳴らし／回転弾／十字斬りを重み付き乱数で繰り出す（直前と同じ行動は出さない）。
+   * HP50%で「激昂」：1.2秒の咆哮のあと攻撃間隔が短くなり、弾数増・2連突進（低確率）・召集が加わる。
+   * 範囲攻撃はすべて予兆（線・帯・円）を出してから当てる。突進は予兆の後半で向きが固定される。
    * 返り値: このフレームの移動速度
    */
   private updateBoss(e: Enemy, dt: number, now: number, dist: number, nx: number, ny: number): number {
@@ -758,6 +825,7 @@ export class GameScene extends Phaser.Scene {
       b.phase = 2;
       b.act = 'roar';
       b.actT = 1.2;
+      b.actLeft = 0;
       b.windup = 0;
       b.dashing = 0;
       this.hud.banner(`${e.def.name} —— 激昂`, '#FF4D6D', 34);
@@ -785,21 +853,34 @@ export class GameScene extends Phaser.Scene {
       for (let i = 0; i < n; i++) this.fireEnemyBullet(e.x, e.y - 20, (i / n) * Math.PI * 2 + b.ringSpin, B.ringBulletSpeed, 6, B.ringBulletDamage);
     }
 
-    // 突進：予備動作（赤い予告線）→ダッシュ。激昂後は着地後すぐもう一度（2連）
+    // 突進：予兆（前半は狙いを追う細い線 → 後半は向きを固定した帯）→ダッシュ。2連のときは2回目も同じ長さの予兆を出す
     if (b.dashing > 0) {
       b.dashing -= dt;
-      if (b.dashing <= 0 && b.actLeft > 0) { b.actLeft--; b.windup = B.chargeWindupSec * 0.45; }
+      if (b.dashing <= 0 && b.actLeft > 0) {
+        b.actLeft--;
+        b.windup = B.kingChargeTrackSec + B.kingChargeLockSec;
+        this.fxText(e.x, e.y - 130, '!!', '#FF4D6D');
+      }
       return B.chargeSpeed;
     }
     if (b.windup > 0) {
       b.windup -= dt;
       e.x += (Math.random() - 0.5) * 6;
-      g.lineStyle(6, 0xff2244, 0.3 + Math.max(0, 1 - b.windup / B.chargeWindupSec) * 0.6);
-      g.lineBetween(e.x, e.y - 40, e.x + nx * 480, e.y - 40 + ny * 480);
-      if (b.windup <= 0) {
-        b.dashing = B.chargeDurationSec;
+      const reach = B.chargeSpeed * B.chargeDurationSec + e.radius;
+      if (b.windup > B.kingChargeLockSec) {
         b.dirX = nx;
         b.dirY = ny;
+        g.lineStyle(4, 0xff2244, 0.55);
+        g.lineBetween(e.x, e.y - 40, e.x + nx * reach, e.y - 40 + ny * reach);
+      } else {
+        const k = 1 - Math.max(0, b.windup) / B.kingChargeLockSec;
+        g.lineStyle(e.radius * 1.7, 0xff2244, 0.14 + k * 0.22);
+        g.lineBetween(e.x, e.y - 40, e.x + b.dirX * reach, e.y - 40 + b.dirY * reach);
+        g.lineStyle(4, 0xff2244, 0.8);
+        g.lineBetween(e.x, e.y - 40, e.x + b.dirX * reach, e.y - 40 + b.dirY * reach);
+      }
+      if (b.windup <= 0) {
+        b.dashing = B.chargeDurationSec;
         this.cameras.main.shake(120, 0.005);
       }
       return 0;
@@ -821,19 +902,19 @@ export class GameScene extends Phaser.Scene {
         const offs = p2 ? [-0.34, -0.17, 0, 0.17, 0.34] : [-0.2, 0, 0.2];
         for (const off of offs) this.fireEnemyBullet(e.x + nx * 50, e.y - 40, a + off, B.burstBulletSpeed, 5, B.burstBulletDamage, 0xffd700);
         this.fxCross(e.x + nx * 50, e.y - 40, 26, 0xffd700);
-        if (b.actLeft <= 0) b.act = '';
+        if (b.actLeft <= 0) { b.actLeft = 0; b.act = ''; }
       }
       return 0;
     }
 
-    // 踏み鳴らし：1秒かけて広がる予告円 → 円内にダメージ＋衝撃波（遅い弾を全周に）
+    // 踏み鳴らし：広がる予告円 → 円内にダメージ＋衝撃波（遅い弾を全周に）
     if (b.act === 'stomp') {
       b.actT -= dt;
       const R = p2 ? B.stompRadius * 1.15 : B.stompRadius;
       const cx = e.x;
       const cy = e.y - 30;
       if (b.actT > 0) {
-        const k = 1 - b.actT;
+        const k = 1 - b.actT / B.stompWindupSec;
         g.fillStyle(0xff2244, 0.12 + k * 0.18);
         g.fillCircle(cx, cy, R);
         g.lineStyle(4, 0xff2244, 0.5 + k * 0.4);
@@ -843,9 +924,51 @@ export class GameScene extends Phaser.Scene {
       b.act = '';
       this.cameras.main.shake(220, 0.009);
       this.fxRing(cx, cy, R, 0xff4d6d, 8);
-      if (Math.hypot(p.x - cx, p.y - 12 - cy) < R + p.def.hitRadius) this.hurt(B.stompDamage, now);
+      if (Math.hypot(p.x - cx, p.y - 12 - cy) < R) this.hurt(B.stompDamage, now);
       const n = p2 ? 12 : 8;
       for (let i = 0; i < n; i++) this.fireEnemyBullet(cx, cy, (i / n) * Math.PI * 2 + b.ringSpin, 110, 3.5, 8, 0xff8866);
+      return 0;
+    }
+
+    // 十字斬り：自身を中心に十字（または×字）の帯で予告 → 帯の上にダメージ。激昂後は45°回して二段目
+    if (b.act === 'cross') {
+      b.actT -= dt;
+      const cx = e.x;
+      const cy = e.y - 30;
+      const L = B.crossLength;
+      const total = b.actLeft > 0 || !p2 ? B.crossWindupSec : B.crossSecondWindupSec;
+      if (b.actT > 0) {
+        const k = 1 - b.actT / total;
+        for (let i = 0; i < 2; i++) {
+          const a = b.actAngle + (i * Math.PI) / 2;
+          const ux = Math.cos(a) * L;
+          const uy = Math.sin(a) * L;
+          g.lineStyle(B.crossHalfWidth * 2, 0xff2244, 0.14 + k * 0.22);
+          g.lineBetween(cx - ux, cy - uy, cx + ux, cy + uy);
+          g.lineStyle(3, 0xff2244, 0.8);
+          g.lineBetween(cx - ux, cy - uy, cx + ux, cy + uy);
+        }
+        return 0;
+      }
+      const rx = p.x - cx;
+      const ry = p.y - 12 - cy;
+      let hit = false;
+      for (let i = 0; i < 2; i++) {
+        const a = b.actAngle + (i * Math.PI) / 2;
+        const along = rx * Math.cos(a) + ry * Math.sin(a);
+        const perp = -rx * Math.sin(a) + ry * Math.cos(a);
+        if (Math.abs(perp) < B.crossHalfWidth && Math.abs(along) < L) hit = true;
+        this.fxBand(cx - Math.cos(a) * L, cy - Math.sin(a) * L, cx + Math.cos(a) * L, cy + Math.sin(a) * L, B.crossHalfWidth * 2, 0xff4d6d);
+      }
+      if (hit) this.hurt(B.crossDamage, now);
+      this.cameras.main.shake(140, 0.006);
+      if (b.actLeft > 0) {
+        b.actLeft--;
+        b.actAngle += Math.PI / 4;
+        b.actT = B.crossSecondWindupSec;
+      } else {
+        b.act = '';
+      }
       return 0;
     }
 
@@ -863,18 +986,29 @@ export class GameScene extends Phaser.Scene {
       return e.def.speed * 0.35;
     }
 
-    // 次の行動（サイクル順）
+    // 次の行動：重み付き乱数（直前と同じ行動は除く）
     b.actTimer -= dt;
     if (b.actTimer <= 0) {
-      const cycle = p2 ? B.cyclePhase2 : B.cycle;
-      const act = cycle[b.pattern % cycle.length];
+      const table = p2 ? B.weightsPhase2 : B.weights;
+      const same = (k: string) => k === b.lastAct || (k.startsWith('charge') && b.lastAct.startsWith('charge'));
+      let total = 0;
+      for (const k in table) if (!same(k)) total += table[k];
+      let r = Math.random() * total;
+      let act = 'charge';
+      for (const k in table) {
+        if (same(k)) continue;
+        r -= table[k];
+        if (r <= 0) { act = k; break; }
+      }
+      b.lastAct = act;
       b.pattern++;
       b.actTimer = p2 ? B.attackEverySec * 0.75 : B.attackEverySec;
       switch (act) {
         case 'charge':
-          b.windup = B.chargeWindupSec;
-          b.actLeft = p2 ? 1 : 0;
-          this.fxText(e.x, e.y - 130, '!!', '#FF4D6D');
+        case 'charge2':
+          b.windup = B.kingChargeTrackSec + B.kingChargeLockSec;
+          b.actLeft = act === 'charge2' ? 1 : 0;
+          this.fxText(e.x, e.y - 130, act === 'charge2' ? '!!×2' : '!!', '#FF4D6D');
           return 0;
         case 'burst':
           b.act = 'burst';
@@ -884,7 +1018,13 @@ export class GameScene extends Phaser.Scene {
           return 0;
         case 'stomp':
           b.act = 'stomp';
-          b.actT = 1.0;
+          b.actT = B.stompWindupSec;
+          return 0;
+        case 'cross':
+          b.act = 'cross';
+          b.actT = B.crossWindupSec;
+          b.actAngle = Math.random() < 0.5 ? 0 : Math.PI / 4;
+          b.actLeft = p2 ? 1 : 0;
           return 0;
         case 'spiral':
           b.act = 'spiral';
@@ -897,8 +1037,8 @@ export class GameScene extends Phaser.Scene {
           const n = 8;
           for (let i = 0; i < n; i++) {
             const a = (i / n) * Math.PI * 2 + b.ringSpin;
-            const s = this.spawner.spawnOne(i % 4 === 3 ? 'hunter' : 'grunt', e.x + Math.cos(a) * 170, e.y - 30 + Math.sin(a) * 170, this.stage.enemyHpMul);
-            if (s) this.hitSpark(s.x, s.y, 0xff4d6d, 4);
+            const sp = this.spawner.spawnOne(i % 4 === 3 ? 'hunter' : 'grunt', e.x + Math.cos(a) * 170, e.y - 30 + Math.sin(a) * 170, this.stage.enemyHpMul);
+            if (sp) this.hitSpark(sp.x, sp.y, 0xff4d6d, 4);
           }
           this.fxRing(e.x, e.y - 40, 190, 0xff4d6d, 5);
           this.fxText(e.x, e.y - 130, '集え', '#FF4D6D');
@@ -1194,6 +1334,8 @@ export class GameScene extends Phaser.Scene {
       if (this.stage.scoreMode && def.id !== 'blackknight') {
         this.hud.banner(`${def.name} 撃破　+${SCORE.points[def.id]}`, '#FFD700', 34);
         this.cameras.main.flash(300, 255, 255, 255);
+        // スコアアタックは撃破後も続くので、ボスが居なくなったら道中の曲に戻す
+        this.resumeBgm();
         return;
       }
       this.bossGfx?.clear();
@@ -1345,6 +1487,16 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: g, alpha: 0, scale: 1.2, duration: 220, onComplete: () => g.destroy() });
   }
 
+  /** 帯状の閃光（ボスの範囲攻撃の命中表示。敵より下に描く） */
+  private fxBand(x1: number, y1: number, x2: number, y2: number, width: number, color: number): void {
+    const g = this.add.graphics().setDepth(9);
+    g.lineStyle(width, color, 0.6);
+    g.lineBetween(x1, y1, x2, y2);
+    g.lineStyle(Math.max(4, width * 0.2), 0xffffff, 0.85);
+    g.lineBetween(x1, y1, x2, y2);
+    this.tweens.add({ targets: g, alpha: 0, duration: 320, onComplete: () => g.destroy() });
+  }
+
   private fxLine(x1: number, y1: number, x2: number, y2: number, width: number, color: number): void {
     const g = this.add.graphics().setDepth(26);
     const a = Math.atan2(y2 - y1, x2 - x1);
@@ -1387,7 +1539,7 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: this.bg, alpha: 1, duration: 10 });
     this.bg.setTint(0xb8c4e8);
     this.hud.banner('満月 —— 声が、ざわめく', '#FFF6D5', 30);
-    AudioBus.playBgm('bgm_fullmoon');
+    this.resumeBgm();
   }
 
   private endFullMoon(): void {
@@ -1401,7 +1553,20 @@ export class GameScene extends Phaser.Scene {
     }
     if (this.stage.tint !== 0xffffff) this.bg.setTint(this.stage.tint);
     else this.bg.clearTint();
-    AudioBus.playBgm(`bgm_chara_${this.player.def.id}`, this.stage.bgm, 'bgm_stage');
+    this.resumeBgm();
+  }
+
+  /** いまの状況に合うBGMへ：ボス生存中はボス曲（王級／黒騎士で別）、満月中は満月曲、それ以外はキャラ曲 */
+  private resumeBgm(): void {
+    const boss = this.bosses.find((b) => b.active);
+    if (boss) {
+      if (boss.def.id === 'blackknight') AudioBus.playBgm('bgm_boss_blackknight', 'bgm_boss');
+      else AudioBus.playBgm('bgm_boss', 'bgm_boss_blackknight');
+      return;
+    }
+    const chara = `bgm_chara_${this.player.def.id}`;
+    if (this.fullMoon) AudioBus.playBgm('bgm_fullmoon', chara, this.stage.bgm, 'bgm_stage');
+    else AudioBus.playBgm(chara, this.stage.bgm, 'bgm_stage');
   }
 
   /** ノーダメージ時間を確定させる（被弾で区切る） */
@@ -1419,8 +1584,7 @@ export class GameScene extends Phaser.Scene {
     this.hud.banner(`${boss.def.name} —— 出現`, '#FF4D6D', 40);
     this.cameras.main.shake(300, 0.006);
     AudioBus.play('se_boss');
-    if (boss.def.id === 'blackknight') AudioBus.playBgm('bgm_boss_blackknight', 'bgm_boss');
-    else AudioBus.playBgm('bgm_boss', 'bgm_boss_blackknight');
+    this.resumeBgm();
   }
 
   private activateSoul(): void {

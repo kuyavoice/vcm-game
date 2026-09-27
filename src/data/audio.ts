@@ -25,6 +25,11 @@ export const AUDIO_MANIFEST: AudioEntry[] = [
   { key: 'bgm_chara_yukihito', path: 'assets/audio/bgm/chara_yukihito.mp3', category: 'bgm', loop: true },
   { key: 'bgm_chara_ritsuka', path: 'assets/audio/bgm/chara_ritsuka.mp3', category: 'bgm', loop: true },
   { key: 'bgm_result', path: 'assets/audio/bgm/result.mp3', category: 'bgm', loop: true },
+  // クリア後の曲（操作キャラ別。無ければ result → title）
+  { key: 'bgm_clear_kuya', path: 'assets/audio/bgm/clear_kuya.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_clear_mizuho', path: 'assets/audio/bgm/clear_mizuho.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_clear_yukihito', path: 'assets/audio/bgm/clear_yukihito.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_clear_ritsuka', path: 'assets/audio/bgm/clear_ritsuka.mp3', category: 'bgm', loop: true },
   // SE
   { key: 'se_slash', path: 'assets/audio/se/slash.mp3', category: 'se' },
   { key: 'se_shot', path: 'assets/audio/se/shot.mp3', category: 'se' },

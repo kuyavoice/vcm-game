@@ -78,19 +78,50 @@ export const CONFIG = {
     ringCount: 14,
     ringBulletSpeed: 140,
     ringBulletDamage: 10,
-    /** 行動サイクル（この順に実行）。HPが phase2At を切ると激昂：別サイクル＋間隔短縮＋弾数増 */
+    /** 行動は重み付きの乱数で選ぶ（直前と同じ行動は選ばない）。HPが phase2At を切ると激昂：別の重み＋間隔短縮＋弾数増 */
     attackEverySec: 4.5,
     phase2At: 0.5,
-    cycle: ['charge', 'burst', 'stomp', 'charge', 'spiral'] as readonly string[],
-    cyclePhase2: ['charge', 'burst', 'spiral', 'stomp', 'summon', 'charge'] as readonly string[],
+    weights: { charge: 3, burst: 2, stomp: 2, spiral: 2, cross: 2 } as Readonly<Record<string, number>>,
+    weightsPhase2: { charge: 2, charge2: 1, burst: 2, stomp: 2, spiral: 2, cross: 2, summon: 1 } as Readonly<Record<string, number>>,
+    /** 王級の突進の予兆：最初の track 秒は狙いを追い、残り lock 秒は向きを固定して帯で予告（基礎速度でも横に抜けられる長さ） */
+    kingChargeTrackSec: 0.35,
+    kingChargeLockSec: 0.65,
+    /** 十字斬り（予告の帯 → 帯の上にダメージ。激昂後は45°回して二段目） */
+    crossWindupSec: 1.0,
+    crossSecondWindupSec: 0.8,
+    crossHalfWidth: 48,
+    crossLength: 640,
+    crossDamage: 20,
     /** 狙い撃ち（扇状の連射） */
     burstBulletSpeed: 280,
     burstBulletDamage: 10,
     /** 踏み鳴らし（予告円→範囲ダメージ＋衝撃波弾） */
-    stompRadius: 250,
+    stompRadius: 230,
+    stompWindupSec: 1.2,
     stompDamage: 25,
     /** 回転弾 */
     spiralBulletSpeed: 170,
+  },
+
+  // 黒騎士・後半：突進の直後に出す追撃
+  blackKnight: {
+    /** ばらまき：足元の輪で予兆 → 自身を中心にランダムな向き・速さの弾 */
+    scatterWindupSec: 0.5,
+    scatterSec: 1.6,
+    scatterTickSec: 0.07,
+    scatterPerTick: 2,
+    scatterSpeedMin: 140,
+    scatterSpeedMax: 250,
+    scatterDamage: 8,
+    /** 二連斬：右半分（予兆）→ 左半分（予兆）。画面の左右基準 */
+    cleaveRadius: 260,
+    cleaveWindupSec: 1.1,
+    cleaveSecondWindupSec: 0.8,
+    cleaveDamage: 25,
+    /** 追撃が終わってから次の突進まで */
+    followChargeDelaySec: 4.5,
+    /** 後半の接近速度倍率 */
+    phase2SpeedMul: 1.15,
   },
 
   // 声の欠片の吸引速度（px/s）
