@@ -46,6 +46,9 @@ export const CONFIG = {
   // ゲーム速度（HUDのボタンで巡回切替。倍率分だけ内部更新を分割して当たり判定の精度を保つ）
   speedModes: [1, 1.5, 2, 3] as readonly number[],
 
+  // 強化できるものが無いときのレベルアップ：選択画面を出さずにこの割合だけ回復
+  levelUpFallbackHeal: 0.3,
+
   // 必殺『魂の共鳴』
   soul: {
     /** ゲージ満タンに必要な撃破数 */
@@ -118,6 +121,19 @@ export const CONFIG = {
     cleaveWindupSec: 1.1,
     cleaveSecondWindupSec: 0.8,
     cleaveDamage: 25,
+    /** 連射（従来のマシンガン）：予告線 → 狙いを追いながら扇状3連を連射 */
+    barrageWindupSec: 0.4,
+    barrageBursts: 12,
+    barrageTickSec: 0.12,
+    barrageSpeed: 220,
+    barrageDamage: 8,
+    /** 必殺（スコアアタックのみ・低確率）：騎兵を横↔縦と交互に連続で呼び、直後に突進 */
+    rushChance: 0.2,
+    rushCooldownSec: 25,
+    rushVolleys: 4,
+    rushIntervalSec: 0.9,
+    rushCavalry: 4,
+    rushChargeDelaySec: 1.1,
     /** 追撃が終わってから次の突進まで */
     followChargeDelaySec: 4.5,
     /** 後半の接近速度倍率 */

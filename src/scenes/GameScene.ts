@@ -281,6 +281,13 @@ export class GameScene extends Phaser.Scene {
       { label: '王級', run: () => spawnBoss('king') },
       { label: '黒騎士', run: () => spawnBoss('blackknight') },
       {
+        label: '騎兵必殺',
+        run: () => {
+          used();
+          for (const b of this.bosses) if (b.active && b.def.id === 'blackknight' && b.bk.rush === 0 && !b.bk.rushCharge) this.startKnightRush(b, this.gameNow);
+        },
+      },
+      {
         label: 'ボスHP50%',
         run: () => {
           used();
@@ -736,7 +743,7 @@ export class GameScene extends Phaser.Scene {
       return { mx: 0, my: 0, spd: 0 };
     }
     bs.chargeTimer -= dt;
-    if (bs.chargeTimer <= 0 && b.slashWindup <= 0) {
+    if (bs.chargeTimer <= 0 && b.slashWindup <= 0 && b.rush === 0 && !b.rushCharge) {
       bs.windup = B.chargeWindupSec;
       e.play('anim_e_blackknight_windup', true);
       b.animLock = now + 800;
@@ -744,25 +751,39 @@ export class GameScene extends Phaser.Scene {
       return { mx: 0, my: 0, spd: 0 };
     }
 
+    // 必殺（スコアアタックのみ）：騎兵を横↔縦と交互に4連で呼び、直後に突進。進行中は他の行動をしない
+    if (b.rush > 0 || b.rushCharge) {
+      const K = CONFIG.blackKnight;
+      b.rushT -= dt;
+      if (b.rushT <= 0) {
+        if (b.rush > 0) {
+          this.queueCavalry(now, b.rushH, Math.random() < 0.5, K.rushCavalry);
+          b.rushH = !b.rushH;
+          b.rush--;
+          b.rushT = b.rush > 0 ? K.rushIntervalSec : K.rushChargeDelaySec;
+          if (b.rush === 0) b.rushCharge = true;
+          e.play('anim_e_blackknight_summon', true);
+          b.animLock = now + 700;
+        } else {
+          b.rushCharge = false;
+          bs.windup = B.chargeWindupSec;
+          e.play('anim_e_blackknight_windup', true);
+          b.animLock = now + 800;
+          this.fxText(e.x, e.y - 150, '!!', '#FF4D6D');
+        }
+      }
+      return { mx: 0, my: 0, spd: 0 };
+    }
+
     // 騎兵突撃（前半 6秒ごと／後半 4秒ごと）：3〜5体が画面を一直線に突っ切る。1秒前に赤線で予告
     b.cavalryTimer -= dt;
     if (b.cavalryTimer <= 0) {
       b.cavalryTimer = b.phase === 1 ? 6 : 4;
-      const n = Phaser.Math.Between(3, 5);
-      const v = this.cameras.main.worldView;
-      const horizontal = Math.random() < 0.5;
-      const fromLeft = Math.random() < 0.5;
-      for (let i = 0; i < n; i++) {
-        const t = (i + 0.5) / n;
-        const jitter = (Math.random() - 0.5) * 60;
-        if (horizontal) {
-          const y = v.top + 120 + t * (v.height - 240) + jitter;
-          this.cavalryWarnings.push({ at: now + 1000 + i * 120, x1: fromLeft ? v.left - 150 : v.right + 150, y1: y, x2: fromLeft ? v.right + 150 : v.left - 150, y2: y });
-        } else {
-          const x = v.left + 80 + t * (v.width - 160) + jitter;
-          this.cavalryWarnings.push({ at: now + 1000 + i * 120, x1: x, y1: fromLeft ? v.top - 150 : v.bottom + 150, x2: x, y2: fromLeft ? v.bottom + 150 : v.top - 150 });
-        }
+      if (this.stage.scoreMode && now >= b.rushCdUntil && b.slashWindup <= 0 && Math.random() < CONFIG.blackKnight.rushChance) {
+        this.startKnightRush(e, now);
+        return { mx: 0, my: 0, spd: 0 };
       }
+      this.queueCavalry(now, Math.random() < 0.5, Math.random() < 0.5, Phaser.Math.Between(3, 5));
       e.play('anim_e_blackknight_summon', true);
       b.animLock = now + 700;
     }
@@ -797,17 +818,52 @@ export class GameScene extends Phaser.Scene {
     return { mx: nx, my: ny, spd: e.def.speed * (b.phase === 2 ? CONFIG.blackKnight.phase2SpeedMul : 1) };
   }
 
-  /** 黒騎士・後半：突進直後の追撃を選ぶ（ばらまき or 二連斬。同じものは3回続けない） */
+  /** 騎兵の一斉突撃を予約：n体が横（または縦）一直線に画面を突っ切る。1秒前から赤線で予告 */
+  private queueCavalry(now: number, horizontal: boolean, fromLeft: boolean, n: number): void {
+    const v = this.cameras.main.worldView;
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) / n;
+      const jitter = (Math.random() - 0.5) * 60;
+      if (horizontal) {
+        const y = v.top + 120 + t * (v.height - 240) + jitter;
+        this.cavalryWarnings.push({ at: now + 1000 + i * 120, x1: fromLeft ? v.left - 150 : v.right + 150, y1: y, x2: fromLeft ? v.right + 150 : v.left - 150, y2: y });
+      } else {
+        const x = v.left + 80 + t * (v.width - 160) + jitter;
+        this.cavalryWarnings.push({ at: now + 1000 + i * 120, x1: x, y1: fromLeft ? v.top - 150 : v.bottom + 150, x2: x, y2: fromLeft ? v.bottom + 150 : v.top - 150 });
+      }
+    }
+  }
+
+  /** 黒騎士の必殺（スコアアタック専用）を開始：騎兵4連（横↔縦を交互）→突進 */
+  private startKnightRush(e: Enemy, now: number): void {
+    const b = e.bk;
+    const K = CONFIG.blackKnight;
+    b.rush = K.rushVolleys;
+    b.rushT = 0.6;
+    b.rushH = Math.random() < 0.5;
+    b.rushCharge = false;
+    b.rushCdUntil = now + K.rushCooldownSec * 1000;
+    b.cavalryTimer = (b.phase === 1 ? 6 : 4) + K.rushVolleys * K.rushIntervalSec;
+    this.hud.banner('黒騎士 —— 鉄騎、総突撃', '#FF4D6D', 34);
+    this.cameras.main.shake(250, 0.006);
+    e.play('anim_e_blackknight_summon', true);
+    b.animLock = now + 700;
+  }
+
+  /** 黒騎士・後半：突進直後の追撃を選ぶ（ばらまき／二連斬／連射。直前と同じものは選ばない） */
   private startKnightFollow(e: Enemy, now: number): void {
     const b = e.bk;
     const K = CONFIG.blackKnight;
-    let pick = Math.random() < 0.5 ? 'scatter' : 'cleave';
-    if (pick === b.lastFollow && b.followStreak >= 2) pick = pick === 'scatter' ? 'cleave' : 'scatter';
-    b.followStreak = pick === b.lastFollow ? b.followStreak + 1 : 1;
+    const options = ['scatter', 'cleave', 'barrage'].filter((x) => x !== b.lastFollow);
+    const pick = options[Math.floor(Math.random() * options.length)];
     b.lastFollow = pick;
     if (pick === 'scatter') {
       b.follow = 'scatter';
       b.followT = K.scatterWindupSec + K.scatterSec;
+      b.followTick = 0;
+    } else if (pick === 'barrage') {
+      b.follow = 'barrage';
+      b.followT = K.barrageWindupSec + K.barrageBursts * K.barrageTickSec;
       b.followTick = 0;
     } else {
       b.follow = 'cleaveR';
@@ -846,6 +902,27 @@ export class GameScene extends Phaser.Scene {
         b.followTick = K.scatterTickSec;
         for (let i = 0; i < K.scatterPerTick; i++) {
           this.fireEnemyBullet(cx, cy, Math.random() * Math.PI * 2, Phaser.Math.Between(K.scatterSpeedMin, K.scatterSpeedMax), 5, K.scatterDamage, 0x9d4dff);
+        }
+      }
+      e.play('anim_e_blackknight_barrage', true);
+      b.animLock = now + 200;
+      if (b.followT <= 0) finish();
+      return still;
+    }
+
+    // 連射（従来のマシンガン）：予告線のあと、狙いを追いながら扇状3連を撃ち続ける
+    if (b.follow === 'barrage') {
+      const a = Math.atan2(p.y - 12 - cy, p.x - cx);
+      if (b.followT > K.barrageBursts * K.barrageTickSec) {
+        g.lineStyle(3, 0x9d4dff, 0.65);
+        g.lineBetween(cx, cy, cx + Math.cos(a) * 700, cy + Math.sin(a) * 700);
+        return still;
+      }
+      b.followTick -= dt;
+      if (b.followTick <= 0) {
+        b.followTick = K.barrageTickSec;
+        for (const off of [-0.18, 0, 0.18]) {
+          this.fireEnemyBullet(cx + Math.cos(a) * 40, cy, a + off + (Math.random() - 0.5) * 0.05, K.barrageSpeed, 5, K.barrageDamage, 0x9d4dff);
         }
       }
       e.play('anim_e_blackknight_barrage', true);
@@ -1685,6 +1762,15 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const choices = this.up.buildChoices(3);
+    // 強化できるものが無い：選択画面を出さずにその場で回復
+    if (choices.length === 1 && choices[0].kind === 'heal') {
+      const p = this.player;
+      const amount = Math.round(p.maxHp * CONFIG.levelUpFallbackHeal);
+      p.heal(amount);
+      this.fxText(p.x, p.y - 110, `Lv UP  +${amount}`, '#7CFFB2');
+      AudioBus.play('se_levelup', 300);
+      return;
+    }
     const data: LevelUpData = {
       level: this.xp.level,
       choices,
