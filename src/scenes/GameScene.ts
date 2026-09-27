@@ -1507,6 +1507,11 @@ export class GameScene extends Phaser.Scene {
     }
     AudioBus.play('se_kill', 40);
     if (def.boss) {
+      // 撃破ボーナスのエール
+      if (def.defeatYell) {
+        this.xp.yell += def.defeatYell;
+        this.fxText(this.player.x, this.player.y - 140, `+${def.defeatYell} ★`, '#FFD700');
+      }
       this.bosses = this.bosses.filter((b) => b !== e);
       if (this.bosses.every((b) => !b.active)) this.spawner.bossActive = false;
       if (this.stage.scoreMode && def.id !== 'blackknight') {

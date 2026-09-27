@@ -30,6 +30,8 @@ export interface EnemyDef {
   };
   /** 王級ボス */
   boss?: boolean;
+  /** 撃破時にもらえるエール（ボスのみ） */
+  defeatYell?: number;
   /** 動かない破壊可能オブジェクト（壊れたスピーカー）。接触ダメージ・経験値なし、狙われない */
   isObject?: boolean;
   /** スプライトシート（コード生成でなく画像を使う）。frames は横一列のコマ数 */
@@ -67,12 +69,12 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
   king: {
     id: 'king', name: '王級', tier: 4,
     size: 144, hitRadius: 110, hp: 3000, speed: 55, contactDamage: 20, xp: 0,
-    eyeColor: 0xffffff, knockbackResist: 1, boss: true,
+    eyeColor: 0xffffff, knockbackResist: 1, boss: true, defeatYell: 200,
   },
   blackknight: {
     id: 'blackknight', name: '黒騎士', tier: 4,
     size: 144, hitRadius: 130, hp: 3000, speed: 55, contactDamage: 20, xp: 0,
-    eyeColor: 0x9d4dff, knockbackResist: 1, boss: true,
+    eyeColor: 0x9d4dff, knockbackResist: 1, boss: true, defeatYell: 200,
     sheet: { file: 'assets/sprites/enemy/knight.png', frameWidth: 144, frameHeight: 144, frames: 9 },
     originY: 0.86, scale: 2, // 画面上 288px（王級と同じ）
   },
