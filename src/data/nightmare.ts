@@ -22,8 +22,8 @@ export const NIGHTMARE_WAVES: WaveBand[] = [
   { label: '赤騎士', from: 900, to: 9999, spawnPerSecStart: 3.0, spawnPerSecEnd: 3.0, weights: { grunt: 1, hunter: 0.4, knight: 0.1 }, hpMul: 2.4, boss: 'redknight', bossHpMul: 5.0, bossEnraged: true },
 ];
 
-/** 調整中は、URLに `?ex` を付けたときだけ選べる（公開するときは true にする） */
-export const NIGHTMARE_AVAILABLE = typeof location !== 'undefined' && /[?&]ex(?:[&=]|$)/.test(location.search);
+/** 公開済み（2026-09-27）。false にすると、ステージ選択から外れる */
+export const NIGHTMARE_AVAILABLE = true;
 
 /** EXステージ「悪夢」のステージ定義。スコアアタックをクリアすると解放。永続強化は効かない */
 export const NIGHTMARE_STAGE: StageDef = {
