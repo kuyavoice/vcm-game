@@ -6,9 +6,10 @@ import type { WaveBand } from './waves';
 // 時間が短いぶん経験値を増やし、15:00 までに構成が完成するようにする。数値は初期値。
 
 export const NIGHTMARE_WAVES: WaveBand[] = [
-  { label: '雑音級＋狩人級', from: 0, to: 60, spawnPerSecStart: 1.2, spawnPerSecEnd: 2.0, weights: { grunt: 1, hunter: 0.3 }, hpMul: 1 },
-  { label: '＋騎士級', from: 60, to: 180, spawnPerSecStart: 2.0, spawnPerSecEnd: 3.0, weights: { grunt: 1, hunter: 0.4, knight: 0.1 }, hpMul: 1.1, ambush: { type: 'hunter', count: 8, everySec: 25 } },
-  { label: '＋司祭級', from: 180, to: 300, spawnPerSecStart: 3.0, spawnPerSecEnd: 4.0, weights: { grunt: 1, hunter: 0.4, knight: 0.14, bishop: 0.1 }, hpMul: 1.25, ambush: { type: 'hunter', count: 10, everySec: 30 } },
+  // 序盤は足の速い狩人級を抑える（足の遅いキャラが最初の数分で囲まれて崩れるため。2026-09-27 試遊の指摘）
+  { label: '雑音級', from: 0, to: 60, spawnPerSecStart: 1.2, spawnPerSecEnd: 2.0, weights: { grunt: 1 }, hpMul: 1 },
+  { label: '＋狩人級・騎士級', from: 60, to: 180, spawnPerSecStart: 2.0, spawnPerSecEnd: 3.0, weights: { grunt: 1, hunter: 0.25, knight: 0.1 }, hpMul: 1.1 },
+  { label: '＋司祭級', from: 180, to: 300, spawnPerSecStart: 3.0, spawnPerSecEnd: 4.0, weights: { grunt: 1, hunter: 0.3, knight: 0.14, bishop: 0.1 }, hpMul: 1.25, ambush: { type: 'hunter', count: 10, everySec: 30 } },
   // 5:00 王級（最初から激昂）。倒すのが遅れると、次の大群と重なる
   { label: '王級', from: 300, to: 420, spawnPerSecStart: 2.0, spawnPerSecEnd: 2.5, weights: { grunt: 1, hunter: 0.4, knight: 0.08 }, hpMul: 1.4, boss: 'king', bossHpMul: 1.5, bossEnraged: true },
   { label: '大群', from: 420, to: 600, spawnPerSecStart: 4.0, spawnPerSecEnd: 5.0, weights: { grunt: 1, hunter: 0.5, knight: 0.16, bishop: 0.12 }, hpMul: 1.6, ambush: { type: 'hunter', count: 12, everySec: 25 } },
