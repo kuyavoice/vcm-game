@@ -238,16 +238,27 @@ export class Hud {
   }
 
   /** 中央に一瞬出すバナー（時間帯の切り替わりなど） */
+  /** 表示中の字幕（同時に出たら下へずらして重ならないようにする） */
+  private banners: Phaser.GameObjects.Text[] = [];
+
   banner(text: string, color: string = COLOR_HEX.accent, size = 34): void {
+    // 同じ文言が表示中なら出し直さない
+    if (this.banners.some((b) => b.active && b.text === text)) return;
+    let y = this.h * 0.36;
+    for (const b of this.banners) if (b.active) y = Math.max(y, b.y + b.height + 20);
     const t = this.scene.add
-      .text(this.w / 2, this.h * 0.36, text, {
+      .text(this.w / 2, y, text, {
         fontFamily: FONT_JP, fontSize: `${size}px`, color, fontStyle: '700',
         stroke: '#060913', strokeThickness: 6,
       })
       .setOrigin(0.5).setScrollFactor(0).setDepth(101).setAlpha(0);
+    this.banners.push(t);
     this.scene.tweens.add({
       targets: t, alpha: 1, y: t.y - 16, duration: 250, yoyo: true, hold: 1100,
-      onComplete: () => t.destroy(),
+      onComplete: () => {
+        this.banners = this.banners.filter((b) => b !== t);
+        t.destroy();
+      },
     });
   }
 

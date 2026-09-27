@@ -36,6 +36,8 @@ export class Enemy extends Phaser.GameObjects.Sprite {
   burnUntil = 0;
   burnDps = 0;
   burnTick = 0;
+  /** 炎上が必殺技によるもの（この炎上で倒してもゲージに数えない） */
+  burnBySpecial = false;
   /** ボス用の行動タイマー */
   bossState = { chargeTimer: 0, ringTimer: 0, windup: 0, dashing: 0, dirX: 0, dirY: 0, phase: 1, act: '', actT: 0, actTick: 0, actLeft: 0, actTimer: 0, pattern: 0, ringSpin: 0, lastAct: '', actAngle: 0 };
   /** 黒騎士の状態 */
@@ -65,6 +67,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     this.burnUntil = 0;
     this.burnDps = 0;
     this.burnTick = 0;
+    this.burnBySpecial = false;
     this.bossState = { chargeTimer: 2, ringTimer: 1.5, windup: 0, dashing: 0, dirX: 0, dirY: 0, phase: 1, act: '', actT: 0, actTick: 0, actLeft: 0, actTimer: 2.5, pattern: 0, ringSpin: 0, lastAct: '', actAngle: 0 };
     this.bk = { phase: 1, invulnUntil: 0, cavalryTimer: 3, slashWindup: 0, slashCd: 0, animLock: 0, follow: '', followT: 0, followTick: 0, lastFollow: '', rush: 0, rushT: 0, rushH: true, rushCharge: false, rushCdUntil: 0 };
     this.charge = null;
@@ -97,7 +100,8 @@ export class Enemy extends Phaser.GameObjects.Sprite {
   }
 
   /** 炎上：sec 秒間、毎秒 dps（重ねがけは強い方・長い方を採用） */
-  burn(dps: number, sec: number, now: number): void {
+  burn(dps: number, sec: number, now: number, bySpecial = false): void {
+    this.burnBySpecial = bySpecial;
     this.burnDps = Math.max(now < this.burnUntil ? this.burnDps : 0, dps);
     this.burnUntil = Math.max(this.burnUntil, now + sec * 1000);
   }

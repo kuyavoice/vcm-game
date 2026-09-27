@@ -16,7 +16,8 @@ export class Spawner {
   private bossBands = new Set<WaveBand>();
   /** ボスが生きている間は true（スピーカーを置かない） */
   bossActive = false;
-  onBossSpawn?: (boss: Enemy, hpMul: number) => void;
+  /** index／total：同じ時間帯に出すボスの何体目か（字幕・効果音は1体目だけ） */
+  onBossSpawn?: (boss: Enemy, hpMul: number, index: number, total: number) => void;
   onBandChange?: (band: WaveBand) => void;
   constructor(
     private scene: Phaser.Scene,
@@ -69,7 +70,7 @@ export class Spawner {
         const pos = this.ringPoint();
         const id = band.boss === 'king' && this.stage.bossId && !this.stage.waves ? this.stage.bossId : band.boss;
         const boss = this.spawnOne(id, pos.x, pos.y, 1);
-        if (boss) { this.bossActive = true; this.onBossSpawn?.(boss, band.bossHpMul ?? 1); }
+        if (boss) { this.bossActive = true; this.onBossSpawn?.(boss, band.bossHpMul ?? 1, i, n); }
       }
     }
 

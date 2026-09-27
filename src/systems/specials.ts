@@ -113,7 +113,7 @@ const angelicRumble: SpecialBehavior = {
     ctx.scene.cameras.main.shake(250, 0.008);
     for (const e of ctx.onScreenEnemies()) {
       ctx.damage(e, 80 * ctx.stats.damageMul, 0, 0);
-      if (e.active) e.burn(5 * ctx.stats.damageMul, 5, ctx.now);
+      if (e.active) e.burn(5 * ctx.stats.damageMul, 5, ctx.now, true);
     }
     ctx.fx.ring(ctx.player.x, ctx.player.y - 40, 420, 0xff4500, 10);
   },

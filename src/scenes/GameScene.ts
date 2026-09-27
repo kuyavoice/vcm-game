@@ -69,6 +69,8 @@ export class GameScene extends Phaser.Scene {
   private tmp: Enemy[] = [];
   private arrowTargets: { x: number; y: number; color: number }[] = [];
   private soulGauge = 0;
+  /** いま与えているダメージが必殺技によるものか（撃破してもゲージに数えない） */
+  private specialDamage = false;
   /** 必殺の終了時刻（ゲーム内時計） */
   private soulUntil = 0;
   private specialHost: SpecialHost = { state: {} };
@@ -225,8 +227,8 @@ export class GameScene extends Phaser.Scene {
     this.xp.xpMul = this.stage.xpMul;
     this.xp.onItem = (kind, value, x, y) => this.onItem(kind, value, x, y);
     this.spawner = new Spawner(this, this.enemies, this.player, this.stage);
-    this.spawner.onBandChange = (b) => this.onBandChange(b.label, !!b.fullMoon, b.from);
-    this.spawner.onBossSpawn = (boss, hpMul) => this.onBossSpawn(boss, hpMul);
+    this.spawner.onBandChange = (b) => this.onBandChange(b.label, !!b.fullMoon, b.from, !!b.boss);
+    this.spawner.onBossSpawn = (boss, hpMul, index, total) => this.onBossSpawn(boss, hpMul, index, total);
     this.hud = new Hud(this, () => this.pause(), () => this.activateSoul(), () => this.cycleSpeed());
     this.hud.setSpecialLabel(def.special.shortName);
     const savedSpeed = loadSave().settings.speed;
@@ -503,7 +505,11 @@ export class GameScene extends Phaser.Scene {
     // 必殺の進行・終了
     if (this.specialRunning) {
       const sp = SPECIALS[def.special.id];
-      if (specialActive) sp.update?.(dt, ctx, this.specialHost);
+      if (specialActive) {
+        this.specialDamage = true;
+        sp.update?.(dt, ctx, this.specialHost);
+        this.specialDamage = false;
+      }
       else {
         sp.end?.(ctx, this.specialHost);
         this.specialRunning = false;
@@ -568,7 +574,9 @@ export class GameScene extends Phaser.Scene {
         if (e.burnTick >= 0.25) {
           e.burnTick -= 0.25;
           this.hitSpark(e.x, e.y - 10, 0xff8c00, 2);
+          this.specialDamage = e.burnBySpecial;
           this.damageEnemy(e, e.burnDps * 0.25, 0, 0);
+          this.specialDamage = false;
           if (!e.active) continue;
         }
       }
@@ -1483,7 +1491,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     this.kills++;
-    this.soulGauge = Math.min(1, this.soulGauge + this.up.stats.soulGainMul / CONFIG.soul.killsToFull);
+    // 必殺技（その炎上も含む）で倒した分はゲージに数えない
+    if (!this.specialDamage) this.soulGauge = Math.min(1, this.soulGauge + this.up.stats.soulGainMul / CONFIG.soul.killsToFull);
     if (this.stage.scoreMode) {
       const now = this.ctx.now;
       if (now < this.comboUntil) this.combo++;
@@ -1693,8 +1702,10 @@ export class GameScene extends Phaser.Scene {
 
   // ─────────────────────────── イベント ───────────────────────────
 
-  private onBandChange(label: string, fullMoon: boolean, from: number): void {
-    if (from > 0) this.hud.banner(`— ${label} —`);
+  private onBandChange(label: string, fullMoon: boolean, from: number, hasBoss = false): void {
+    // ボスの時間帯と満月は専用の字幕が出るので、時間帯名の字幕は出さない（二重表示の防止）
+    const ownBanner = hasBoss || (fullMoon && !this.fullMoon);
+    if (from > 0 && !ownBanner) this.hud.banner(`— ${label} —`);
     if (fullMoon && !this.fullMoon) this.startFullMoon();
     else if (!fullMoon && this.fullMoon) this.endFullMoon();
   }
@@ -1745,15 +1756,18 @@ export class GameScene extends Phaser.Scene {
     this.noDamageSec = 0;
   }
 
-  private onBossSpawn(boss: Enemy, bandHpMul = 1): void {
+  private onBossSpawn(boss: Enemy, bandHpMul = 1, index = 0, total = 1): void {
     this.boss = boss;
     this.bosses.push(boss);
     // プレイヤーの成長に合わせてHPを底上げ（固定HPだと10:00の火力で即落ちする）
     boss.maxHp = Math.round((boss.def.hp + this.xp.level * CONFIG.boss.hpPerPlayerLevel) * this.stage.bossHpMul * bandHpMul);
     boss.hp = boss.maxHp;
-    this.hud.banner(`${boss.def.name} —— 出現`, '#FF4D6D', 40);
-    this.cameras.main.shake(300, 0.006);
-    AudioBus.play('se_boss');
+    // 複数同時に出るときも、字幕・揺れ・効果音は1回だけ
+    if (index === 0) {
+      this.hud.banner(total > 1 ? `${boss.def.name} ×${total} —— 出現` : `${boss.def.name} —— 出現`, '#FF4D6D', 40);
+      this.cameras.main.shake(300, 0.006);
+      AudioBus.play('se_boss');
+    }
     this.resumeBgm();
   }
 
@@ -1766,7 +1780,9 @@ export class GameScene extends Phaser.Scene {
     this.soulUntil = this.ctx.now + sp.durationSec * 1000;
     this.specialHost = { state: {} };
     this.specialRunning = true;
+    this.specialDamage = true;
     sp.activate(this.ctx, this.specialHost);
+    this.specialDamage = false;
     this.hud.banner(def.special.name, Phaser.Display.Color.IntegerToColor(def.color).rgba, 36);
     this.cameras.main.flash(300, 135, 206, 235);
     AudioBus.play('se_special');
