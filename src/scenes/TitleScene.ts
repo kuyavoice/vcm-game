@@ -69,6 +69,8 @@ export class TitleScene extends Phaser.Scene {
       fontFamily: FONT_EN, fontSize: '13px', color: COLOR_HEX.dim, letterSpacing: 1,
     }).setOrigin(0.5).setAlpha(0.8);
 
+    // オプション（音量）。左上
+    makeButton(this, 24 + 80, Math.max(H * 0.06, 50), 'OPTION', () => this.scene.launch('Option', { from: 'Title' }), { width: 160, height: 52, fontSize: 22 });
     // 図鑑（ボタンは pointerdown を止めるので TAP TO START と干渉しない）
     makeButton(this, W - 24 - 90, Math.max(H * 0.06, 50), '図鑑', () => this.scene.start('Codex'), { width: 160, height: 52, fontSize: 22 });
     // ギャラリー（絵が1枚も置かれていなければ、入口ごと出さない）

@@ -12,6 +12,7 @@ import { CharaSelectScene } from './scenes/CharaSelectScene';
 import { ShopScene } from './scenes/ShopScene';
 import { CodexScene } from './scenes/CodexScene';
 import { GalleryScene } from './scenes/GalleryScene';
+import { OptionScene } from './scenes/OptionScene';
 import { AudioBus } from './utils/audio';
 import { probeOptionalImages } from './utils/optionalAssets';
 
@@ -30,7 +31,7 @@ function start(): void {
     input: {
       activePointers: 3,
     },
-    scene: [BootScene, TitleScene, CharaSelectScene, ShopScene, CodexScene, GalleryScene, StageSelectScene, GameScene, LevelUpScene, ChestScene, PauseScene, ResultScene],
+    scene: [BootScene, TitleScene, CharaSelectScene, ShopScene, CodexScene, GalleryScene, StageSelectScene, GameScene, LevelUpScene, ChestScene, PauseScene, ResultScene, OptionScene],
   });
   AudioBus.init(game);
   (window as unknown as { __game: Phaser.Game }).__game = game; // デバッグ用
