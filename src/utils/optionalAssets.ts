@@ -20,8 +20,8 @@ export const OPTIONAL_IMAGES: Record<string, string> = {
   victory_shion: 'assets/images/victory/shion_victory.webp',
 };
 
-// ギャラリーの絵（ファイル候補ごとに存在確認する。読み込みはギャラリー画面で、解放済みのものだけ）
-for (const g of GALLERY) g.files.forEach((f, i) => { OPTIONAL_IMAGES[galleryKey(g.id, i)] = f; });
+// ギャラリーの絵（存在確認だけ。読み込みはギャラリー画面で、解放済みのものだけ）
+for (const g of GALLERY) OPTIONAL_IMAGES[galleryKey(g.id)] = g.file;
 
 /** 起動時に読まず、使う場面で読む画像（キーの接頭辞） */
 export const LAZY_IMAGE_PREFIXES = ['victory_', 'gal_'];

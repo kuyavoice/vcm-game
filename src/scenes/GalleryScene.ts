@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GALLERY, galleryKey, type GalleryDef } from '../data/gallery';
+import { GALLERY, galleryKey, galleryThumbKey, type GalleryDef } from '../data/gallery';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, writeSave, type SaveData } from '../utils/storage';
 import { hasOptionalImage, OPTIONAL_IMAGES } from '../utils/optionalAssets';
@@ -9,11 +9,8 @@ import { AudioBus } from '../utils/audio';
 
 /** 置かれている画像のキー（無ければ空文字） */
 export function galleryImageKey(def: GalleryDef): string {
-  for (let i = 0; i < def.files.length; i++) {
-    const k = galleryKey(def.id, i);
-    if (hasOptionalImage(k)) return k;
-  }
-  return '';
+  const k = galleryKey(def.id);
+  return hasOptionalImage(k) ? k : '';
 }
 
 /** 一覧に出してよい項目：画像が置かれていて、隠しキャラの絵ならそのキャラを解放済み */
@@ -23,7 +20,8 @@ export function visibleGallery(save: SaveData): GalleryDef[] {
 
 /**
  * イラストギャラリー。エールで解放した絵を一覧・全画面で見られる。
- * 未解放の枠は絵を見せない（名前と価格だけ）。画像は解放済みのものだけ、この画面で読み込む。
+ * 未解放の枠は絵を見せない（名前と価格だけ）。
+ * 一覧は小さい絵（thumb）を、解放済みのものだけこの画面で読み込む。大きい絵は、開いたときに初めて読み込む。
  */
 export class GalleryScene extends Phaser.Scene {
   constructor() {
@@ -34,8 +32,8 @@ export class GalleryScene extends Phaser.Scene {
     const save = loadSave();
     for (const g of visibleGallery(save)) {
       if (!save.gallery.includes(g.id)) continue;
-      const key = galleryImageKey(g);
-      if (key && !this.textures.exists(key)) this.load.image(key, OPTIONAL_IMAGES[key]);
+      const tk = galleryThumbKey(g.id);
+      if (!this.textures.exists(tk)) this.load.image(tk, g.thumb);
     }
   }
 
@@ -75,7 +73,7 @@ export class GalleryScene extends Phaser.Scene {
       const cx = left + (i % cols) * (cardW + gap) + cardW / 2;
       const cy = gridTop + Math.floor(i / cols) * (cardH + gap);
       const owned = save.gallery.includes(g.id);
-      const key = galleryImageKey(g);
+      const key = galleryThumbKey(g.id);
       this.add.rectangle(cx + 5, cy + 5 + cardH / 2, cardW, cardH, 0x000000, 0.5);
       const frame = this.add.rectangle(cx, cy + cardH / 2, cardW, cardH, 0x111a3a, 1).setStrokeStyle(2, owned ? g.color : 0x3a4a8a, owned ? 0.9 : 0.6);
       if (owned && this.textures.exists(key)) {
@@ -88,7 +86,7 @@ export class GalleryScene extends Phaser.Scene {
         frame.on('pointerup', (p: Phaser.Input.Pointer) => {
           if (viewing || Math.abs(p.y - p.downY) > 12) return; // スクロールのドラッグは無視
           viewing = true;
-          this.openViewer(g, key, () => { viewing = false; });
+          this.openViewer(g, () => { viewing = false; });
         });
       } else {
         // 未解放：絵は見せない
@@ -148,21 +146,39 @@ export class GalleryScene extends Phaser.Scene {
     });
   }
 
-  /** 全画面で見る。どこかをタップすると閉じる */
-  private openViewer(g: GalleryDef, key: string, onClose: () => void): void {
+  /** 全画面で見る。どこかをタップすると閉じる。大きい絵は、初めて開いたときに読み込む */
+  private openViewer(g: GalleryDef, onClose: () => void): void {
     const cam = this.cameras.main;
     const W = cam.width;
     const H = cam.height;
+    const key = galleryKey(g.id);
     const shade = this.add.rectangle(0, 0, W, H, 0x020308, 0.94).setOrigin(0).setScrollFactor(0).setDepth(80).setInteractive();
-    const img = this.add.image(W / 2, H / 2 - 20, key).setScrollFactor(0).setDepth(81);
-    const sc = Math.min((W - 16) / img.width, (H - 130) / img.height);
+    // 読み込みが終わるまでは、小さい絵を引き伸ばして見せておく
+    const img = this.add.image(W / 2, H / 2 - 20, galleryThumbKey(g.id)).setScrollFactor(0).setDepth(81);
+    const fit = () => Math.min((W - 16) / img.width, (H - 130) / img.height);
+    let sc = fit();
     img.setScale(sc * 0.96).setAlpha(0);
+    let closed = false;
+    const showFull = () => {
+      if (closed || !this.textures.exists(key)) return;
+      this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
+      img.setTexture(key);
+      sc = fit();
+      img.setScale(sc);
+    };
+    if (this.textures.exists(key)) showFull();
+    else {
+      this.load.image(key, OPTIONAL_IMAGES[key]);
+      this.load.once(`filecomplete-image-${key}`, showFull);
+      this.load.start();
+    }
     const name = this.add.text(W / 2, H - 78, `${g.title}　—　${g.sub}`, { fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.white, fontStyle: '700' }).setOrigin(0.5).setScrollFactor(0).setDepth(81);
     const hint = this.add.text(W / 2, H - 44, 'TAP TO CLOSE', { fontFamily: FONT_EN, fontSize: '16px', color: COLOR_HEX.dim, fontStyle: '700', letterSpacing: 3 }).setOrigin(0.5).setScrollFactor(0).setDepth(81);
-    this.tweens.add({ targets: img, alpha: 1, scale: sc, duration: 220, ease: 'Cubic.out' });
+    this.tweens.add({ targets: img, alpha: 1, duration: 220, ease: 'Cubic.out', onComplete: () => img.setScale(fit()) });
     const openedAt = this.time.now;
     shade.on('pointerup', () => {
       if (this.time.now - openedAt < 300) return;
+      closed = true;
       for (const o of [shade, img, name, hint]) o.destroy();
       // 閉じたタップで下の絵がまた開かないように、少し待ってから受け付ける
       this.time.delayedCall(200, onClose);

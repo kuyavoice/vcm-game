@@ -1,8 +1,7 @@
-// イラストギャラリー（オマケ要素）。まずはキャラ別キービジュアルだけ。
-// 画像は「置けば使われる」方式：public/assets/images/gallery/ に下のファイル名で置くと一覧に出る（無ければ出ない）。
+// イラストギャラリー（オマケ要素）。キャラ別キービジュアル（全23人）。
+// 画像は「置けば使われる」方式：public/assets/images/gallery/ に kv_{id}.webp があれば一覧に出る（無ければ出ない）。
+// 一覧用の小さい絵は gallery/thumb/ の同名ファイル（元PNGから一緒に作る。手順は CLAUDE.md）。
 // 隠しキャラの絵は、そのキャラを解放するまで枠ごと出さない（存在をほのめかさない）。
-
-import { CHARACTERS } from './characters';
 
 export interface GalleryDef {
   id: string;
@@ -11,8 +10,10 @@ export interface GalleryDef {
   sub: string;
   /** 差し色 */
   color: number;
-  /** 置くファイル（先頭から順に探す。webp 推奨、png でも可） */
-  files: string[];
+  /** 全画面表示用の絵 */
+  file: string;
+  /** 一覧用の小さい絵 */
+  thumb: string;
   /** 解放に必要なエール */
   price: number;
   /** このキャラを解放するまで、枠ごと出さない */
@@ -20,24 +21,57 @@ export interface GalleryDef {
 }
 
 export const GALLERY_DIR = 'assets/images/gallery/';
+const KV_PRICE = 300;
 
-const kv = (characterId: string, price: number, secret = false): GalleryDef => ({
-  id: `kv_${characterId}`,
-  title: CHARACTERS[characterId].name,
+/** 暗すぎる色は、暗い背景でも枠が見えるように明るくする */
+function visible(color: number): number {
+  const r = (color >> 16) & 255;
+  const g = (color >> 8) & 255;
+  const b = color & 255;
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  if (lum >= 0.32) return color;
+  const mix = (v: number) => Math.round(v + (255 - v) * 0.5);
+  return (mix(r) << 16) | (mix(g) << 8) | mix(b);
+}
+
+const kv = (fileId: string, name: string, color: number, secretOf?: string): GalleryDef => ({
+  id: `kv_${fileId}`,
+  title: name,
   sub: 'KEY VISUAL',
-  color: CHARACTERS[characterId].color,
-  files: [`${GALLERY_DIR}kv_${characterId}.webp`, `${GALLERY_DIR}kv_${characterId}.png`],
-  price,
-  secretOf: secret ? characterId : undefined,
+  color: visible(color),
+  file: `${GALLERY_DIR}kv_${fileId}.webp`,
+  thumb: `${GALLERY_DIR}thumb/kv_${fileId}.webp`,
+  price: KV_PRICE,
+  secretOf,
 });
 
+// 並びはポータルサイトのキャラ番号順。ファイル名は受け取ったときの綴りのまま（ituki／kenshiro／seishiro）
 export const GALLERY: GalleryDef[] = [
-  kv('kuya', 300),
-  kv('mizuho', 300),
-  kv('yukihito', 300),
-  kv('ritsuka', 300),
-  kv('shion', 300, true),
+  kv('kuya', '宵月 空夜', 0x00bfff),
+  kv('yukihito', '狐森 雪人', 0xc0c0c0),
+  kv('shion', '黒崎 詩音', 0xc0c0ff, 'shion'),
+  kv('mizuho', '月怜 瑞穂', 0x87cefa),
+  kv('ritsuka', '寿 律花', 0xff69b4),
+  kv('ituki', '晴山 樹', 0xff8c00),
+  kv('gou', '護乃 豪', 0x8b4513),
+  kv('kyoko', '嘉地 杏子', 0xdc143c),
+  kv('itaru', '弼辺 徹', 0x4169e1),
+  kv('kenshiro', '鈴鳴 拳士郎', 0x228b22),
+  kv('hibiki', '振須 響', 0x00ced1),
+  kv('soma', '瀬田 奏真', 0x556b2f),
+  kv('mirei', '蜂城 美麗', 0xffd700),
+  kv('rei', '天宮 澪', 0x708090),
+  kv('miyako', '孤ヶ爪 ミヤコ', 0xd2b48c),
+  kv('kurodo', '片桐 玄人', 0x2f4f4f),
+  kv('yuri', '音染 悠理', 0x8a2be2),
+  kv('tamamo', '呱々崎 璦萌', 0xffb6c1),
+  kv('ame', '月惺 あめ', 0xf0e68c),
+  kv('seishiro', '若宮 征士郎', 0x1c1c1c),
+  kv('sari', '一色 紗理', 0x191970),
+  kv('ryo', '月景 遼', 0x008080),
+  kv('kai', '久遠 戒', 0x4b0082),
 ];
 
-/** 画像の存在確認・読み込みに使うキー（ファイル候補ごと） */
-export const galleryKey = (id: string, fileIndex: number) => `gal_${id}_${fileIndex}`;
+/** 画像の存在確認・読み込みに使うキー */
+export const galleryKey = (id: string) => `gal_${id}`;
+export const galleryThumbKey = (id: string) => `galt_${id}`;
