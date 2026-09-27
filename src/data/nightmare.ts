@@ -9,7 +9,7 @@ export const NIGHTMARE_WAVES: WaveBand[] = [
   // 序盤は足の速い狩人級を抑える（足の遅いキャラが最初の数分で囲まれて崩れるため。2026-09-27 試遊の指摘）
   // 最初の 1:30 は雑音級だけ（ビルドを組む時間。ユーザー指定）
   { label: '雑音級', from: 0, to: 90, spawnPerSecStart: 1.2, spawnPerSecEnd: 2.0, weights: { grunt: 1 }, hpMul: 1 },
-  { label: '＋狩人級・騎士級', from: 90, to: 180, spawnPerSecStart: 2.0, spawnPerSecEnd: 3.0, weights: { grunt: 1, hunter: 0.25, knight: 0.1 }, hpMul: 1.1 },
+  { label: '＋狩人級・騎士級', from: 90, to: 180, spawnPerSecStart: 2.0, spawnPerSecEnd: 3.0, weights: { grunt: 1, hunter: 0.15, knight: 0.1 }, hpMul: 1.1 },
   { label: '＋司祭級', from: 180, to: 300, spawnPerSecStart: 3.0, spawnPerSecEnd: 4.0, weights: { grunt: 1, hunter: 0.3, knight: 0.14, bishop: 0.1 }, hpMul: 1.25, ambush: { type: 'hunter', count: 10, everySec: 30 } },
   // 5:00 王級（最初から激昂）。倒すのが遅れると、次の大群と重なる
   { label: '王級', from: 300, to: 420, spawnPerSecStart: 2.0, spawnPerSecEnd: 2.5, weights: { grunt: 1, hunter: 0.4, knight: 0.08 }, hpMul: 1.4, boss: 'king', bossHpMul: 1.5, bossEnraged: true },
