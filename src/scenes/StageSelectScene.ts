@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { CHARACTERS, DEFAULT_CHARACTER } from '../data/characters';
+import { CHARACTERS } from '../data/characters';
+import { resolveCharacter } from '../utils/unlock';
 import { STAGES, type StageDef } from '../data/stages';
 import { SCORE_STAGE } from '../data/score';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
@@ -33,7 +34,7 @@ export class StageSelectScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const save = loadSave();
-    const characterId = CHARACTERS[save.settings.character] ? save.settings.character : DEFAULT_CHARACTER;
+    const characterId = resolveCharacter(save);
     const guard = new SelectGuard(this);
     const cardW = Math.min(640, W - 40);
     const cardH = 176;

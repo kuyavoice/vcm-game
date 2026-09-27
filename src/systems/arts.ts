@@ -725,11 +725,15 @@ const ricochet: ArtBehavior = {
   },
 };
 
+/** 『星屑の裁定』（詩音の初期武器）：挙動は共鳴アーツ版と同じ */
+const hoshikuzuMain: ArtBehavior = { mimicable: false, fire: (ctx, s, w) => hoshikuzu.fire(ctx, s, w) };
+
 export const ARTS: Record<string, ArtBehavior> = {
   yoisei,
   reisuisen,
   greatsword,
   flamehound,
+  hoshikuzu_main: hoshikuzuMain,
   guren,
   hoshikuzu,
   setsugekka,

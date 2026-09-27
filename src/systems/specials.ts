@@ -119,9 +119,44 @@ const angelicRumble: SpecialBehavior = {
   },
 };
 
+/** 『星海の祝詞』（詩音）：発動時にHP全回復。3秒間、星の雨が画面内の全ての敵に降る（25×10回） */
+const starPrayer: SpecialBehavior = {
+  durationSec: 3,
+  activate(ctx, host) {
+    const p = ctx.player;
+    p.heal(p.maxHp);
+    host.state.timer = 0;
+    host.state.left = 10;
+    ctx.fx.ring(p.x, p.y - 40, 300, 0xc0c0ff, 8);
+  },
+  update(dt, ctx, host) {
+    let timer = (host.state.timer as number) + dt;
+    let left = host.state.left as number;
+    const view = ctx.scene.cameras.main.worldView;
+    // 見た目の星の雨（当たり判定はなし）
+    for (let i = 0; i < 3; i++) {
+      const x = view.left + Math.random() * view.width;
+      const y = view.top + Math.random() * view.height;
+      const star = ctx.scene.add.image(x + 60, y - 260, 'art_star').setDepth(27).setScale(1.4 + Math.random() * 1.4).setTint(0xfff3a0).setAlpha(1);
+      ctx.scene.tweens.add({ targets: star, x, y, alpha: 0.45, duration: 380, ease: 'Quad.in', onComplete: () => star.destroy() });
+    }
+    while (timer >= 0.3 && left > 0) {
+      timer -= 0.3;
+      left--;
+      for (const e of ctx.onScreenEnemies()) {
+        ctx.damage(e, 25 * ctx.stats.damageMul, 0, 0);
+        if (Math.random() < 0.35) ctx.fx.cross(e.x, e.y - 10, 26, 0xfff3a0);
+      }
+    }
+    host.state.timer = timer;
+    host.state.left = left;
+  },
+};
+
 export const SPECIALS: Record<SpecialId, SpecialBehavior> = {
   soul_connect: soulConnect,
   aqua_lament: aquaLament,
   setsugekka_ult: setsugekkaUlt,
   angelic_rumble: angelicRumble,
+  star_prayer: starPrayer,
 };

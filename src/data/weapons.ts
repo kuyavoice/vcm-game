@@ -132,6 +132,21 @@ export const FLAMEHOUND: WeaponDef = {
   ],
 };
 
+/**
+ * 『星屑の裁定』（詩音の初期武器）：敵を追尾する星の光の矢。共鳴アーツ版より本数が多い（Lv1で3本）。
+ * 挙動は共鳴アーツ版と同じ（systems/arts.ts の hoshikuzu を共用）。Lv8で『満天の裁定』
+ */
+export const HOSHIKUZU_MAIN: WeaponDef = {
+  id: 'hoshikuzu_main', name: '星屑の裁定', owner: '黒崎 詩音', kind: 'main', tags: ['projectile'],
+  desc: '敵を追尾する星の光の矢を放つ。',
+  color: 0xc0c0ff, maxLevel: 8,
+  base: stats({ damage: 10, intervalSec: 1.3, count: 3, area: 700, speed: 520, pierce: 0 }),
+  levels: [
+    more(1, '矢の本数'), dmg(25), faster(12), more(1, '矢の本数'), dmg(25), faster(12),
+    { desc: '『満天の裁定』：星の矢が、画面のすべての敵を同時に狙う', apply: (s) => { s.evolved = true; s.damage *= 1.2; } },
+  ],
+};
+
 // ───────────────────────── 共鳴アーツ ─────────────────────────
 
 /** 『紅蓮の矢』：前方へ遠くまで飛ぶ貫通する火矢。count=本数, area=射程, pierce=貫通 */
@@ -410,6 +425,7 @@ export const WEAPONS: Record<string, WeaponDef> = {
   reisuisen: REISUISEN,
   greatsword: GREATSWORD,
   flamehound: FLAMEHOUND,
+  hoshikuzu_main: HOSHIKUZU_MAIN,
   guren: GUREN,
   hoshikuzu: HOSHIKUZU,
   setsugekka: SETSUGEKKA,

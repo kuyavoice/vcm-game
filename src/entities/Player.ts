@@ -131,8 +131,9 @@ export class Player extends Phaser.GameObjects.Sprite {
     return true;
   }
 
+  /** 回復。キャラ特性の回復量倍率（traits.healMul）が掛かる */
   heal(amount: number): void {
-    this.hp = Math.min(this.maxHp, this.hp + amount);
+    this.hp = Math.min(this.maxHp, this.hp + amount * (this.def.traits.healMul ?? 1));
   }
 
   private sleep(): void {

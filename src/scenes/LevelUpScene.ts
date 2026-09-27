@@ -15,7 +15,7 @@ export interface LevelUpData {
   ban?: (c: Choice) => Choice[];
 }
 
-/** レベルアップ3択（Game をポーズして上に重ねる） */
+/** レベルアップの選択（通常3択・詩音は4択。Game をポーズして上に重ねる） */
 export class LevelUpScene extends Phaser.Scene {
   constructor() {
     super('LevelUp');
@@ -36,8 +36,10 @@ export class LevelUpScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const cardW = Math.min(640, W - 40);
-    const cardH = 190;
-    const gap = 22;
+    // 4択（詩音の固有パッシブ）のときは詰めて並べる
+    const compact = data.choices.length >= 4;
+    const cardH = compact ? 164 : 190;
+    const gap = compact ? 14 : 22;
     const total = data.choices.length * cardH + (data.choices.length - 1) * gap;
     let y = H / 2 - total / 2 + cardH / 2 + 20;
 
@@ -73,8 +75,8 @@ export class LevelUpScene extends Phaser.Scene {
       const owner = this.add.text(-cardW / 2 + 32, -cardH / 2 + 62, c.owner, {
         fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim,
       }).setOrigin(0, 0);
-      const desc = this.add.text(-cardW / 2 + 32, -cardH / 2 + 100, c.desc, {
-        fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.white, wordWrap: { width: cardW - 64, useAdvancedWrap: true },
+      const desc = this.add.text(-cardW / 2 + 32, -cardH / 2 + (compact ? 92 : 100), c.desc, {
+        fontFamily: FONT_JP, fontSize: compact ? '20px' : '22px', color: COLOR_HEX.white, wordWrap: { width: cardW - 64, useAdvancedWrap: true },
       }).setOrigin(0, 0);
       cont.add([shadow, bg, stripe, tag, title, owner, desc]);
       cont.setAlpha(0).setX(W / 2 + 40);

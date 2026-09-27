@@ -13,8 +13,8 @@ export interface CharacterSpriteDef {
   };
 }
 
-export type UniquePassiveId = 'info_control' | 'cure_drop' | 'kanpa' | 'precision';
-export type SpecialId = 'soul_connect' | 'aqua_lament' | 'setsugekka_ult' | 'angelic_rumble';
+export type UniquePassiveId = 'info_control' | 'cure_drop' | 'kanpa' | 'precision' | 'scenario';
+export type SpecialId = 'soul_connect' | 'aqua_lament' | 'setsugekka_ult' | 'angelic_rumble' | 'star_prayer';
 
 export interface CharacterDef {
   id: string;
@@ -45,6 +45,10 @@ export interface CharacterDef {
     maxHpMul: number;
     /** 回復アイテムの回復量倍率 */
     healItemMul: number;
+    /** HP回復量の倍率（あらゆる回復に掛かる。省略時 1） */
+    healMul?: number;
+    /** 必殺ゲージの上昇倍率（省略時 1） */
+    soulGainMul?: number;
     /** 表示用の特性名と説明 */
     name: string;
     desc: string;
@@ -60,6 +64,11 @@ export interface CharacterDef {
   knockbackImmune?: boolean;
   /** 解放に必要なエール（0 = 最初から使える）。価格順：瑞穂 → 雪人 → 律花 */
   unlockYell: number;
+  /**
+   * 隠しキャラ。解放するまで、キャラ選択・ショップなどどこにも出さない（鍵・シルエット・??? も出さない）。
+   * 解放の判定と表示の可否は utils/unlock.ts にまとめてある
+   */
+  secret?: boolean;
   /** ボイスのキー接頭辞（vo_{id}_start 等） */
   voicePrefix: string;
 }
@@ -159,7 +168,32 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     unlockYell: 1000,
     voicePrefix: 'ritsuka',
   },
+  // 隠しキャラ（追補パッチ⑤）。純粋なIF・お祭りとしての登場。文言は性能と人柄だけで書くこと（CLAUDE.md §4.7 の禁止事項を厳守）
+  shion: {
+    id: 'shion',
+    name: '黒崎 詩音',
+    nameEn: 'SHION KUROSAKI',
+    role: '後方支援・回復型',
+    desc: '仲間想いの後方支援。星の矢で遠くから援護し、回復にも長ける。',
+    color: 0xc0c0ff,
+    sprite: SPRITE('shion'),
+    standing: 'assets/images/standing/shion.webp',
+    hp: 90,
+    speed: 145,
+    pickup: 60,
+    hitRadius: 18,
+    traits: { resonanceArtsPower: 0, meleePower: 1, damageMul: 1, maxHpMul: 1, healItemMul: 1, healMul: 1.3, soulGainMul: 1.3, name: 'トライスターの心臓', desc: 'HP回復量 +30%、必殺ゲージの上昇 +30%' },
+    startWeapon: 'hoshikuzu_main',
+    uniquePassive: { id: 'scenario', name: '脚本（シナリオ）', desc: 'レベルアップの選択肢が4つになる' },
+    // 必殺の名前は仮（データを差し替えるだけで変えられる）
+    special: { id: 'star_prayer', name: '星海の祝詞', shortName: '祝詞', desc: '3秒間、星の雨が画面内の全ての敵に降り注ぐ。発動時にHP全回復' },
+    excludedArts: ['hoshikuzu'], // 初期武器と重複
+    unlockYell: 0,
+    secret: true,
+    voicePrefix: 'shion',
+  },
 };
 
-export const CHARACTER_ORDER = ['kuya', 'mizuho', 'yukihito', 'ritsuka'];
+/** 表示順。隠しキャラも含む（画面に出すかどうかは utils/unlock.ts の visibleCharacters で決める） */
+export const CHARACTER_ORDER = ['kuya', 'mizuho', 'yukihito', 'ritsuka', 'shion'];
 export const DEFAULT_CHARACTER = 'kuya';

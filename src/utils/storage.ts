@@ -30,6 +30,8 @@ export interface SaveData {
   colorSelected: Record<string, string>;
   /** スコアアタックの端末内ランキング */
   scoreRanking: { score: number; kills: number; timeSec: number; character: string; date: string; cleared: boolean }[];
+  /** 隠しキャラの出現状態（キャラID → pending＝出現演出がまだ／shown＝演出済みで NEW の印だけ）。一度選ぶと消える */
+  secretNew: Record<string, 'pending' | 'shown'>;
 }
 
 const DEFAULT: SaveData = {
@@ -45,6 +47,7 @@ const DEFAULT: SaveData = {
   colors: {},
   colorSelected: {},
   scoreRanking: [],
+  secretNew: {},
 };
 
 export function loadSave(): SaveData {
@@ -65,6 +68,7 @@ export function loadSave(): SaveData {
       colors: { ...(parsed.colors ?? {}) },
       colorSelected: { ...(parsed.colorSelected ?? {}) },
       scoreRanking: [...(parsed.scoreRanking ?? [])],
+      secretNew: { ...(parsed.secretNew ?? {}) },
     };
     // 旧形式の移行：best → bests[1]
     if (data.best && !data.bests['1']) {

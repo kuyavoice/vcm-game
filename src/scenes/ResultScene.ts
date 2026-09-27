@@ -8,6 +8,7 @@ import { AudioBus } from '../utils/audio';
 import { renderShareCard, shareOrDownload, buildPostText, openXPost } from '../utils/shareCard';
 import { SCORE } from '../data/score';
 import { OPTIONAL_IMAGES, hasOptionalImage } from '../utils/optionalAssets';
+import { unlockSecret } from '../utils/unlock';
 
 export interface RunResult {
   characterId: string;
@@ -101,6 +102,8 @@ export class ResultScene extends Phaser.Scene {
     if (!r.debug) {
       save.totalYell += r.yell;
       writeSave(save);
+      // 隠しキャラ：スコアアタックで強化版の黒騎士を倒すと解放。ここでは何も表示しない（出現はキャラ選択画面で）
+      if (stage.scoreMode && r.cleared) unlockSecret('shion');
     }
 
     this.add.tileSprite(0, 0, W, H, 'bg').setOrigin(0);

@@ -26,12 +26,14 @@ export const AUDIO_MANIFEST: AudioEntry[] = [
   { key: 'bgm_chara_mizuho', path: 'assets/audio/bgm/chara_mizuho.mp3', category: 'bgm', loop: true },
   { key: 'bgm_chara_yukihito', path: 'assets/audio/bgm/chara_yukihito.mp3', category: 'bgm', loop: true },
   { key: 'bgm_chara_ritsuka', path: 'assets/audio/bgm/chara_ritsuka.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_chara_shion', path: 'assets/audio/bgm/chara_shion.mp3', category: 'bgm', loop: true },
   { key: 'bgm_result', path: 'assets/audio/bgm/result.mp3', category: 'bgm', loop: true },
   // クリア後の曲（操作キャラ別。無ければ result → title）
   { key: 'bgm_clear_kuya', path: 'assets/audio/bgm/clear_kuya.mp3', category: 'bgm', loop: true },
   { key: 'bgm_clear_mizuho', path: 'assets/audio/bgm/clear_mizuho.mp3', category: 'bgm', loop: true },
   { key: 'bgm_clear_yukihito', path: 'assets/audio/bgm/clear_yukihito.mp3', category: 'bgm', loop: true },
   { key: 'bgm_clear_ritsuka', path: 'assets/audio/bgm/clear_ritsuka.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_clear_shion', path: 'assets/audio/bgm/clear_shion.mp3', category: 'bgm', loop: true },
   // SE
   { key: 'se_slash', path: 'assets/audio/se/slash.mp3', category: 'se' },
   // 黒騎士の斬撃（剣閃・二連斬・連撃）。重い音。右向きは heavy、左向きは heavy2。未配置なら slash で代用
@@ -50,6 +52,14 @@ export const AUDIO_MANIFEST: AudioEntry[] = [
   { key: 'se_item', path: 'assets/audio/se/item.mp3', category: 'se' },
   { key: 'se_evolve', path: 'assets/audio/se/evolve.mp3', category: 'se' },
   { key: 'se_boss', path: 'assets/audio/se/boss.mp3', category: 'se' },
+  // 詩音ボイス
+  { key: 'vo_shion_start', path: 'assets/audio/voice/shion_start.mp3', category: 'voice' },
+  { key: 'vo_shion_evolve', path: 'assets/audio/voice/shion_evolve.mp3', category: 'voice' },
+  { key: 'vo_shion_special', path: 'assets/audio/voice/shion_special.mp3', category: 'voice' },
+  { key: 'vo_shion_levelup', path: 'assets/audio/voice/shion_levelup.mp3', category: 'voice' },
+  { key: 'vo_shion_hit', path: 'assets/audio/voice/shion_hit.mp3', category: 'voice' },
+  { key: 'vo_shion_gameover', path: 'assets/audio/voice/shion_gameover.mp3', category: 'voice' },
+  { key: 'vo_shion_clear', path: 'assets/audio/voice/shion_clear.mp3', category: 'voice' },
   // 空夜ボイス
   { key: 'vo_kuya_start', path: 'assets/audio/voice/kuya_start.mp3', category: 'voice' },
   { key: 'vo_kuya_evolve', path: 'assets/audio/voice/kuya_evolve.mp3', category: 'voice' },

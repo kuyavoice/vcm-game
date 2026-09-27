@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { CHARACTERS, CHARACTER_ORDER } from '../data/characters';
+import { resolveCharacter } from '../utils/unlock';
 import { PERMANENT, CONSUMABLES } from '../data/shop';
 import { COLOR_VARIANTS } from '../data/colors';
 import { ensureColorVariant } from '../utils/recolor';
@@ -74,7 +75,7 @@ export class ShopScene extends Phaser.Scene {
     section('CHARACTERS');
     for (const id of CHARACTER_ORDER) {
       const def = CHARACTERS[id];
-      if (def.unlockYell === 0) continue;
+      if (def.unlockYell === 0 || def.secret) continue; // 隠しキャラはショップに出さない
       const owned = save.unlockedCharacters.includes(id);
       const rowH = 64;
       this.add.rectangle(left, y, rowW, rowH, 0x111a3a, 0.9).setOrigin(0).setStrokeStyle(2, owned ? def.color : 0x3a4a8a, 0.7);
@@ -138,7 +139,7 @@ export class ShopScene extends Phaser.Scene {
 
     // ── カラーバリエーション（選択中のキャラ） ──
     y += 12;
-    const charaId = CHARACTERS[save.settings.character] ? save.settings.character : 'kuya';
+    const charaId = resolveCharacter(save);
     const chara = CHARACTERS[charaId];
     const variants = COLOR_VARIANTS[charaId] ?? [];
     section(`COLORS — ${chara.name}`);

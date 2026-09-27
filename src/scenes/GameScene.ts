@@ -1592,7 +1592,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.kills++;
     // 必殺技（その炎上も含む）で倒した分はゲージに数えない
-    if (!this.specialDamage) this.soulGauge = Math.min(1, this.soulGauge + this.up.stats.soulGainMul / CONFIG.soul.killsToFull);
+    if (!this.specialDamage) this.soulGauge = Math.min(1, this.soulGauge + (this.up.stats.soulGainMul * (this.player.def.traits.soulGainMul ?? 1)) / CONFIG.soul.killsToFull);
     if (this.stage.scoreMode) {
       const now = this.ctx.now;
       if (now < this.comboUntil) this.combo++;
@@ -1907,7 +1907,9 @@ export class GameScene extends Phaser.Scene {
       this.xp.pendingLevelUps++;
       return;
     }
-    const choices = this.up.buildChoices(3);
+    // 固有パッシブ『脚本』：選択肢が4つ
+    const choiceCount = this.player.def.uniquePassive.id === 'scenario' ? 4 : 3;
+    const choices = this.up.buildChoices(choiceCount);
     // 強化できるものが無い：選択画面を出さずにその場で回復
     if (choices.length === 1 && choices[0].kind === 'heal') {
       const p = this.player;
@@ -1921,13 +1923,13 @@ export class GameScene extends Phaser.Scene {
       level: this.xp.level,
       choices,
       onPick: (c: Choice) => this.applyChoice(c),
-      reroll: () => this.up.buildChoices(3),
+      reroll: () => this.up.buildChoices(choiceCount),
       skip: () => this.player.heal(this.player.maxHp * 0.1),
       ban: (c: Choice) => {
         this.up.banned.add(`${c.kind}:${c.id}`);
         const keep = choices.filter((x) => x !== c);
         const extra = this.up.buildChoices(6).filter((x) => !keep.some((k) => k.id === x.id && k.kind === x.kind) && !(x.kind === c.kind && x.id === c.id));
-        return [...keep, ...extra].slice(0, 3);
+        return [...keep, ...extra].slice(0, choiceCount);
       },
     };
     AudioBus.play('se_levelup');
