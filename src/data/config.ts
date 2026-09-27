@@ -13,6 +13,11 @@ export const CONFIG = {
   maxGems: 400,
   maxBullets: 200,
   maxEnemyBullets: 160,
+  // 設置物（鉄柵・重力場など）の同時数の上限。超えたら同じ出所の古いものから消す
+  zoneCaps: { shuraba: 12, honjin: 1, default: 8 } as Readonly<Record<string, number>>,
+  maxZones: 40,
+  // 『満天の裁定』が1回に狙う敵の上限（弾の上限 maxBullets を他の武器と分け合うため）
+  hoshikuzuMaxTargets: 24,
 
   // 枠数
   weaponSlots: 6,

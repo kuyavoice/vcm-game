@@ -351,21 +351,23 @@ const ENGO: WeaponDef = {
 
 // ───────────────────────── 合体アーツ（v2 §5.5） ─────────────────────────
 
-/** 『三ツ星（トライスター）』（空夜のみ）：白銀の斬撃＋追尾する星弾。一定間隔で三角形の光が走り内側に大ダメージ */
+// 数値は「素材2つ（Lv8）の合計を少し上回る」水準（2026-09-27 引き上げ）。合体して弱くならないこと。
+
+/** 『三ツ星（トライスター）』（空夜のみ）：白銀の斬撃（extra.slashes か所）＋追尾する星弾。一定間隔で三角形の光が走り内側に大ダメージ */
 const TRISTAR: WeaponDef = {
   id: 'tristar', name: '三ツ星', owner: '狐森 雪人・黒崎 詩音', kind: 'art', tags: ['melee', 'projectile'], fusion: true,
   desc: '白銀の斬撃と星の弾。ときおり三つを結ぶ光が走り、内側の敵を裁く。',
   color: 0xffd700, maxLevel: 1,
-  base: stats({ damage: 30, intervalSec: 1.6, count: 3, area: 80, speed: 560, extra: { triangleEvery: 3, triangleDamage: 80 } }),
+  base: stats({ damage: 45, intervalSec: 1.6, count: 6, area: 80, speed: 560, extra: { slashes: 4, triangleEvery: 3, triangleDamage: 200 } }),
   levels: [],
 };
 
-/** 『夢見る猫箱』：1回分のダメージを防ぐ盾（割れて5秒で再生）＋前方180°へ大きな貫通炎矢5本 */
+/** 『夢見る猫箱』：1回分のダメージを防ぐ盾（割れて3秒で再生）＋前方180°へ大きな貫通炎矢5本 */
 const NEKOBAKO: WeaponDef = {
   id: 'nekobako', name: '夢見る猫箱', owner: '寿 律花・月怜 瑞穂', kind: 'art', tags: ['projectile', 'support'], fusion: true,
   desc: '一撃を防ぐ水の盾をまとい、前方へ大きな炎の矢を放つ。',
   color: 0xff69b4, maxLevel: 1,
-  base: stats({ damage: 30, intervalSec: 1.5, count: 5, area: 900, speed: 820, pierce: Infinity, extra: { shieldRegenSec: 5 } }),
+  base: stats({ damage: 45, intervalSec: 1.2, count: 5, area: 900, speed: 820, pierce: Infinity, extra: { shieldRegenSec: 3 } }),
   levels: [],
 };
 
@@ -374,7 +376,7 @@ const METEOCAGE: WeaponDef = {
   id: 'meteocage', name: '星墜の檻', owner: '黒崎 詩音・若宮 征士郎', kind: 'art', tags: ['projectile', 'zone'], fusion: true, provisionalName: true,
   desc: '前方の空から星が降り、着弾した場所の敵を縫い止める。',
   color: 0x9d4dff, maxLevel: 1,
-  base: stats({ damage: 25, intervalSec: 2.2, count: 6, area: 260, duration: 0.5, extra: { blastRadius: 60 } }),
+  base: stats({ damage: 35, intervalSec: 2.2, count: 10, area: 260, duration: 1.0, extra: { blastRadius: 80 } }),
   levels: [],
 };
 
@@ -383,16 +385,16 @@ const HONJIN: WeaponDef = {
   id: 'honjin', name: '本陣の咆哮', owner: '護乃 豪・弼辺 徹', kind: 'art', tags: ['melee', 'zone'], fusion: true,
   desc: '足元に逆茂木が立ち、岩の衝撃波が周囲をなぎ払う。',
   color: 0x8b4513, maxLevel: 1,
-  base: stats({ damage: 30, intervalSec: 2.0, area: 220, duration: 1.2, knockback: 420, slow: 0.2, extra: { fenceRadius: 150, fenceDps: 15 } }),
+  base: stats({ damage: 60, intervalSec: 2.0, area: 220, duration: 2.0, knockback: 420, slow: 0.2, extra: { fenceRadius: 150, fenceDps: 30 } }),
   levels: [],
 };
 
-/** 『跳弾バグ（リコシェ・グリッチ）』（仮）：蹴り飛ばした敵が画面端で最大5回跳ね返り、ぶつかった敵にダメージ。響の弾が当たると加速 */
+/** 『跳弾バグ（リコシェ・グリッチ）』（仮）：蹴り飛ばした敵が画面端で最大5回跳ね返り、ぶつかった敵にダメージ。発動ごとに響の跳ね返る弾も1発撃ち、飛んでいる敵に当たると加速 */
 const RICOCHET: WeaponDef = {
   id: 'ricochet', name: '跳弾バグ', owner: '振須 響・晴山 樹', kind: 'art', tags: ['melee'], fusion: true, provisionalName: true,
   desc: '蹴り飛ばした敵が画面の端で跳ね回り、ぶつかった敵を巻き込む。',
   color: 0x00ced1, maxLevel: 1,
-  base: stats({ damage: 28, intervalSec: 1.6, count: 1, speed: 900, duration: 6, extra: { bounces: 5 } }),
+  base: stats({ damage: 50, intervalSec: 1.6, count: 3, speed: 900, duration: 6, slow: 0.45, extra: { bounces: 5, shotDamage: 14, shotSpeed: 420, shotLife: 6 } }),
   levels: [],
 };
 

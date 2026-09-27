@@ -191,7 +191,7 @@ const hoshikuzu: ArtBehavior = {
     const life = (s.area * ctx.stats.areaMul) / s.speed + 1.2;
     const dmg = artDmg(ctx, s, w.def);
     if (s.evolved) {
-      const targets = ctx.onScreenEnemies().slice(0, 40);
+      const targets = ctx.onScreenEnemies().slice(0, CONFIG.hoshikuzuMaxTargets);
       const n = Math.max(targets.length, projCount(ctx, s, w.def));
       for (let i = 0; i < n; i++) {
         const t = targets[i];
@@ -279,7 +279,7 @@ const shuraba: ArtBehavior = {
       ctx.addZone({
         x: ctx.player.x + Math.cos(a) * d, y: ctx.player.y + Math.sin(a) * d,
         radius: s.area * ctx.stats.areaMul, duration: dur(ctx, s), dps: artDmg(ctx, s, w.def),
-        slow: s.slow, stun: false, color: w.def.color, shape: 'fence',
+        slow: s.slow, stun: false, color: w.def.color, shape: 'fence', source: 'shuraba',
       });
     }
   },
@@ -548,15 +548,15 @@ const tristar: ArtBehavior = {
     const c = chest(ctx);
     const list = ctx.onScreenEnemies();
     const dmg = artDmg(ctx, s, w.def);
-    // 斬撃（白銀）
-    const t = list.length ? list[Math.floor(Math.random() * list.length)] : null;
-    if (t) {
+    // 斬撃（白銀）：extra.slashes か所。三角形の頂点には最初の1か所を使う
+    const slashTargets = shuffle(list.slice()).slice(0, s.extra.slashes ?? 1);
+    for (const t of slashTargets) {
       tmp.length = 0;
       ctx.enemiesInCircle(t.x, t.y, s.area * ctx.stats.areaMul, tmp);
       for (const e of tmp) ctx.damage(e, dmg, 0, 0);
       ctx.fx.cross(t.x, t.y - 10, s.area * ctx.stats.areaMul, 0xe8f4ff);
-      w.state.slashAt = { x: t.x, y: t.y };
     }
+    if (slashTargets.length) w.state.slashAt = { x: slashTargets[0].x, y: slashTargets[0].y };
     // 星弾（追尾）
     const star = ctx.nearestEnemy(c.x, c.y, 600);
     for (let i = 0; i < s.count; i++) {
@@ -652,7 +652,7 @@ const honjin: ArtBehavior = {
     const c = chest(ctx);
     ctx.addZone({
       x: ctx.player.x, y: ctx.player.y, radius: (s.extra.fenceRadius ?? 150) * ctx.stats.areaMul, duration: dur(ctx, s),
-      dps: (s.extra.fenceDps ?? 15) * ctx.stats.damageMul * ctx.artDamageMul, slow: s.slow, stun: false, color: w.def.color, shape: 'fence',
+      dps: (s.extra.fenceDps ?? 15) * ctx.stats.damageMul * ctx.artDamageMul, slow: s.slow, stun: false, color: w.def.color, shape: 'fence', source: 'honjin',
     });
     const r = s.area * ctx.stats.areaMul;
     const dmg = artDmg(ctx, s, w.def);
@@ -681,6 +681,14 @@ const ricochet: ArtBehavior = {
       if (e.fly) e.fly.bounces = s.extra.bounces ?? 5;
       ctx.fx.text(e.x, e.y - 40, 'GLITCH', '#00CED1');
     }
+    // 響の跳ね返る弾（飛んでいる敵に当たると加速させる）
+    const t = ctx.nearestEnemy(c.x, c.y, 600);
+    ctx.fireBullet({
+      x: c.x, y: c.y, angle: t ? Math.atan2(t.y - c.y, t.x - c.x) : Math.random() * Math.PI * 2,
+      speed: s.extra.shotSpeed ?? 420, damage: artDmg(ctx, { ...s, damage: s.extra.shotDamage ?? 14 }, w.def), life: (s.extra.shotLife ?? 6) * ctx.stats.durationMul,
+      pierce: Infinity, bounce: true, slow: s.slow, slowSec: 2.5, texture: 'art_refresh',
+      scale: 1.2, spin: 4, rotateToVel: false, knockback: 30,
+    });
   },
 };
 

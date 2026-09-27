@@ -247,7 +247,7 @@ export class GameScene extends Phaser.Scene {
       enemiesInCircle: (x, y, r, out) => this.enemiesInCircle(x, y, r, out),
       onScreenEnemies: () => this.onScreenEnemies(),
       fireBullet: (o) => this.fireBullet(o),
-      addZone: (z) => this.zones.push({ ...z, elapsed: 0, tick: 0 }),
+      addZone: (z) => this.addZone(z),
       kick: (e, angle, speed, dur, dmg) => this.kick(e, angle, speed, dur, dmg),
       fx: {
         slash: (x, y, r, color, angle, arcDeg) => this.fxSlash(x, y, r, color, angle, arcDeg),
@@ -1199,6 +1199,19 @@ export class GameScene extends Phaser.Scene {
       }
     }
     return e.def.speed;
+  }
+
+  /** 設置物を追加。同じ出所の同時数が上限（CONFIG.zoneCaps）を超えたら古いものから消す */
+  private addZone(z: ZoneOpts): void {
+    const src = z.source ?? '';
+    const cap = CONFIG.zoneCaps[src] ?? CONFIG.zoneCaps.default;
+    let same = 0;
+    for (const o of this.zones) if ((o.source ?? '') === src) same++;
+    for (let i = 0; i < this.zones.length && same >= cap; i++) {
+      if ((this.zones[i].source ?? '') === src) { this.zones.splice(i, 1); i--; same--; }
+    }
+    while (this.zones.length >= CONFIG.maxZones) this.zones.shift();
+    this.zones.push({ ...z, elapsed: 0, tick: 0 });
   }
 
   private updateZones(dt: number, now: number): void {
