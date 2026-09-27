@@ -82,10 +82,10 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
     sheet: { file: 'assets/sprites/enemy/knight.png', frameWidth: 144, frameHeight: 144, frames: 9 },
     originY: 0.86, scale: 2, // 画面上 288px（王級と同じ）
   },
-  // 赤騎士（EXステージ「悪夢」の最後）：黒騎士の色違い。速さ1.3倍で、最初から後半の行動をとる
+  // 赤騎士（EXステージ「悪夢」の最後）：黒騎士の色違い。速さ1.45倍で、最初から後半の行動をとる
   redknight: {
     id: 'redknight', name: '赤騎士', tier: 4,
-    size: 144, hitRadius: 130, hp: 3000, speed: 72, contactDamage: 20, xp: 0,
+    size: 144, hitRadius: 130, hp: 3000, speed: 80, contactDamage: 20, xp: 0,
     eyeColor: 0xff2244, knockbackResist: 1, boss: true, defeatYell: 300, knight: true, recolorOf: 'blackknight',
     sheet: { file: 'assets/sprites/enemy/knight.png', frameWidth: 144, frameHeight: 144, frames: 9 },
     originY: 0.86, scale: 2,
