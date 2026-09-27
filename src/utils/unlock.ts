@@ -6,21 +6,10 @@ import { loadSave, writeSave, type SaveData } from './storage';
  * 隠しキャラ（CharacterDef.secret）は、解放するまでどの画面にも出さない。
  */
 
-/** 確認用：URLに `?secret=shion` でそのセッションだけ使える（保存しない）。`?secret=shion-new` は出現演出の確認用 */
-function previewParam(): string {
-  if (typeof location === 'undefined') return '';
-  return new URLSearchParams(location.search).get('secret') ?? '';
-}
-
-export function isSecretPreview(id: string): boolean {
-  const p = previewParam();
-  return p === id || p === `${id}-new`;
-}
-
 export function isCharacterUnlocked(id: string, save: SaveData): boolean {
   const def = CHARACTERS[id];
   if (!def) return false;
-  if (def.secret) return save.unlockedCharacters.includes(id) || isSecretPreview(id);
+  if (def.secret) return save.unlockedCharacters.includes(id);
   return def.unlockYell === 0 || save.unlockedCharacters.includes(id);
 }
 
@@ -37,12 +26,12 @@ export function resolveCharacter(save: SaveData): string {
 
 /** 出現演出をまだ見せていない隠しキャラか */
 export function isSecretPending(id: string, save: SaveData): boolean {
-  return save.secretNew[id] === 'pending' || previewParam() === `${id}-new`;
+  return save.secretNew[id] === 'pending';
 }
 
 /** NEW の印を付けるか（一度選ぶまで） */
 export function hasNewBadge(id: string, save: SaveData): boolean {
-  return id in save.secretNew || previewParam() === `${id}-new`;
+  return id in save.secretNew;
 }
 
 /** 隠しキャラを解放する（すでに解放済みなら何もしない）。返り値: 新しく解放したら true */
