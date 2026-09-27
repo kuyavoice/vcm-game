@@ -4,7 +4,7 @@ import { ENEMIES } from '../data/enemies';
 import { generateTextures } from '../utils/textures';
 import { AudioBus } from '../utils/audio';
 import { FONT_EN } from '../utils/fonts';
-import { OPTIONAL_IMAGES, LAZY_IMAGE_PREFIX, hasOptionalImage } from '../utils/optionalAssets';
+import { OPTIONAL_IMAGES, isLazyImage, hasOptionalImage } from '../utils/optionalAssets';
 import { PORTRAITS, PORTRAIT_DIR, portraitKey } from '../data/portraits';
 import { createCharAnims } from '../utils/recolor';
 
@@ -36,7 +36,7 @@ export class BootScene extends Phaser.Scene {
     // カットイン用の顔画像（ポータルの立ち絵から切り出した 256px webp）
     for (const id of new Set(Object.values(PORTRAITS))) this.load.image(portraitKey(id), `${PORTRAIT_DIR}${id}.webp`);
     // 宝箱画面のマスコット（ルナ様チビ）など、置けば使われる画像。未配置なら簡易プレースホルダー
-    for (const [key, path] of Object.entries(OPTIONAL_IMAGES)) if (hasOptionalImage(key) && !key.startsWith(LAZY_IMAGE_PREFIX)) this.load.image(key, path);
+    for (const [key, path] of Object.entries(OPTIONAL_IMAGES)) if (hasOptionalImage(key) && !isLazyImage(key)) this.load.image(key, path);
     AudioBus.queueLoad(this.load);
   }
 

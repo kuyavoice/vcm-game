@@ -46,7 +46,7 @@ export class ResultScene extends Phaser.Scene {
     if (this.victoryKey && !this.textures.exists(this.victoryKey)) this.load.image(this.victoryKey, OPTIONAL_IMAGES[this.victoryKey]);
   }
 
-  /** 下端をなめらかに消した版のテクスチャを作る（勝利立ち絵は膝上で切れているため） */
+  /** 下端と左右の端をなめらかに消した版のテクスチャを作る（勝利立ち絵は膝上で切れていて、絵が左右の端まで描かれているため） */
   private fadedTexture(key: string): string {
     const fk = `${key}_fade`;
     if (this.textures.exists(fk)) return fk;
@@ -60,6 +60,14 @@ export class ResultScene extends Phaser.Scene {
     grad.addColorStop(0, 'rgba(0,0,0,1)');
     grad.addColorStop(1, 'rgba(0,0,0,0)');
     c.fillStyle = grad;
+    c.fillRect(0, 0, src.width, src.height);
+    // 左右：スマホだとパネルの横で絵が直線に切れて見えるので、端をぼかす
+    const side = c.createLinearGradient(0, 0, src.width, 0);
+    side.addColorStop(0, 'rgba(0,0,0,0)');
+    side.addColorStop(0.1, 'rgba(0,0,0,1)');
+    side.addColorStop(0.84, 'rgba(0,0,0,1)');
+    side.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = side;
     c.fillRect(0, 0, src.width, src.height);
     ct.refresh();
     return fk;

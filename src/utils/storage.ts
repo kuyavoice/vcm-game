@@ -32,6 +32,8 @@ export interface SaveData {
   scoreRanking: { score: number; kills: number; timeSec: number; character: string; date: string; cleared: boolean }[];
   /** 隠しキャラの出現状態（キャラID → pending＝出現演出がまだ／shown＝演出済みで NEW の印だけ）。一度選ぶと消える */
   secretNew: Record<string, 'pending' | 'shown'>;
+  /** ギャラリーで解放した絵のID */
+  gallery: string[];
 }
 
 const DEFAULT: SaveData = {
@@ -48,6 +50,7 @@ const DEFAULT: SaveData = {
   colorSelected: {},
   scoreRanking: [],
   secretNew: {},
+  gallery: [],
 };
 
 export function loadSave(): SaveData {
@@ -69,6 +72,7 @@ export function loadSave(): SaveData {
       colorSelected: { ...(parsed.colorSelected ?? {}) },
       scoreRanking: [...(parsed.scoreRanking ?? [])],
       secretNew: { ...(parsed.secretNew ?? {}) },
+      gallery: [...(parsed.gallery ?? [])],
     };
     // 旧形式の移行：best → bests[1]
     if (data.best && !data.bests['1']) {

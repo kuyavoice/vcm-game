@@ -71,6 +71,14 @@ export async function renderShareCard(r: RunResult): Promise<Blob | null> {
       fade.addColorStop(1, 'rgba(0,0,0,0)');
       vg.fillStyle = fade;
       vg.fillRect(0, 0, vc.width, vc.height);
+      // 左右の端もぼかす（リザルト画面と同じ）
+      const side = vg.createLinearGradient(0, 0, vc.width, 0);
+      side.addColorStop(0, 'rgba(0,0,0,0)');
+      side.addColorStop(0.1, 'rgba(0,0,0,1)');
+      side.addColorStop(0.84, 'rgba(0,0,0,1)');
+      side.addColorStop(1, 'rgba(0,0,0,0)');
+      vg.fillStyle = side;
+      vg.fillRect(0, 0, vc.width, vc.height);
       standing = vc;
     } else standing = victory;
   }

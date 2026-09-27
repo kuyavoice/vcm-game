@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { visibleGallery } from './GalleryScene';
 import { getSafeInsets } from '../utils/safeArea';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave } from '../utils/storage';
@@ -70,6 +71,10 @@ export class TitleScene extends Phaser.Scene {
 
     // 図鑑（ボタンは pointerdown を止めるので TAP TO START と干渉しない）
     makeButton(this, W - 24 - 90, Math.max(H * 0.06, 50), '図鑑', () => this.scene.start('Codex'), { width: 160, height: 52, fontSize: 22 });
+    // ギャラリー（絵が1枚も置かれていなければ、入口ごと出さない）
+    if (visibleGallery(loadSave()).length > 0) {
+      makeButton(this, W - 24 - 90 - 176, Math.max(H * 0.06, 50), 'GALLERY', () => this.scene.start('Gallery'), { width: 160, height: 52, fontSize: 22 });
+    }
 
     let started = false;
     const start = () => {

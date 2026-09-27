@@ -2,6 +2,8 @@
  * 「置けば使われる」任意アセット（立ち絵・マスコット画像など）の存在確認。
  * 開発サーバは未配置パスに index.html を返すため、Content-Type で判定する。
  */
+import { GALLERY, galleryKey } from '../data/gallery';
+
 export const OPTIONAL_IMAGES: Record<string, string> = {
   luna_chibi: 'assets/images/luna_chibi.png',
   // キャラ選択画面のドット立ち絵（高さ約130px・整数倍で表示）
@@ -18,8 +20,12 @@ export const OPTIONAL_IMAGES: Record<string, string> = {
   victory_shion: 'assets/images/victory/shion_victory.webp',
 };
 
+// ギャラリーの絵（ファイル候補ごとに存在確認する。読み込みはギャラリー画面で、解放済みのものだけ）
+for (const g of GALLERY) g.files.forEach((f, i) => { OPTIONAL_IMAGES[galleryKey(g.id, i)] = f; });
+
 /** 起動時に読まず、使う場面で読む画像（キーの接頭辞） */
-export const LAZY_IMAGE_PREFIX = 'victory_';
+export const LAZY_IMAGE_PREFIXES = ['victory_', 'gal_'];
+export const isLazyImage = (key: string) => LAZY_IMAGE_PREFIXES.some((p) => key.startsWith(p));
 
 const available = new Set<string>();
 
