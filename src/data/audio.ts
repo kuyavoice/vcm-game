@@ -32,6 +32,8 @@ export const AUDIO_MANIFEST: AudioEntry[] = [
   { key: 'bgm_clear_ritsuka', path: 'assets/audio/bgm/clear_ritsuka.mp3', category: 'bgm', loop: true },
   // SE
   { key: 'se_slash', path: 'assets/audio/se/slash.mp3', category: 'se' },
+  // 黒騎士の斬撃（剣閃・二連斬・連撃）。重い音。未配置なら slash で代用
+  { key: 'se_slash_heavy', path: 'assets/audio/se/slash_heavy.mp3', category: 'se' },
   { key: 'se_shot', path: 'assets/audio/se/shot.mp3', category: 'se' },
   { key: 'se_hit', path: 'assets/audio/se/hit.mp3', category: 'se' },
   { key: 'se_kill', path: 'assets/audio/se/kill.mp3', category: 'se' },

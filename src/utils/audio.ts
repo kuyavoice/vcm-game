@@ -61,8 +61,9 @@ class AudioBusImpl {
     return !!this.game && this.game.cache.audio.exists(key);
   }
 
-  /** SE／ボイス。minGapMs で連打を間引く */
-  play(key: string, minGapMs = 0): void {
+  /** SE／ボイス。minGapMs で連打を間引く。fallback：key が未配置のときに代わりに鳴らすキー */
+  play(key: string, minGapMs = 0, fallback?: string): void {
+    if (!this.has(key) && fallback) key = fallback;
     if (!this.has(key) || !this.game) return;
     const now = performance.now();
     const last = this.lastPlayed.get(key) ?? -Infinity;

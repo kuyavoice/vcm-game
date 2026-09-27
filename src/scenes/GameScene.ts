@@ -823,7 +823,7 @@ export class GameScene extends Phaser.Scene {
         e.play('anim_e_blackknight_slash', true);
         b.animLock = now + 400;
         if (dist < 180 + p.def.hitRadius && Math.abs(Phaser.Math.Angle.Wrap(Math.atan2(p.y - 12 - (e.y - 40), p.x - e.x) - a)) <= Phaser.Math.DegToRad(75)) this.hurt(25, now);
-        this.fxSlash(e.x, e.y - 40, 180, 0x9d4dff, a, 150);
+        this.fxSlash(e.x, e.y - 40, 180, 0x9d4dff, a, 150, true);
         this.cameras.main.shake(100, 0.004);
       }
       return { mx: 0, my: 0, spd: 0 };
@@ -938,9 +938,8 @@ export class GameScene extends Phaser.Scene {
       if (Math.hypot(rx, ry) < K.comboSlashRadius + p.def.hitRadius && Math.abs(Phaser.Math.Angle.Wrap(Math.atan2(ry, rx) - b.comboAngle)) <= half) this.hurt(K.comboSlashDamage, now);
       e.play('anim_e_blackknight_slash', true);
       b.animLock = now + 300;
-      this.fxSlash(cx, cy, K.comboSlashRadius, 0x9d4dff, b.comboAngle, K.comboSlashArcDeg);
+      this.fxSlash(cx, cy, K.comboSlashRadius, 0x9d4dff, b.comboAngle, K.comboSlashArcDeg, true);
       this.cameras.main.shake(100, 0.004);
-      AudioBus.play('se_slash', 60);
       if (Math.random() < 0.5) {
         b.follow = 'barrage';
         b.followT = K.barrageWindupSec + K.barrageBursts * K.barrageTickSec;
@@ -1011,9 +1010,8 @@ export class GameScene extends Phaser.Scene {
     if (Math.hypot(rx, ry) < K.cleaveRadius && (right ? rx > 0 : rx < 0)) this.hurt(K.cleaveDamage, now);
     e.play('anim_e_blackknight_slash', true);
     b.animLock = now + 400;
-    this.fxSlash(cx, cy, K.cleaveRadius, 0x9d4dff, right ? 0 : Math.PI, 180);
+    this.fxSlash(cx, cy, K.cleaveRadius, 0x9d4dff, right ? 0 : Math.PI, 180, true);
     this.cameras.main.shake(100, 0.004);
-    AudioBus.play('se_slash', 60);
     if (right) {
       b.follow = 'cleaveL';
       b.followT = K.cleaveSecondWindupSec;
@@ -1687,8 +1685,10 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: g, alpha: 0, duration: ms, onComplete: () => g.destroy() });
   }
 
-  private fxSlash(x: number, y: number, r: number, color: number, angle: number, arcDeg: number): void {
-    AudioBus.play('se_slash', 80);
+  /** heavy：黒騎士の斬撃用の重い音（未配置なら通常の斬撃音） */
+  private fxSlash(x: number, y: number, r: number, color: number, angle: number, arcDeg: number, heavy = false): void {
+    if (heavy) AudioBus.play('se_slash_heavy', 80, 'se_slash');
+    else AudioBus.play('se_slash', 80);
     const half = Phaser.Math.DegToRad(arcDeg / 2);
     const g = this.add.graphics().setDepth(26);
     g.fillStyle(color, 0.35);
