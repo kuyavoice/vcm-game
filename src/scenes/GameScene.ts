@@ -118,6 +118,10 @@ export class GameScene extends Phaser.Scene {
     this.zones = [];
     this.soulGauge = 0;
     this.soulUntil = 0;
+    // デバッグ操作の状態は1プレイごとに戻す（シーンは使い回されるため）
+    this.debugUsed = false;
+    this.debugInvincible = false;
+    this.debugNoSpawn = false;
     this.specialHost = { state: {} };
     this.specialRunning = false;
     this.kanpaUntil = 0;
