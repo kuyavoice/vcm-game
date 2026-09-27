@@ -7,6 +7,7 @@ import { loadSave, writeSave } from '../utils/storage';
 import { AudioBus } from '../utils/audio';
 import { renderShareCard, shareOrDownload, buildPostText, openXPost } from '../utils/shareCard';
 import { SCORE } from '../data/score';
+import { OPTIONAL_IMAGES, hasOptionalImage } from '../utils/optionalAssets';
 
 export interface RunResult {
   characterId: string;
@@ -30,6 +31,37 @@ export interface RunResult {
 export class ResultScene extends Phaser.Scene {
   constructor() {
     super('Result');
+  }
+
+  /** クリア時に使う勝利立ち絵のテクスチャキー（無ければ空） */
+  private victoryKey = '';
+
+  init(r: RunResult): void {
+    const key = `victory_${r.characterId}`;
+    this.victoryKey = r.cleared && hasOptionalImage(key) ? key : '';
+  }
+
+  preload(): void {
+    if (this.victoryKey && !this.textures.exists(this.victoryKey)) this.load.image(this.victoryKey, OPTIONAL_IMAGES[this.victoryKey]);
+  }
+
+  /** 下端をなめらかに消した版のテクスチャを作る（勝利立ち絵は膝上で切れているため） */
+  private fadedTexture(key: string): string {
+    const fk = `${key}_fade`;
+    if (this.textures.exists(fk)) return fk;
+    const src = this.textures.get(key).getSourceImage() as HTMLImageElement;
+    const ct = this.textures.createCanvas(fk, src.width, src.height);
+    if (!ct) return key;
+    const c = ct.getContext();
+    c.drawImage(src, 0, 0);
+    c.globalCompositeOperation = 'destination-in';
+    const grad = c.createLinearGradient(0, src.height * 0.82, 0, src.height);
+    grad.addColorStop(0, 'rgba(0,0,0,1)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = grad;
+    c.fillRect(0, 0, src.width, src.height);
+    ct.refresh();
+    return fk;
   }
 
   create(r: RunResult): void {
@@ -75,7 +107,9 @@ export class ResultScene extends Phaser.Scene {
 
     // 立ち絵（あれば）
     const chara = CHARACTERS[r.characterId];
-    const stKey = `standing_${r.characterId}`;
+    // クリア時は勝利立ち絵（無ければ通常の立ち絵）。ゲームオーバー時は通常の立ち絵
+    const useVictory = !!this.victoryKey && this.textures.exists(this.victoryKey);
+    const stKey = useVictory ? this.fadedTexture(this.victoryKey) : `standing_${r.characterId}`;
     if (this.textures.exists(stKey)) {
       // ボタン帯（H*0.78〜）の上に足元が来るように収める
       const img = this.add.image(W * 0.30, H * 0.75, stKey).setOrigin(0.5, 1);

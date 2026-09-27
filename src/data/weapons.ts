@@ -349,9 +349,9 @@ const ENGO: WeaponDef = {
 
 // 数値は「素材2つ（Lv8）の合計を少し上回る」水準（2026-09-27 引き上げ）。合体して弱くならないこと。
 
-/** 『三ツ星（トライスター）』（空夜のみ）：白銀の斬撃（extra.slashes か所）＋追尾する星弾。一定間隔で三角形の光が走り内側に大ダメージ */
+/** 『トライスター』（空夜のみ）：白銀の斬撃（extra.slashes か所）＋追尾する星弾。一定間隔で三角形の光が走り内側に大ダメージ */
 const TRISTAR: WeaponDef = {
-  id: 'tristar', name: '三ツ星', owner: '狐森 雪人・黒崎 詩音', kind: 'art', tags: ['melee', 'projectile'], fusion: true,
+  id: 'tristar', name: 'トライスター', owner: '狐森 雪人・黒崎 詩音', kind: 'art', tags: ['melee', 'projectile'], fusion: true,
   desc: '白銀の斬撃と星の弾。ときおり三つを結ぶ光が走り、内側の敵を裁く。',
   color: 0xffd700, maxLevel: 1,
   base: stats({ damage: 45, intervalSec: 1.6, count: 6, area: 80, speed: 560, extra: { slashes: 4, triangleEvery: 3, triangleDamage: 200 } }),
@@ -370,21 +370,21 @@ const NEKOBAKO: WeaponDef = {
   levels: [],
 };
 
-/** 『星墜の檻（メテオ・ケージ）』：前方の半円に星が降り注ぎ、着弾範囲にダメージ＋縫い止め */
+/** 『星墜の檻（メテオ・ケージ）』：前方の扇（extra.arcDeg・半径 area）に星が降り注ぎ、着弾範囲にダメージ＋縫い止め。解けたあとも extra.slowSec 秒は鈍化（slow） */
 const METEOCAGE: WeaponDef = {
   id: 'meteocage', name: '星墜の檻', owner: '黒崎 詩音・若宮 征士郎', kind: 'art', tags: ['projectile', 'zone'], fusion: true,
   desc: '前方の空から星が降り、着弾した場所の敵を縫い止める。',
   color: 0x9d4dff, maxLevel: 1,
-  base: stats({ damage: 35, intervalSec: 2.2, count: 10, area: 260, duration: 1.0, extra: { blastRadius: 80 } }),
+  base: stats({ damage: 35, intervalSec: 2.2, count: 10, area: 320, duration: 1.0, slow: 0.5, extra: { blastRadius: 80, arcDeg: 210, slowSec: 3 } }),
   levels: [],
 };
 
-/** 『本陣の咆哮』：2秒ごとに周囲へ円形の逆茂木（足止め＋継続ダメージ）＋岩の衝撃波（半径220・強ノックバック） */
+/** 『本陣の咆哮』：2秒ごとに周囲へ逆茂木（一辺 fenceRadius×2 の四角。足止め＋継続ダメージ）＋岩の衝撃波（半径 area の大円・強ノックバック） */
 const HONJIN: WeaponDef = {
   id: 'honjin', name: '本陣の咆哮', owner: '護乃 豪・弼辺 徹', kind: 'art', tags: ['melee', 'zone'], fusion: true,
   desc: '足元に逆茂木が立ち、岩の衝撃波が周囲をなぎ払う。',
   color: 0x8b4513, maxLevel: 1,
-  base: stats({ damage: 60, intervalSec: 2.0, area: 220, duration: 2.0, knockback: 420, slow: 0.2, extra: { fenceRadius: 150, fenceDps: 30 } }),
+  base: stats({ damage: 60, intervalSec: 2.0, area: 330, duration: 2.0, knockback: 420, slow: 0.2, extra: { fenceRadius: 210, fenceDps: 30 } }),
   levels: [],
 };
 

@@ -9,7 +9,15 @@ export const OPTIONAL_IMAGES: Record<string, string> = {
   portrait_mizuho: 'assets/images/portrait/mizuho_portrait.png',
   portrait_yukihito: 'assets/images/portrait/yukihito_portrait.png',
   portrait_ritsuka: 'assets/images/portrait/ritsuka_portrait.png',
+  // クリア時の勝利立ち絵（透過・1024×1536）。起動時には読まず、リザルトで必要な1枚だけ読む。無ければ通常の立ち絵
+  victory_kuya: 'assets/images/victory/kuya_victory.webp',
+  victory_mizuho: 'assets/images/victory/mizuho_victory.webp',
+  victory_yukihito: 'assets/images/victory/yukihito_victory.webp',
+  victory_ritsuka: 'assets/images/victory/ritsuka_victory.webp',
 };
+
+/** 起動時に読まず、使う場面で読む画像（キーの接頭辞） */
+export const LAZY_IMAGE_PREFIX = 'victory_';
 
 const available = new Set<string>();
 

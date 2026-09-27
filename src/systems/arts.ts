@@ -541,7 +541,7 @@ function inTriangle(px: number, py: number, a: { x: number; y: number }, b: { x:
   return (s1 >= 0 && s2 >= 0 && s3 >= 0) || (s1 <= 0 && s2 <= 0 && s3 <= 0);
 }
 
-/** 『三ツ星』：白銀の斬撃＋星弾。triangleEvery 回ごとに 空夜・斬撃・星弾 を結ぶ三角の光 */
+/** 『トライスター』：白銀の斬撃＋星弾。triangleEvery 回ごとに 空夜・斬撃・星弾 を結ぶ三角の光 */
 const tristar: ArtBehavior = {
   mimicable: false,
   fire(ctx, s, w) {
@@ -581,7 +581,7 @@ const tristar: ArtBehavior = {
       g.lineStyle(2, 0xffffff, 0.9);
       g.strokeTriangle(P.x, P.y, A.x, A.y, B.x, B.y);
       ctx.scene.tweens.add({ targets: g, alpha: 0, duration: 420, onComplete: () => g.destroy() });
-      ctx.fx.text(P.x, P.y - 120, '三ツ星', '#FFD700');
+      ctx.fx.text(P.x, P.y - 120, 'トライスター', '#FFD700');
     }
   },
 };
@@ -633,7 +633,7 @@ const meteocage: ArtBehavior = {
     const blast = (s.extra.blastRadius ?? 60) * ctx.stats.areaMul;
     const dmg = artDmg(ctx, s, w.def);
     for (let i = 0; i < s.count; i++) {
-      const a = base + (Math.random() - 0.5) * Math.PI;
+      const a = base + (Math.random() - 0.5) * Phaser.Math.DegToRad(s.extra.arcDeg ?? 180);
       const d = 40 + Math.random() * r;
       const x = c.x + Math.cos(a) * d;
       const y = c.y + Math.sin(a) * d;
@@ -647,6 +647,8 @@ const meteocage: ArtBehavior = {
           for (const e of tmp) {
             ctx.damage(e, dmg, 0, 0);
             e.stun(dur(ctx, s), ctx.now);
+            // ディレイ：縫い止めが解けたあとも、しばらく動きが鈍る
+            if (s.slow < 1) e.applySlow(s.slow, dur(ctx, s) + (s.extra.slowSec ?? 0), ctx.now);
           }
           ctx.fx.ring(x, y, blast, w.def.color, 4);
         },

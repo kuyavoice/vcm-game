@@ -55,8 +55,26 @@ export async function renderShareCard(r: RunResult): Promise<Blob | null> {
   g.fillStyle = 'rgba(135,206,235,0.06)';
   g.beginPath(); g.moveTo(W * 0.55, 0); g.lineTo(W, 0); g.lineTo(W, H * 0.6); g.lineTo(W * 0.3, H); g.lineTo(0, H); g.closePath(); g.fill();
 
-  // 立ち絵（ポータル版 → ゲーム同梱の縮小版）
-  const standing = (await loadImage(chara?.standing ?? '')) ?? (await loadImage(`assets/images/portrait/${r.characterId}_portrait.png`));
+  // 立ち絵：クリア時は勝利立ち絵（下端をなめらかに消す）→ 無ければ通常の立ち絵 → ドット立ち絵
+  const victory = r.cleared ? await loadImage(`assets/images/victory/${r.characterId}_victory.webp`) : null;
+  let standing: CanvasImageSource & { width: number; height: number } | null = null;
+  if (victory) {
+    const vc = document.createElement('canvas');
+    vc.width = victory.width;
+    vc.height = victory.height;
+    const vg = vc.getContext('2d');
+    if (vg) {
+      vg.drawImage(victory, 0, 0);
+      vg.globalCompositeOperation = 'destination-in';
+      const fade = vg.createLinearGradient(0, vc.height * 0.82, 0, vc.height);
+      fade.addColorStop(0, 'rgba(0,0,0,1)');
+      fade.addColorStop(1, 'rgba(0,0,0,0)');
+      vg.fillStyle = fade;
+      vg.fillRect(0, 0, vc.width, vc.height);
+      standing = vc;
+    } else standing = victory;
+  }
+  standing ??= (await loadImage(chara?.standing ?? '')) ?? (await loadImage(`assets/images/portrait/${r.characterId}_portrait.png`));
   if (standing) {
     const targetH = H * 0.62;
     const sc = targetH / standing.height;
@@ -113,6 +131,11 @@ export async function renderShareCard(r: RunResult): Promise<Blob | null> {
   // 所持アーツ（進化・合体は強調）
   const arts = r.arts ?? [];
   const ay = H * 0.34 + 600;
+  // 立ち絵と重なっても読めるように下地を敷く
+  if (arts.length > 0) {
+    g.fillStyle = 'rgba(11,16,38,0.78)';
+    g.fillRect(px - 14, ay - 14, pw + 14, 40 + Math.min(arts.length, 6) * 48 + 22);
+  }
   g.fillStyle = '#87CEEB'; g.font = en(26); g.textAlign = 'left';
   g.fillText('RESONANCE ARTS', px, ay);
   arts.slice(0, 6).forEach((a, i) => {
