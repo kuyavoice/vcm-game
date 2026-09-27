@@ -61,6 +61,8 @@ export class UpgradeState {
   characterId = 'kuya';
   /** 『除外』でそのプレイ中は出さないID（weapon:xxx / passive:xxx） */
   banned = new Set<string>();
+  /** 合体の素材になったアーツ（そのプレイ中はレベルアップの候補に戻さない） */
+  fusedSources = new Set<string>();
 
   get weapons(): Weapon[] {
     return [this.main, ...this.arts];
@@ -96,7 +98,7 @@ export class UpgradeState {
     }
     if (this.arts.length < CONFIG.weaponSlots) {
       for (const id of ART_IDS) {
-        if (this.excluded.has(id) || this.banned.has(`weapon:${id}`)) continue;
+        if (this.excluded.has(id) || this.banned.has(`weapon:${id}`) || this.fusedSources.has(id)) continue;
         if (this.arts.some((w) => w.def.id === id)) continue;
         const d = WEAPONS[id];
         pool.push({ kind: 'weapon', id, title: d.name, owner: d.owner, tag: 'NEW', desc: d.desc, color: d.color });
@@ -192,6 +194,8 @@ export class UpgradeState {
       const wa = this.arts.find((w) => w.def.id === f.a)!;
       const wb = this.arts.find((w) => w.def.id === f.b)!;
       this.arts = this.arts.filter((w) => w !== wa && w !== wb);
+      this.fusedSources.add(f.a);
+      this.fusedSources.add(f.b);
       const fused = createWeapon(f.id);
       this.arts.push(fused);
       recordCodex(f.id);
