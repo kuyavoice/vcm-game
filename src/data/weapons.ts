@@ -82,7 +82,8 @@ export const YOISEI: WeaponDef = {
   id: 'yoisei', name: '宵星', owner: '宵月 空夜', kind: 'main', tags: ['melee', 'projectile'],
   desc: '片手剣とハンドガンを距離で自動切替。近くは斬り、遠くは撃つ。',
   color: 0x87ceeb, maxLevel: 8,
-  base: stats({ damage: 12, intervalSec: 0.7, count: 1, area: 90, speed: 720, extra: { shotDamage: 8, slashArcDeg: 120, shotRange: 400 } }),
+  // 斬撃 12→15、射撃 8→10（2026-09-29。悪夢・STAGE 3 の雑音級（HP25）を斬撃2発で倒せるように。空夜は個の武力が強いほうではないので、上げ幅は控えめ）
+  base: stats({ damage: 15, intervalSec: 0.7, count: 1, area: 90, speed: 720, extra: { shotDamage: 10, slashArcDeg: 120, shotRange: 400 } }),
   levels: [
     { desc: 'ダメージ +25%', apply: (s) => { s.damage *= 1.25; s.extra.shotDamage *= 1.25; } },
     { desc: '射撃が2連射になる', apply: (s) => { s.count = 2; } },
