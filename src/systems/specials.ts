@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { AudioBus } from '../utils/audio';
 import type { SpecialId } from '../data/characters';
 import type { Enemy } from '../entities/Enemy';
 import type { BattleContext } from './WeaponSystem';
@@ -99,6 +100,7 @@ const setsugekkaUlt: SpecialBehavior = {
       ctx.enemiesInCircle(t.x, t.y, 70, tmp);
       for (const e of tmp) ctx.damage(e, 40 * ctx.stats.damageMul * ctx.meleeMul, 0, 0);
       ctx.fx.cross(t.x, t.y - 10, 70, 0xe8f4ff);
+      AudioBus.play('se_yukihito_slash', 250, 'se_slash');
     }
     host.state.timer = timer;
     host.state.left = left;

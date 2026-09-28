@@ -36,6 +36,8 @@ export const AUDIO_MANIFEST: AudioEntry[] = [
   { key: 'bgm_clear_shion', path: 'assets/audio/bgm/clear_shion.mp3', category: 'bgm', loop: true },
   // SE
   { key: 'se_slash', path: 'assets/audio/se/slash.mp3', category: 'se' },
+  // 雪人の斬撃（大剣・『乱れ雪月花』）。未配置なら slash で代用
+  { key: 'se_yukihito_slash', path: 'assets/audio/se/yukihito_slash.mp3', category: 'se' },
   // 黒騎士の斬撃（剣閃・二連斬・連撃）。重い音。右向きは heavy、左向きは heavy2。未配置なら slash で代用
   { key: 'se_slash_heavy', path: 'assets/audio/se/slash_heavy.mp3', category: 'se' },
   { key: 'se_slash_heavy2', path: 'assets/audio/se/slash_heavy2.mp3', category: 'se' },

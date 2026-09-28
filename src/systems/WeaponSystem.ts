@@ -57,7 +57,8 @@ export interface BattleContext {
   kick: (e: Enemy, angle: number, speed: number, durationSec: number, damage: number) => void;
   /** 演出 */
   fx: {
-    slash: (x: number, y: number, radius: number, color: number, angle: number, arcDeg: number) => void;
+    /** playSe：false なら斬撃音を鳴らさない（専用の音を別に鳴らすとき） */
+    slash: (x: number, y: number, radius: number, color: number, angle: number, arcDeg: number, playSe?: boolean) => void;
     ring: (x: number, y: number, radius: number, color: number, width?: number) => void;
     cross: (x: number, y: number, size: number, color: number) => void;
     line: (x1: number, y1: number, x2: number, y2: number, width: number, color: number) => void;

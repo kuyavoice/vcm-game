@@ -3,6 +3,10 @@ import { CONFIG } from '../data/config';
 import { WEAPONS, computeStats, type ArtStats, type WeaponDef } from '../data/weapons';
 import type { Enemy } from '../entities/Enemy';
 import { Weapon, type ArtBehavior, type BattleContext } from './WeaponSystem';
+import { AudioBus } from '../utils/audio';
+
+/** 雪人の斬撃音（大剣・『乱れ雪月花』）。短い間隔で重ねすぎない */
+const yukihitoSlashSe = () => AudioBus.play('se_yukihito_slash', 250, 'se_slash');
 
 const tmp: Enemy[] = [];
 let hitStamp = 0;
@@ -149,7 +153,9 @@ function swingGreatsword(ctx: BattleContext, s: ArtStats, w: Weapon, angle: numb
     ctx.damage(e, dmg, Math.cos(a) * knockback, Math.sin(a) * knockback);
   }
   // 振り抜いた側の縁に白い線を引いて、振りの向き（行き／返し）を見せる
-  ctx.fx.slash(c.x, c.y, r, reverse ? 0xffffff : w.def.color, angle, arc);
+  // 音は1回の攻撃につき1度（1撃目で鳴らし始めると、音の山が返し斬りに重なる）
+  if (!reverse) yukihitoSlashSe();
+  ctx.fx.slash(c.x, c.y, r, reverse ? 0xffffff : w.def.color, angle, arc, false);
   const edge = angle + (reverse ? -half : half);
   ctx.fx.line(c.x, c.y, c.x + Math.cos(edge) * r, c.y + Math.sin(edge) * r, 4, 0xffffff);
   ctx.scene.cameras.main.shake(60, 0.002);
@@ -269,6 +275,7 @@ const setsugekka: ArtBehavior = {
     const targets = shuffle(ctx.onScreenEnemies().slice()).slice(0, s.count);
     const r = s.area * ctx.stats.areaMul;
     const dmg = artDmg(ctx, s, w.def);
+    if (targets.length > 0) yukihitoSlashSe();
     targets.forEach((t, i) => {
       ctx.scene.time.delayedCall(i * 70, () => {
         if (!t.active) return;
@@ -284,6 +291,7 @@ const setsugekka: ArtBehavior = {
     const c = chest(ctx);
     const r = (s.extra.counterRadius ?? 150) * ctx.stats.areaMul;
     const dmg = artDmg(ctx, s, w.def);
+    yukihitoSlashSe();
     tmp.length = 0;
     ctx.enemiesInCircle(c.x, c.y, r, tmp);
     for (const e of tmp) {

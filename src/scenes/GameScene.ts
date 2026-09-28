@@ -262,7 +262,7 @@ export class GameScene extends Phaser.Scene {
       addZone: (z) => this.addZone(z),
       kick: (e, angle, speed, dur, dmg) => this.kick(e, angle, speed, dur, dmg),
       fx: {
-        slash: (x, y, r, color, angle, arcDeg) => this.fxSlash(x, y, r, color, angle, arcDeg),
+        slash: (x, y, r, color, angle, arcDeg, playSe) => this.fxSlash(x, y, r, color, angle, arcDeg, playSe),
         ring: (x, y, r, color, width) => this.fxRing(x, y, r, color, width),
         cross: (x, y, size, color) => this.fxCross(x, y, size, color),
         line: (x1, y1, x2, y2, width, color) => this.fxLine(x1, y1, x2, y2, width, color),
