@@ -49,6 +49,8 @@ export interface CharacterDef {
     healMul?: number;
     /** 必殺ゲージの上昇倍率（省略時 1） */
     soulGainMul?: number;
+    /** 敵との接触で受けるダメージの倍率（弾・範囲攻撃は対象外。省略時 1） */
+    contactDamageMul?: number;
     /** 表示用の特性名と説明 */
     name: string;
     desc: string;
@@ -138,7 +140,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     speed: 135,
     pickup: 60,
     hitRadius: 18,
-    traits: { resonanceArtsPower: 0, meleePower: 1.2, damageMul: 1, maxHpMul: 1, healItemMul: 1, name: 'トライスターの剣', desc: '近接武器の威力 +20%' },
+    traits: { resonanceArtsPower: 0, meleePower: 1.2, damageMul: 1, maxHpMul: 1, healItemMul: 1, contactDamageMul: 0.75, name: 'トライスターの剣', desc: '近接武器の威力 +20%、接触ダメージ −25%' },
     startWeapon: 'greatsword',
     uniquePassive: { id: 'kanpa', name: '完全看破', desc: '20%の確率で攻撃を回避。回避後1秒間、攻撃力+30%' },
     special: { id: 'setsugekka_ult', name: '乱れ雪月花', shortName: '雪月花', desc: '3秒間、画面内の敵に斬撃が計30回閃く' },

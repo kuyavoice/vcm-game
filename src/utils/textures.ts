@@ -268,7 +268,7 @@ export function generateTextures(scene: Phaser.Scene) {
   g.fillTriangle(38, 0, 44, 4, 38, 8);
   g.generateTexture('art_thrust', 44, 8);
 
-  // 衝撃波（アクセル・レイド）：縦長の弧、右向き
+  // 衝撃波（旧『アクセル・レイド』。いまは未使用）：縦長の弧、右向き
   g.clear();
   g.fillStyle(0xe8f4ff, 0.35);
   g.fillEllipse(8, 16, 14, 32);
@@ -277,6 +277,28 @@ export function generateTextures(scene: Phaser.Scene) {
   g.arc(2, 16, 12, -1.2, 1.2, false);
   g.strokePath();
   g.generateTexture('art_wave', 18, 32);
+
+  // 氷の衝撃波（氷狼牙）：淡い水色の弧、右向き。先端に氷でできた狼の頭（横顔）
+  g.clear();
+  g.fillStyle(0xbfefff, 0.3);
+  g.fillEllipse(8, 16, 14, 32);
+  g.lineStyle(3, 0xbfefff, 0.95);
+  g.beginPath();
+  g.arc(2, 16, 12, -1.2, 1.2, false);
+  g.strokePath();
+  g.lineStyle(1, 0xffffff, 1);
+  g.beginPath();
+  g.arc(0, 16, 12, -1.1, 1.1, false);
+  g.strokePath();
+  g.fillStyle(0xe8f8ff, 1);
+  g.fillTriangle(15, 11, 16, 3, 20, 10);
+  g.fillTriangle(19, 11, 21, 4, 24, 11);
+  g.fillPoints([{ x: 14, y: 11 }, { x: 24, y: 10 }, { x: 32, y: 15 }, { x: 32, y: 18 }, { x: 27, y: 19 }, { x: 24, y: 22 }, { x: 15, y: 22 }, { x: 13, y: 17 }], true);
+  g.fillStyle(0x7fd0ff, 1);
+  g.fillTriangle(27, 19, 25, 19, 26, 22);
+  g.fillStyle(0x2a7fb8, 1);
+  g.fillRect(22, 13, 2, 2);
+  g.generateTexture('art_icewave', 34, 32);
 
   // 影（瞬影）：猫耳フードの小さな人影。半透明で使う
   g.clear();

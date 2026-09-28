@@ -6,7 +6,7 @@ import { stageById, type StageDef } from '../data/stages';
 import { SCORE } from '../data/score';
 import { ITEMS, PICKUPS, type PickupKind } from '../data/items';
 import { Player } from '../entities/Player';
-import { Enemy } from '../entities/Enemy';
+import { Enemy, type Hazard } from '../entities/Enemy';
 import { Bullet, EnemyBullet, type BulletOpts } from '../entities/Bullet';
 import { Pickup } from '../entities/Pickup';
 import { SpatialHash } from '../systems/SpatialHash';
@@ -105,6 +105,7 @@ export class GameScene extends Phaser.Scene {
   private debugUsed = false;
   private debugInvincible = false;
   private debugNoSpawn = false;
+  private debugExIndex = 0;
   private fullMoon = false;
   private enemySpeedMul = 1;
 
@@ -132,6 +133,8 @@ export class GameScene extends Phaser.Scene {
     this.boss = null;
     this.bossDefeated = false;
     this.bosses = [];
+    this.cavalryWarnings = [];
+    this.hazards = [];
     this.score = 0;
     this.combo = 0;
     this.comboMul = 1;
@@ -305,6 +308,24 @@ export class GameScene extends Phaser.Scene {
             b.bk.forceCombo = true;
             b.bossState.chargeTimer = 0;
           }
+        },
+      },
+      {
+        label: '赤騎士の技',
+        run: (set) => {
+          used();
+          // 押すたびに 新月 → 漆黒の牙 → 漆黒の檻 → 闇の炎 の順で、次の技として予約する
+          const order = ['shingetsu', 'kiba', 'ori', 'honoo'];
+          const names = ['新月', '漆黒の牙', '漆黒の檻', '闇の炎'];
+          const i = this.debugExIndex % order.length;
+          this.debugExIndex++;
+          for (const b of this.bosses) {
+            if (!b.active || b.def.id !== 'redknight') continue;
+            b.bk.enraged = true;
+            b.bk.exForce = order[i];
+            b.bk.exTimer = 0;
+          }
+          set(`技:${names[i]}`);
         },
       },
       {
@@ -576,6 +597,7 @@ export class GameScene extends Phaser.Scene {
     const py = p.y - 12;
     const sep = CONFIG.separationForce;
     this.bossGfx.clear();
+    this.updateHazards(now);
 
     for (let i = 0; i < enemies.length; i++) {
       const e = enemies[i];
@@ -585,7 +607,14 @@ export class GameScene extends Phaser.Scene {
       // 被弾フラッシュ解除
       if (e.flashUntil && now > e.flashUntil) {
         e.flashUntil = 0;
-        e.clearTint();
+        if (now < e.frozenUntil) e.setTint(0x9fdcff);
+        else e.clearTint();
+      }
+      // 氷漬けが解ける：氷が砕ける
+      if (e.frozenUntil && now >= e.frozenUntil) {
+        e.frozenUntil = 0;
+        if (!e.flashUntil) e.clearTint();
+        this.hitSpark(e.x, e.y - 10, 0xbfefff, 4);
       }
       if (def.isObject) continue;
 
@@ -595,7 +624,7 @@ export class GameScene extends Phaser.Scene {
         if (e.burnTick >= 0.25) {
           e.burnTick -= 0.25;
           this.hitSpark(e.x, e.y - 10, 0xff8c00, 2);
-          this.specialDamage = e.burnBySpecial;
+          this.specialDamage = now < e.burnSpecialUntil;
           this.damageEnemy(e, e.burnDps * 0.25, 0, 0);
           this.specialDamage = false;
           if (!e.active) continue;
@@ -645,12 +674,13 @@ export class GameScene extends Phaser.Scene {
 
       // 騎兵：直線に突っ切って画面外で消える
       if (def.charger && e.charge) {
-        e.x += e.charge.vx * dt;
-        e.y += e.charge.vy * dt;
+        const chill = e.chillFactor(now);
+        e.x += e.charge.vx * chill * dt;
+        e.y += e.charge.vy * chill * dt;
         e.setFlipX(e.charge.vx < 0);
         const v = this.cameras.main.worldView;
         if (e.x < v.left - 200 || e.x > v.right + 200 || e.y < v.top - 200 || e.y > v.bottom + 200) { e.despawn(); continue; }
-        if (dist < e.radius + p.def.hitRadius) this.hurt(def.contactDamage, now);
+        if (dist < e.radius + p.def.hitRadius) this.hurt(def.contactDamage, now, true);
         continue;
       }
 
@@ -658,13 +688,16 @@ export class GameScene extends Phaser.Scene {
       let mx = nx;
       let my = ny;
       let spd = def.speed * this.enemySpeedMul * e.speedMul(now);
+      // 『氷狼牙』の減速は、ボスの歩く速さだけに掛ける（突進・攻撃は遅くしない。予兆と届く距離がずれるため）
+      const walking = e.bossState.dashing <= 0;
       if (def.knight) {
         const r = this.updateBlackKnight(e, dt, now, dist, nx, ny);
         mx = r.mx;
         my = r.my;
-        spd = r.spd;
+        spd = walking ? r.spd * e.chillFactor(now) : r.spd;
       } else if (def.boss) {
         spd = this.updateBoss(e, dt, now, dist, nx, ny);
+        if (walking) spd *= e.chillFactor(now);
         mx = e.bossState.dashing > 0 ? e.bossState.dirX : nx;
         my = e.bossState.dashing > 0 ? e.bossState.dirY : ny;
       } else if (def.ranged) {
@@ -702,7 +735,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       // 接触ダメージ
-      if (dist < e.radius + p.def.hitRadius) this.hurt(def.contactDamage, now);
+      if (dist < e.radius + p.def.hitRadius) this.hurt(def.contactDamage, now, true);
     }
   }
 
@@ -714,6 +747,17 @@ export class GameScene extends Phaser.Scene {
     const red = e.def.id === 'redknight';
     const tempo = red ? CONFIG.redKnight.tempoMul : 1;
     const glow = red ? 0xff2244 : 0x9d4dff;
+    // 赤騎士の激昂（50%を切った瞬間）：短い無敵のあと、専用の技を使い始める
+    if (red && !b.enraged && e.hp <= e.maxHp * CONFIG.redKnight.enrageAt) {
+      b.enraged = true;
+      b.invulnUntil = now + CONFIG.redKnight.enrageInvulnSec * 1000;
+      b.animLock = b.invulnUntil;
+      b.exTimer = 2;
+      e.play(`anim_e_${e.def.id}_hit`, true);
+      this.cameras.main.shake(400, 0.007);
+      this.hud.banner(`${e.def.name} —— 激昂`, '#FF4D6D', 34);
+      this.fxRing(e.x, e.y - 60, 240, glow, 10);
+    }
     // 形態変化（50%を切った瞬間）：1.5秒無敵＋黒いオーラ＋揺れ
     if (b.phase === 1 && e.hp <= e.maxHp * 0.5) {
       b.phase = 2;
@@ -752,13 +796,23 @@ export class GameScene extends Phaser.Scene {
       }
     }
     if (now < b.invulnUntil) return { mx: 0, my: 0, spd: 0 };
+    // 赤騎士の専用技（新月／漆黒の牙／漆黒の檻）の最中は、他の行動をしない
+    if (b.ex) return this.updateKnightEx(e, dt, now);
 
     // 突進（両形態）：予備動作0.8秒（赤い矢印で予告）→ 0.7秒ダッシュ
     const bs = e.bossState;
     const B = CONFIG.boss;
     if (bs.dashing > 0) {
       bs.dashing -= dt;
+      // 『闇の炎』：通り道を燃やしながら走る
+      if (b.trailHaz) {
+        b.trailHaz.x2 = e.x;
+        b.trailHaz.y2 = e.y;
+        b.trailHaz.until = now + CONFIG.redKnight.flameSec * 1000;
+      }
       if (bs.dashing <= 0) {
+        b.trail = false;
+        b.trailHaz = null;
         bs.chargeTimer = (b.phase === 1 ? 7 : 6) / tempo;
         if (b.phase === 2 || b.forceCombo) this.startKnightFollow(e, now);
       }
@@ -775,10 +829,22 @@ export class GameScene extends Phaser.Scene {
         bs.dashing = B.chargeDurationSec / tempo; // 速くても届く距離は同じ
         bs.dirX = nx;
         bs.dirY = ny;
+        if (b.trail) {
+          b.trailHaz = { x1: e.x, y1: e.y, x2: e.x, y2: e.y, halfWidth: CONFIG.redKnight.flameHalfWidth, until: now + CONFIG.redKnight.flameSec * 1000, damage: CONFIG.redKnight.flameDamage };
+          this.hazards.push(b.trailHaz);
+        }
         e.play(`anim_e_${e.def.id}`, true);
         this.cameras.main.shake(120, 0.005);
       }
       return { mx: 0, my: 0, spd: 0 };
+    }
+    // 赤騎士の専用技（激昂後）：一定の間隔で1つ選んで使う
+    if (red && b.enraged && b.slashWindup <= 0 && b.rush === 0 && !b.rushCharge) {
+      b.exTimer -= dt;
+      if (b.exTimer <= 0) {
+        this.startKnightEx(e, now);
+        return { mx: 0, my: 0, spd: 0 };
+      }
     }
     bs.chargeTimer -= dt;
     if (bs.chargeTimer <= 0 && b.slashWindup <= 0 && b.rush === 0 && !b.rushCharge) {
@@ -872,18 +938,196 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** 騎兵の一斉突撃を予約：n体が横（または縦）一直線に画面を突っ切る。1秒前から赤線で予告 */
-  private queueCavalry(now: number, horizontal: boolean, fromLeft: boolean, n: number): void {
+  private queueCavalry(now: number, horizontal: boolean, fromLeft: boolean, n: number, leadMs = 1000): void {
     const v = this.cameras.main.worldView;
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) / n;
       const jitter = (Math.random() - 0.5) * 60;
       if (horizontal) {
         const y = v.top + 120 + t * (v.height - 240) + jitter;
-        this.cavalryWarnings.push({ at: now + 1000 + i * 120, x1: fromLeft ? v.left - 150 : v.right + 150, y1: y, x2: fromLeft ? v.right + 150 : v.left - 150, y2: y });
+        this.cavalryWarnings.push({ at: now + leadMs + i * 120, x1: fromLeft ? v.left - 150 : v.right + 150, y1: y, x2: fromLeft ? v.right + 150 : v.left - 150, y2: y });
       } else {
         const x = v.left + 80 + t * (v.width - 160) + jitter;
-        this.cavalryWarnings.push({ at: now + 1000 + i * 120, x1: x, y1: fromLeft ? v.top - 150 : v.bottom + 150, x2: x, y2: fromLeft ? v.bottom + 150 : v.top - 150 });
+        this.cavalryWarnings.push({ at: now + leadMs + i * 120, x1: x, y1: fromLeft ? v.top - 150 : v.bottom + 150, x2: x, y2: fromLeft ? v.bottom + 150 : v.top - 150 });
       }
+    }
+  }
+
+  /** 赤騎士の専用技を1つ選んで始める（重み付きの乱数。直前と同じ技は選ばない） */
+  private startKnightEx(e: Enemy, now: number): void {
+    const b = e.bk;
+    const R = CONFIG.redKnight;
+    const p = this.player;
+    b.exTimer = R.exEverySec;
+    let pick = b.exForce;
+    b.exForce = '';
+    if (!pick) {
+      const options = Object.entries(R.exWeights).filter(([id]) => id !== b.lastEx);
+      let total = 0;
+      for (const [, w] of options) total += w;
+      let r = Math.random() * total;
+      pick = options[0][0];
+      for (const [id, w] of options) {
+        r -= w;
+        if (r <= 0) { pick = id; break; }
+      }
+    }
+    b.lastEx = pick;
+    b.exStage = 0;
+    const names: Record<string, string> = { shingetsu: '新月', kiba: '漆黒の牙', ori: '漆黒の檻', honoo: '闇の炎' };
+    this.hud.banner(`『${names[pick]}』`, '#FF4D6D', 34);
+    e.play(`anim_e_${e.def.id}_windup`, true);
+    if (pick === 'honoo') {
+      // 突進そのものは通常と同じ（予兆も同じ）。通り道だけが燃える
+      b.trail = true;
+      e.bossState.windup = CONFIG.boss.chargeWindupSec;
+      b.animLock = now + 800;
+      this.fxText(e.x, e.y - 150, '!!', '#FF4D6D');
+      AudioBus.play('se_knight_charge', 300);
+      return;
+    }
+    b.ex = pick;
+    if (pick === 'shingetsu') {
+      b.exT = R.moonWindupSec;
+      b.animLock = now + R.moonWindupSec * 1000;
+    } else if (pick === 'kiba') {
+      b.exT = R.fangWindupSec;
+      b.exX = p.x;
+      b.exY = p.y - 12;
+      b.animLock = now + R.fangWindupSec * 1000;
+    } else {
+      b.exT = 0;
+    }
+  }
+
+  /** 赤騎士の専用技の進行。『新月』：外側 → 内側／『漆黒の牙』：飛び込み／『漆黒の檻』：騎兵の格子 */
+  private updateKnightEx(e: Enemy, dt: number, now: number): { mx: number; my: number; spd: number } {
+    const b = e.bk;
+    const R = CONFIG.redKnight;
+    const g = this.bossGfx;
+    const p = this.player;
+    const cx = e.x;
+    const cy = e.y - 40;
+    const still = { mx: 0, my: 0, spd: 0 };
+    const finish = () => {
+      b.ex = '';
+      e.bossState.chargeTimer = Math.max(e.bossState.chargeTimer, 1.5);
+    };
+    b.exT -= dt;
+
+    if (b.ex === 'shingetsu') {
+      const pd = Math.hypot(p.x - cx, p.y - 12 - cy);
+      if (b.exStage === 0) {
+        // 一段目：赤騎士の周りの円（新月）の中だけが安全
+        const k = 1 - Math.max(0, b.exT) / R.moonWindupSec;
+        g.lineStyle(R.moonOuterRadius - R.moonSafeRadius, 0xff2244, 0.1 + k * 0.2);
+        g.strokeCircle(cx, cy, (R.moonOuterRadius + R.moonSafeRadius) / 2);
+        g.fillStyle(0x05020a, 0.45);
+        g.fillCircle(cx, cy, R.moonSafeRadius);
+        g.lineStyle(4, 0xffffff, 0.5 + k * 0.4);
+        g.strokeCircle(cx, cy, R.moonSafeRadius);
+        if (b.exT <= 0) {
+          if (pd > R.moonSafeRadius) this.hurt(R.moonDamage, now);
+          const flash = this.add.graphics().setDepth(26);
+          flash.lineStyle(R.moonOuterRadius - R.moonSafeRadius, 0xff2244, 0.35);
+          flash.strokeCircle(cx, cy, (R.moonOuterRadius + R.moonSafeRadius) / 2);
+          this.fadeOut(flash, 260);
+          this.cameras.main.shake(160, 0.006);
+          AudioBus.play('se_slash_heavy', 0, 'se_slash');
+          e.play(`anim_e_${e.def.id}_slash`, true);
+          b.exStage = 1;
+          b.exT = R.moonInnerWindupSec;
+          b.animLock = now + R.moonInnerWindupSec * 1000;
+        }
+        return still;
+      }
+      // 二段目：足元の円の中が危険
+      const k = 1 - Math.max(0, b.exT) / R.moonInnerWindupSec;
+      g.fillStyle(0xff2244, 0.14 + k * 0.26);
+      g.fillCircle(cx, cy, R.moonInnerRadius);
+      g.lineStyle(3, 0xff2244, 0.85);
+      g.strokeCircle(cx, cy, R.moonInnerRadius);
+      if (b.exT <= 0) {
+        if (pd < R.moonInnerRadius) this.hurt(R.moonDamage, now);
+        this.fxRing(cx, cy, R.moonInnerRadius, 0xff2244, 10);
+        this.cameras.main.shake(160, 0.006);
+        AudioBus.play('se_slash_heavy2', 0, 'se_slash');
+        e.play(`anim_e_${e.def.id}_slash`, true);
+        b.animLock = now + 400;
+        finish();
+      }
+      return still;
+    }
+
+    if (b.ex === 'kiba') {
+      // 狙った地点に円の予兆。赤騎士は姿を薄くして、着地の瞬間にその地点へ現れる
+      const k = 1 - Math.max(0, b.exT) / R.fangWindupSec;
+      g.fillStyle(0xff2244, 0.16 + k * 0.3);
+      g.fillCircle(b.exX, b.exY, R.fangRadius);
+      g.lineStyle(3, 0xffffff, 0.8);
+      g.strokeCircle(b.exX, b.exY, R.fangRadius);
+      g.lineStyle(2, 0xff2244, 0.8);
+      g.strokeCircle(b.exX, b.exY, R.fangRadius * (1 - k));
+      e.setAlpha(1 - k * 0.8);
+      if (b.exT <= 0) {
+        e.setPosition(b.exX, b.exY + 40);
+        e.setAlpha(1);
+        if (Math.hypot(p.x - b.exX, p.y - 12 - b.exY) < R.fangRadius + p.def.hitRadius) this.hurt(R.fangDamage, now);
+        for (let i = 0; i < R.fangBullets; i++) {
+          this.fireEnemyBullet(b.exX, b.exY, (i / R.fangBullets) * Math.PI * 2, R.fangBulletSpeed, 4, R.fangBulletDamage, 0xff2244);
+        }
+        this.fxRing(b.exX, b.exY, R.fangRadius, 0xff2244, 10);
+        this.cameras.main.shake(220, 0.008);
+        AudioBus.play('se_slash_heavy', 0, 'se_slash');
+        e.play(`anim_e_${e.def.id}_slash`, true);
+        b.animLock = now + 400;
+        finish();
+      }
+      return still;
+    }
+
+    // 『漆黒の檻』：騎兵が横と縦に同時に走る。波ごとに列の数を変えて、安全な場所をずらす
+    if (b.exT <= 0) {
+      const wave = R.cageWaves[b.exStage];
+      this.queueCavalry(now, true, Math.random() < 0.5, wave[0], R.cageLeadSec * 1000);
+      this.queueCavalry(now, false, Math.random() < 0.5, wave[1], R.cageLeadSec * 1000);
+      e.play(`anim_e_${e.def.id}_summon`, true);
+      b.animLock = now + 700;
+      b.exStage++;
+      if (b.exStage >= R.cageWaves.length) {
+        b.cavalryTimer = Math.max(b.cavalryTimer, 4);
+        finish();
+      } else {
+        b.exT = R.cageWaveGapSec;
+      }
+    }
+    return still;
+  }
+
+  /** 地面に残る危険な帯（『闇の炎』）の描画と当たり判定 */
+  private updateHazards(now: number): void {
+    if (this.hazards.length === 0) return;
+    const g = this.bossGfx;
+    const p = this.player;
+    for (let i = this.hazards.length - 1; i >= 0; i--) {
+      const h = this.hazards[i];
+      if (now >= h.until) { this.hazards.splice(i, 1); continue; }
+      const fade = Math.min(1, (h.until - now) / 500);
+      const flick = 0.5 + Math.sin(now / 70 + i) * 0.12;
+      g.lineStyle(h.halfWidth * 2, 0x2a0610, 0.55 * fade);
+      g.lineBetween(h.x1, h.y1, h.x2, h.y2);
+      g.lineStyle(h.halfWidth, 0xff2244, flick * 0.5 * fade);
+      g.lineBetween(h.x1, h.y1, h.x2, h.y2);
+      if (Math.random() < 0.5) {
+        const t = Math.random();
+        this.hitSpark(h.x1 + (h.x2 - h.x1) * t + (Math.random() - 0.5) * h.halfWidth, h.y1 + (h.y2 - h.y1) * t - 10, 0xff4422, 1);
+      }
+      // 当たり判定：足元の点と線分の距離
+      const dx = h.x2 - h.x1;
+      const dy = h.y2 - h.y1;
+      const len2 = dx * dx + dy * dy || 1;
+      const t = Phaser.Math.Clamp(((p.x - h.x1) * dx + (p.y - h.y1) * dy) / len2, 0, 1);
+      if (Math.hypot(p.x - (h.x1 + dx * t), p.y - (h.y1 + dy * t)) < h.halfWidth) this.hurt(h.damage, now);
     }
   }
 
@@ -1094,6 +1338,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private cavalryWarnings: { at: number; x1: number; y1: number; x2: number; y2: number }[] = [];
+  private hazards: Hazard[] = [];
 
   /**
    * 王級：周囲弾を撃ちながら、突進／狙い撃ち／踏み鳴らし／回転弾／十字斬りを重み付き乱数で繰り出す（直前と同じ行動は出さない）。
@@ -1465,6 +1710,8 @@ export class GameScene extends Phaser.Scene {
       if (b.traveled > b.maxRange || b.life <= 0) { b.despawn(); continue; }
       if (b.spin) b.setRotation(b.rotation + b.spin * dt);
       else if (b.rotateToVel) b.setRotation(Math.atan2(b.vy, b.vx));
+      // 氷の衝撃波：氷片が舞う
+      if (b.freezeSec > 0 && Math.random() < 0.6) this.hitSpark(b.x + (Math.random() - 0.5) * 30, b.y + (Math.random() - 0.5) * 50, 0xbfefff, 1);
 
       // 画面端で跳ね返る
       if (b.bounce) {
@@ -1488,6 +1735,8 @@ export class GameScene extends Phaser.Scene {
         if (e.fly && e.fly.bounces && b.texture.key === 'art_refresh') { e.fly.vx *= 1.25; e.fly.vy *= 1.25; }
         this.damageEnemy(e, b.damage, Math.cos(a) * b.knockback, Math.sin(a) * b.knockback);
         if (b.slow < 1) e.applySlow(b.slow, b.slowSec, now);
+        if (e.active && b.burnDps > 0) e.burn(b.burnDps, b.burnSec, now);
+        if (e.active && b.freezeSec > 0) this.iceHit(e, b.freezeSec, b.chillMul, now);
         this.hitSpark(b.x, b.y, 0x87ceeb, 3);
         // 小爆発（焔の猟犬）
         if (b.explodeRadius > 0) {
@@ -1507,6 +1756,15 @@ export class GameScene extends Phaser.Scene {
         b.pierce--;
       }
     }
+  }
+
+  /** 『氷狼牙』の衝撃波が当たった：雑魚（雑音級・狩人級・司祭級）は氷漬け、騎士級・ボス・騎兵は減速 */
+  private iceHit(e: Enemy, sec: number, chillMul: number, now: number): void {
+    const d = e.def;
+    if (d.isObject) return;
+    if (d.boss || d.charger) e.chill(chillMul, sec, now);
+    else if (d.id === 'knight') e.applySlow(chillMul, sec, now);
+    else e.freeze(sec, now);
   }
 
   private updateEnemyBullets(dt: number, now: number): void {
@@ -1647,6 +1905,7 @@ export class GameScene extends Phaser.Scene {
       }
       this.bossGfx?.clear();
       this.cavalryWarnings.length = 0;
+      this.hazards.length = 0;
       this.bossDefeated = true;
       this.cameras.main.shake(400, 0.01);
       this.cameras.main.flash(500, 255, 255, 255);
@@ -1711,7 +1970,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** プレイヤーへのダメージ入口：被ダメ倍率・必殺の軽減・完全看破の回避 */
-  private hurt(amount: number, now: number): void {
+  /** contact：敵との接触によるもの（キャラ特性の接触ダメージ軽減が掛かる。弾・範囲攻撃は false） */
+  private hurt(amount: number, now: number, contact = false): void {
     if (this.debugInvincible) return;
     const p = this.player;
     const def = p.def;
@@ -1723,11 +1983,14 @@ export class GameScene extends Phaser.Scene {
       this.fxText(p.x, p.y - 110, '看破', '#E8F4FF');
       return;
     }
+    // 盾が割れるか（重い攻撃か）は、倍率を掛ける前の値で見る（悪夢の1.5倍で騎兵まで「重い攻撃」になっていた）
+    const raw = amount;
     // ステージごとの敵の攻撃力（悪夢は1.5倍）
     amount *= this.stage.enemyDamageMul ?? 1;
+    if (contact) amount *= def.traits.contactDamageMul ?? 1;
     let mul = this.up.stats.damageTakenMul;
     if (now < this.soulUntil && def.special.id === 'aqua_lament') mul *= 0.3;
-    if (p.takeDamage(amount * mul, now, amount)) {
+    if (p.takeDamage(amount * mul, now, raw)) {
       this.onPlayerHit();
       if (this.stage.scoreMode) { this.combo = 0; this.comboMul = 1; this.scoreNoDamageBreak(); }
     }

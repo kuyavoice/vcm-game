@@ -122,6 +122,34 @@ export const CONFIG = {
     comboChance: 0.35,
     /** 二連斬が三連になる（右 → 左 → 右） */
     cleaveSwings: 3,
+    /** HPがこの割合を切ると激昂：専用の技（新月／漆黒の牙／漆黒の檻／闇の炎）を使い始める */
+    enrageAt: 0.5,
+    enrageInvulnSec: 1.2,
+    /** 専用の技を使う間隔（秒）と、選ぶ重み（直前と同じ技は選ばない） */
+    exEverySec: 9,
+    exWeights: { shingetsu: 3, kiba: 3, ori: 2, honoo: 2 } as Readonly<Record<string, number>>,
+    /** 『新月』：赤騎士の周りの円の中だけ安全な広範囲 → 直後に足元の円。足の遅いキャラでも間に合う長さ */
+    moonSafeRadius: 360,
+    moonOuterRadius: 1100,
+    moonWindupSec: 2.0,
+    moonInnerRadius: 380,
+    moonInnerWindupSec: 1.6,
+    moonDamage: 25,
+    /** 『漆黒の牙』：プレイヤーの位置へ飛び込む。着地で範囲ダメージ＋周囲に弾 */
+    fangRadius: 140,
+    fangWindupSec: 1.6,
+    fangDamage: 25,
+    fangBullets: 12,
+    fangBulletSpeed: 200,
+    fangBulletDamage: 10,
+    /** 『漆黒の檻』：騎兵が横と縦に同時に走る。[横の列数, 縦の列数] を波ごとに */
+    cageWaves: [[3, 2], [2, 1]] as readonly (readonly number[])[],
+    cageLeadSec: 1.2,
+    cageWaveGapSec: 1.8,
+    /** 『闇の炎』：突進の通り道が燃える */
+    flameHalfWidth: 60,
+    flameSec: 3,
+    flameDamage: 10,
   },
 
   // 黒騎士・後半：突進の直後に出す追撃

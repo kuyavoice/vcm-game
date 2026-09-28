@@ -42,6 +42,12 @@ export interface BulletOpts {
   /** 敵を倒したとき、その位置に同じ弾を生む（『焔の大狩猟』）。上限は GameScene 側 */
   spawnOnKill?: boolean;
   maxSpawned?: number;
+  /** 命中した敵を炎上させる（毎秒ダメージと秒数）。当て直すと時間が戻る */
+  burnDps?: number;
+  burnSec?: number;
+  /** 命中した雑魚を氷漬けにする秒数。凍らない敵（騎士級・ボス・騎兵）は chillMul 倍に減速 */
+  freezeSec?: number;
+  chillMul?: number;
 }
 
 /** 自弾（『宵星』の射撃・各アーツの弾） */
@@ -71,6 +77,10 @@ export class Bullet extends Phaser.GameObjects.Image {
   explodeDamage = 0;
   spawnOnKill = false;
   maxSpawned = 0;
+  burnDps = 0;
+  burnSec = 0;
+  freezeSec = 0;
+  chillMul = 1;
   /** 生成時のオプション（spawnOnKill の複製用） */
   opts: BulletOpts | null = null;
   hit = new Set<Enemy>();
@@ -107,6 +117,10 @@ export class Bullet extends Phaser.GameObjects.Image {
     this.explodeDamage = o.explodeDamage ?? 0;
     this.spawnOnKill = o.spawnOnKill ?? false;
     this.maxSpawned = o.maxSpawned ?? 0;
+    this.burnDps = o.burnDps ?? 0;
+    this.burnSec = o.burnSec ?? 0;
+    this.freezeSec = o.freezeSec ?? 0;
+    this.chillMul = o.chillMul ?? 1;
     this.opts = o;
     this.hit.clear();
     this.setScale(CONFIG.spriteScale * (o.scale ?? 1));

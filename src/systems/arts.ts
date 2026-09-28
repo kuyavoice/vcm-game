@@ -113,38 +113,76 @@ const reisuisen: ArtBehavior = {
   },
 };
 
-/** 大剣：進む方向へ180°の薙ぎ払い。進化『アクセル・レイド』：前方へ衝撃波 */
+interface SecondStrike { timer: number; angle: number; targets: Enemy[] }
+
+/**
+ * 大剣の1振り。返り値：当たった敵。
+ * sure：範囲の外へ押し出されていても必ず当てる敵（1撃目が当たった敵）。reverse：返し斬り（逆向きに振り抜く見た目）
+ */
+function swingGreatsword(ctx: BattleContext, s: ArtStats, w: Weapon, angle: number, knockback: number, sure: Enemy[], reverse: boolean): Enemy[] {
+  const c = chest(ctx);
+  const r = s.area * ctx.stats.areaMul;
+  const arc = s.extra.arcDeg ?? 180;
+  const half = Phaser.Math.DegToRad(arc / 2);
+  const dmg = dmgOf(ctx, s, w.def);
+  const stamp = ++hitStamp;
+  const hit: Enemy[] = [];
+  tmp.length = 0;
+  ctx.enemiesInCircle(c.x, c.y, r, tmp);
+  for (const e of tmp) {
+    if (e.lastHitId === stamp) continue;
+    const a = Math.atan2(e.y - c.y, e.x - c.x);
+    const d = Phaser.Math.Distance.Between(c.x, c.y, e.x, e.y);
+    if (Math.abs(Phaser.Math.Angle.Wrap(a - angle)) > half && d > e.radius) continue;
+    e.lastHitId = stamp;
+    hit.push(e);
+  }
+  // 1撃目で押し出された敵にも届かせる（離れすぎた敵・入れ替わった敵は除く）
+  for (const e of sure) {
+    if (!e.active || e.lastHitId === stamp) continue;
+    if (Phaser.Math.Distance.Between(c.x, c.y, e.x, e.y) > r + e.radius + 80) continue;
+    e.lastHitId = stamp;
+    hit.push(e);
+  }
+  for (const e of hit) {
+    const a = Math.atan2(e.y - c.y, e.x - c.x);
+    ctx.damage(e, dmg, Math.cos(a) * knockback, Math.sin(a) * knockback);
+  }
+  // 振り抜いた側の縁に白い線を引いて、振りの向き（行き／返し）を見せる
+  ctx.fx.slash(c.x, c.y, r, reverse ? 0xffffff : w.def.color, angle, arc);
+  const edge = angle + (reverse ? -half : half);
+  ctx.fx.line(c.x, c.y, c.x + Math.cos(edge) * r, c.y + Math.sin(edge) * r, 4, 0xffffff);
+  ctx.scene.cameras.main.shake(60, 0.002);
+  return hit;
+}
+
+/** 大剣：進む方向へ180°の薙ぎ払い → 返し斬りの2連撃。進化『氷狼牙』：2連撃の後、前方へ氷の衝撃波 */
 const greatsword: ArtBehavior = {
   mimicable: false,
-  fire(ctx, s, w) {
-    const c = chest(ctx);
-    const angle = facingAngle(ctx);
-    const r = s.area * ctx.stats.areaMul;
-    const half = Phaser.Math.DegToRad((s.extra.arcDeg ?? 180) / 2);
-    const dmg = dmgOf(ctx, s, w.def);
-    const stamp = ++hitStamp;
-    tmp.length = 0;
-    ctx.enemiesInCircle(c.x, c.y, r, tmp);
-    for (const e of tmp) {
-      if (e.lastHitId === stamp) continue;
-      const a = Math.atan2(e.y - c.y, e.x - c.x);
-      const d = Phaser.Math.Distance.Between(c.x, c.y, e.x, e.y);
-      if (Math.abs(Phaser.Math.Angle.Wrap(a - angle)) > half && d > e.radius) continue;
-      e.lastHitId = stamp;
-      ctx.damage(e, dmg, Math.cos(a) * s.knockback, Math.sin(a) * s.knockback);
-    }
-    ctx.fx.slash(c.x, c.y, r, w.def.color, angle, s.extra.arcDeg ?? 180);
-    ctx.scene.cameras.main.shake(60, 0.002);
+  update(dt, ctx, s, w) {
+    const st = w.state.second as SecondStrike | undefined;
+    if (!st) return;
+    st.timer -= dt;
+    if (st.timer > 0) return;
+    w.state.second = undefined;
+    swingGreatsword(ctx, s, w, st.angle, 0, st.targets, true);
     if (s.evolved) {
+      const c = chest(ctx);
       ctx.fireBullet({
-        x: c.x, y: c.y, angle, speed: 900, damage: s.extra.waveDamage * ctx.stats.damageMul * ctx.bonusDamageMul * ctx.meleeMul,
-        range: s.extra.waveRange * ctx.stats.areaMul, pierce: Infinity, texture: 'art_wave', scale: 2, knockback: 120,
+        x: c.x, y: c.y, angle: st.angle, speed: 900, damage: s.extra.waveDamage * ctx.stats.damageMul * ctx.bonusDamageMul * ctx.meleeMul,
+        range: s.extra.waveRange * ctx.stats.areaMul, pierce: Infinity, texture: 'art_icewave', scale: 2, knockback: 120,
+        freezeSec: s.extra.freezeSec ?? 0.5, chillMul: s.extra.chillMul ?? 0.5,
       });
     }
   },
+  fire(ctx, s, w) {
+    const angle = facingAngle(ctx);
+    const hit = swingGreatsword(ctx, s, w, angle, s.knockback, [], false);
+    w.state.second = { timer: s.extra.secondDelaySec ?? 0.2, angle, targets: hit } as SecondStrike;
+  },
 };
 
-/** 『焔の猟犬』：炎の玉が敵を追い、当たると小爆発。進化『焔の大狩猟』：倒すたび新しい猟犬 */
+/** 『焔の猟犬』：炎の玉が敵を追い、当たると小爆発＋炎上。進化『焔の大狩猟』：倒すたび新しい猟犬 */
 const flamehound: ArtBehavior = {
   mimicable: false,
   fire(ctx, s, w) {
@@ -154,7 +192,8 @@ const flamehound: ArtBehavior = {
       const angle = Math.random() * Math.PI * 2;
       ctx.fireBullet({
         x: c.x, y: c.y, angle, speed: s.speed, damage: dmgOf(ctx, s, w.def), life: dur(ctx, s), pierce: 0,
-        homing: true, turnRate: 4, texture: 'art_hound', scale: 1.1, spin: 5, rotateToVel: false, knockback: 40,
+        homing: true, turnRate: s.extra.turnRate ?? 4, texture: 'art_hound', scale: 1.1, spin: 5, rotateToVel: false, knockback: 40,
+        burnDps: (s.extra.burnDps ?? 0) * ctx.stats.damageMul * ctx.bonusDamageMul, burnSec: s.extra.burnSec ?? 0,
         explodeRadius: s.extra.blastRadius * ctx.stats.areaMul, explodeDamage: s.extra.blastDamage * ctx.stats.damageMul * ctx.bonusDamageMul,
         spawnOnKill: s.evolved, maxSpawned: s.extra.maxHounds,
       });

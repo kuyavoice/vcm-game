@@ -107,28 +107,35 @@ export const REISUISEN: WeaponDef = {
   ],
 };
 
-/** 大剣（雪人）：最後に移動した方向へ180°・半径140pxの薙ぎ払い。強ノックバック（空夜の斬撃は半径90・120°） */
+/**
+ * 大剣（雪人）：最後に移動した方向へ180°・半径140pxの薙ぎ払い → 0.2秒後に返し斬り（2連撃。追補パッチ⑦）。
+ * 強ノックバックは1撃目だけ。2撃目は押し返さず、1撃目が当たった敵に必ず当てる（空夜の斬撃は半径90・120°）。
+ * extra: secondDelaySec＝2撃目までの秒数／waveDamage・waveRange＝進化の衝撃波／freezeSec＝氷漬けの秒数／chillMul＝凍らない敵の減速倍率
+ */
 export const GREATSWORD: WeaponDef = {
   id: 'greatsword', name: '大剣', owner: '狐森 雪人', kind: 'main', tags: ['melee'],
-  desc: '進む方向へ大剣を薙ぎ払う。半円の範囲を強く弾き飛ばす。',
+  desc: '進む方向へ大剣を薙ぎ払い、すぐに返し斬りを重ねる。半円の範囲を強く弾き飛ばす。',
   color: 0xe8f4ff, maxLevel: 8,
-  base: stats({ damage: 30, intervalSec: 1.3, area: 140, knockback: 320, extra: { arcDeg: 180, waveDamage: 25, waveRange: 400 } }),
+  base: stats({ damage: 36, intervalSec: 1.3, area: 140, knockback: 320, extra: { arcDeg: 180, secondDelaySec: 0.2, waveDamage: 30, waveRange: 400, freezeSec: 0.5, chillMul: 0.5 } }),
   levels: [
     dmg(25), wider(15), faster(10), dmg(25), wider(15), faster(10),
-    { desc: '『アクセル・レイド』：薙ぎ払いの後、前方へ衝撃波が走る', apply: (s) => { s.evolved = true; s.damage *= 1.15; } },
+    { desc: '『氷狼牙』：2連撃の後、前方へ氷の衝撃波が走り、雑魚を凍らせる', apply: (s) => { s.evolved = true; s.damage *= 1.15; } },
   ],
 };
 
-/** 『焔の猟犬』（律花）：炎の玉が敵を追い、当たると小爆発。count=猟犬の数, extra.blastRadius/blastDamage */
+/**
+ * 『焔の猟犬』（律花）：炎の玉が敵を追い、当たると小爆発＋炎上（追補パッチ⑦）。count=猟犬の数, extra.blastRadius/blastDamage
+ * extra: turnRate＝旋回の速さ（弾速と同じ1.4倍）／burnDps・burnSec＝炎上（直接当たった敵だけ。当て直すと時間が戻る）
+ */
 export const FLAMEHOUND: WeaponDef = {
   id: 'flamehound', name: '焔の猟犬', owner: '寿 律花', kind: 'main', tags: ['projectile'],
-  desc: '炎の玉が敵を追いかけ、当たると小さく爆ぜる。',
+  desc: '炎の玉が敵を追いかけ、当たると小さく爆ぜて燃え上がらせる。',
   color: 0xff4500, maxLevel: 8,
-  base: stats({ damage: 10, intervalSec: 1.2, count: 2, speed: 380, duration: 3, extra: { blastRadius: 40, blastDamage: 6, maxHounds: 12 } }),
+  base: stats({ damage: 10, intervalSec: 1.2, count: 2, speed: 532, duration: 3, extra: { blastRadius: 40, blastDamage: 6, maxHounds: 12, turnRate: 5.6, burnDps: 4, burnSec: 3 } }),
   levels: [
     more(1, '猟犬の数'), dmg(25), { desc: '爆発の範囲 +30%', apply: (s) => { s.extra.blastRadius *= 1.3; } },
     faster(10), more(1, '猟犬の数'), dmg(25),
-    { desc: '『焔の大狩猟』：猟犬6匹が群れで駆け回り、敵を倒すたび新しい猟犬が生まれる（最大12）', apply: (s) => { s.evolved = true; s.count = 6; s.duration = 6; s.speed *= 1.15; } },
+    { desc: '『焔の大狩猟』：猟犬6匹が群れで駆け回り、敵を倒すたび新しい猟犬が生まれる（最大12）。炎上も強まる', apply: (s) => { s.evolved = true; s.count = 6; s.duration = 6; s.speed *= 1.15; s.extra.burnDps = 6; s.extra.burnSec = 4; } },
   ],
 };
 
