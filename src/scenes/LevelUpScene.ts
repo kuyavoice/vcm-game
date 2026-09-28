@@ -48,6 +48,18 @@ export class LevelUpScene extends Phaser.Scene {
     const guard = new SelectGuard(this);
     let picked = false;
     const cards: Phaser.GameObjects.Rectangle[] = [];
+    const conts: Phaser.GameObjects.Container[] = [];
+    // キーボードのカーソル（−1＝まだ選んでいない。移動キーを押すまで、決定キーは効かない）
+    let cursor = -1;
+    let hover = -1;
+    const paint = () => {
+      cards.forEach((bg, i) => {
+        if (i === cursor) bg.setStrokeStyle(4, 0xffffff, 1);
+        else if (i === hover) bg.setStrokeStyle(3, 0xffffff, 1);
+        else bg.setStrokeStyle(2, 0x87ceeb, 0.5);
+        conts[i].setScale(i === cursor ? 1.02 : 1);
+      });
+    };
     const decide = (c: Choice, cont: Phaser.GameObjects.Container) => {
       if (picked) return;
       picked = true;
@@ -107,15 +119,16 @@ export class LevelUpScene extends Phaser.Scene {
       this.tweens.add({ targets: cont, alpha: 1, x: W / 2, duration: 220, delay: 60 * i, ease: 'Cubic.out' });
 
       cards.push(bg);
+      conts.push(cont);
       bg.setInteractive({ useHandCursor: true });
-      bg.on('pointerover', () => bg.setStrokeStyle(3, 0xffffff, 1));
-      bg.on('pointerout', () => bg.setStrokeStyle(2, 0x87ceeb, 0.5));
+      bg.on('pointerover', () => { hover = i; paint(); });
+      bg.on('pointerout', () => { if (hover === i) hover = -1; paint(); });
       bg.on('pointerdown', () => {
         guard.press(bg);
         if (guard.armed) cont.setScale(0.98);
       });
       bg.on('pointerup', () => {
-        cont.setScale(1);
+        cont.setScale(i === cursor ? 1.02 : 1);
         if (banMode) return;
         if (guard.release(bg)) decide(c, cont);
       });
@@ -158,13 +171,41 @@ export class LevelUpScene extends Phaser.Scene {
       }, { width: 200, height: 56, fontSize: 20, primary: cnt.ban > 0 });
     }
     // 除外モード中はカードのタップで除外→その枠だけ引き直し
-    this.input.on('gameobjectup', (_p: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
-      if (!banMode || picked) return;
-      const idx = cards.indexOf(obj as Phaser.GameObjects.Rectangle);
-      if (idx < 0) return;
+    const banAt = (idx: number) => {
+      if (!banMode || picked || idx < 0) return;
       if (!useItem('ban')) return;
       picked = true;
       this.scene.restart({ ...data, choices: data.ban!(data.choices[idx]) });
+    };
+    this.input.on('gameobjectup', (_p: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
+      banAt(cards.indexOf(obj as Phaser.GameObjects.Rectangle));
+    });
+
+    // PC：移動キー（W／S・↑／↓）でカーソルを動かし、スペースか Enter で決定。
+    // 押しっぱなしの移動キーや、必殺のつもりで押したスペースで誤って選ばないように、
+    // 押しっぱなしの繰り返しは無視し、カーソルを動かすまで決定キーは効かない
+    if (this.sys.game.device.os.desktop) {
+      this.add.text(W / 2, Math.min(H - 56, by + 52), 'W・S ／ ↑・↓ で選ぶ　　SPACE で決定　　（数字キーでも選べる）', {
+        fontFamily: FONT_JP, fontSize: '16px', color: COLOR_HEX.dim,
+      }).setOrigin(0.5);
+    }
+    this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
+      if (ev.repeat || picked) return;
+      const k = ev.key;
+      const up = k === 'ArrowUp' || k === 'w' || k === 'W';
+      const down = k === 'ArrowDown' || k === 's' || k === 'S';
+      if (up || down) {
+        if (!guard.armed) return;
+        const n = data.choices.length;
+        cursor = cursor < 0 ? (down ? 0 : n - 1) : (cursor + (down ? 1 : n - 1)) % n;
+        paint();
+        return;
+      }
+      if (k === ' ' || k === 'Enter') {
+        if (cursor < 0) return;
+        if (banMode) banAt(cursor);
+        else if (guard.confirm()) decide(data.choices[cursor], conts[cursor]);
+      }
     });
 
     // PC：1〜3キーでも選べる（同じく0.3秒は無効）
