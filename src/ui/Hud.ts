@@ -33,6 +33,8 @@ export class Hud {
   private soulBtn: Phaser.GameObjects.Container;
   private soulGfx: Phaser.GameObjects.Graphics;
   private soulLabel: Phaser.GameObjects.Text;
+  /** PCだけ：必殺ボタンの中に出すキーの案内（SPACE） */
+  private soulKeyHint?: Phaser.GameObjects.Text;
   private arrows: Phaser.GameObjects.Graphics;
   private top = 0;
   private bottom = 0;
@@ -79,6 +81,12 @@ export class Hud {
     this.soulLabel = scene.add.text(0, 0, '共鳴', { fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.white, fontStyle: '700' }).setOrigin(0.5);
     const hit = scene.add.circle(0, 0, this.soulRadius + 6, 0xffffff, 0.001);
     this.soulBtn = scene.add.container(0, 0, [this.soulGfx, this.soulLabel, hit]);
+    // PCでは、技名を少し上げて、その下にキーの案内を出す（スマホには出さない）
+    if (scene.sys.game.device.os.desktop) {
+      this.soulLabel.setY(-8);
+      this.soulKeyHint = scene.add.text(0, 18, 'SPACE', { fontFamily: FONT_EN, fontSize: '13px', color: '#8A94B8', fontStyle: '700', letterSpacing: 2 }).setOrigin(0.5);
+      this.soulBtn.addAt(this.soulKeyHint, 2);
+    }
     hit.setInteractive(new Phaser.Geom.Circle(this.soulRadius + 6, this.soulRadius + 6, this.soulRadius + 6), Phaser.Geom.Circle.Contains);
     hit.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, ev: Phaser.Types.Input.EventData) => {
       ev.stopPropagation();
@@ -205,6 +213,7 @@ export class Hud {
       this.soulLabel.setColor('#8A94B8');
     }
     this.soulLabel.setText(d.soulActive ? `${this.specialLabel}中` : this.specialLabel).setFontSize(this.specialLabel.length >= 4 ? 18 : 22);
+    this.soulKeyHint?.setColor(d.soul >= 1 || d.soulActive ? '#060913' : '#8A94B8');
   }
 
   /** デバッグ表示（`?debug`） */

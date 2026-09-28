@@ -41,7 +41,7 @@ export class TitleScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this.tweens.add({ targets: tap, alpha: 0.25, duration: 700, yoyo: true, repeat: -1 });
 
-    this.add.text(W / 2, H * 0.72, '画面をなぞって移動　／　PC: WASD・矢印キー', {
+    this.add.text(W / 2, H * 0.72, '画面をなぞって移動　／　PC: WASD・矢印キーで移動、スペースで必殺', {
       fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.dim,
     }).setOrigin(0.5);
 
