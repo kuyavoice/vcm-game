@@ -1625,7 +1625,7 @@ export class GameScene extends Phaser.Scene {
         if (band) {
           // 帯：体が帯に触れていれば「中」。受けるダメージの増加は重ねず、最大値だけ（ボスには半分）
           if (this.distToSegment(e.x, e.y, z.x1!, z.y1!, z.x2!, z.y2!) > z.halfWidth! + e.radius) continue;
-          const v = (z.vuln ?? 0) * (e.def.boss ? CONFIG.vulnBossMul : 1);
+          const v = (z.vuln ?? 0) * (e.def.vulnMul ?? (e.def.boss ? CONFIG.vulnBossMul : 1));
           e.vuln = now < e.vulnUntil ? Math.max(e.vuln, v) : v;
           e.bandDrop = now < e.vulnUntil ? Math.max(e.bandDrop, z.dropChance ?? 0) : (z.dropChance ?? 0);
           e.vulnUntil = now + 300;
@@ -2318,6 +2318,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const data: ChestData = {
+      characterId: this.characterId,
       open: () => this.up.openChest(this.up.stats.luckMul),
       onClose: (r: ChestResult) => {
         const p = this.player;

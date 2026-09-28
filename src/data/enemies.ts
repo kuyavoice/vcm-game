@@ -44,6 +44,8 @@ export interface EnemyDef {
   charger?: boolean;
   /** 黒騎士の行動をとるボス（黒騎士・赤騎士） */
   knight?: boolean;
+  /** スパイスの帯（『貫通チャーハン』）の「受けるダメージ増加」が効く割合。未指定なら、ボスは CONFIG.vulnBossMul、雑魚は1 */
+  vulnMul?: number;
   /** この敵の絵を色替えして使う（画像は読み込まず、起動時に作る） */
   recolorOf?: EnemyId;
 }
@@ -87,6 +89,7 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
     id: 'redknight', name: '赤騎士', tier: 4,
     size: 144, hitRadius: 130, hp: 3000, speed: 80, contactDamage: 20, xp: 0,
     eyeColor: 0xff2244, knockbackResist: 1, boss: true, defeatYell: 300, knight: true, recolorOf: 'blackknight',
+    vulnMul: 0.25, // 悪夢の最後のボスには、さらに効きにくい（ほかのボスは半分。2026-09-29 ユーザー指定）
     sheet: { file: 'assets/sprites/enemy/knight.png', frameWidth: 144, frameHeight: 144, frames: 9 },
     originY: 0.86, scale: 2,
   },

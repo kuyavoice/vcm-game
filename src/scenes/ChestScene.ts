@@ -4,16 +4,19 @@ import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { SelectGuard } from '../ui/SelectGuard';
 import { AudioBus } from '../utils/audio';
 import { PORTRAITS, portraitKey } from '../data/portraits';
+import { pickLunaLine, type LunaGroup } from '../data/lunaLines';
 
 export interface ChestData {
   /** 開封時に結果を確定する（進化・Lvアップの適用込み） */
   open: () => ChestResult;
   onClose: (r: ChestResult) => void;
+  /** 操作キャラ（ルナの台詞の出し分けに使う） */
+  characterId?: string;
 }
 
 /**
  * 美麗の宝石箱の開封画面。ルナ（チビ）がマスコットとして横にいる。
- * ルナの台詞は「ふむ」「よいぞ」程度の相槌のみ。稀に大当たり（報酬3つ）。
+ * ルナの台詞は data/lunaLines.ts（開封結果に応じてグループを選び、その中からランダムに1つ）。稀に大当たり（報酬3つ）。
  */
 export class ChestScene extends Phaser.Scene {
   constructor() {
@@ -49,9 +52,12 @@ export class ChestScene extends Phaser.Scene {
       const ph = this.add.rectangle(lunaX, lunaY, 120, 160, 0x111a3a, 0.6).setOrigin(0.5, 1).setStrokeStyle(2, 0x87ceeb, 0.5);
       this.add.text(ph.x, ph.y - 80, 'LUNA', { fontFamily: FONT_EN, fontSize: '20px', color: COLOR_HEX.dim }).setOrigin(0.5);
     }
-    const bubble = this.add.text(lunaX, lunaY - 240, '…', {
-      fontFamily: FONT_JP, fontSize: '24px', color: COLOR_HEX.white, backgroundColor: '#111A3A', padding: { x: 12, y: 6 },
-    }).setOrigin(0.5);
+    // 吹き出し：ルナの足元の下（上は見出しと重なるので、長い台詞が入らない）。宝箱の絵にかからない高さに置き、右端からはみ出さないように折り返す
+    const bubbleW = Math.min(340, W - 40);
+    const bubble = this.add.text(Math.min(lunaX, W - 20 - bubbleW / 2), lunaY + 52, '…', {
+      fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.white, backgroundColor: '#111A3A', padding: { x: 12, y: 8 },
+      align: 'center', wordWrap: { width: bubbleW - 24, useAdvancedWrap: true },
+    }).setOrigin(0.5, 0);
 
     const hint = this.add.text(W / 2, H * 0.56, 'TAP TO OPEN', {
       fontFamily: FONT_EN, fontSize: '32px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 4,
@@ -71,20 +77,16 @@ export class ChestScene extends Phaser.Scene {
       this.tweens.add({ targets: chest, scaleX: 12, scaleY: 8, duration: 90, yoyo: true });
       this.cameras.main.flash(250, 255, 200, 230);
 
+      // ルナの台詞：合体 → 進化 → 通常 の優先でグループを選ぶ（大当たりのときも、中身でいちばん上のもの）
+      const group: LunaGroup = result.rewards.some((r) => r.kind === 'fusion') ? 'fusion' : result.rewards.some((r) => r.kind === 'evolve') ? 'evolve' : 'normal';
+      bubble.setText(pickLunaLine(group, data.characterId ?? ''));
       if (result.jackpot) {
         header.setText('大当たり！').setColor('#FFD700');
         headerEn.setText('JACKPOT');
-        bubble.setText('よいぞ、よいぞ');
         this.cameras.main.shake(200, 0.006);
         AudioBus.play('se_evolve');
-      } else if (result.rewards.some((r) => r.kind === 'fusion')) {
-        bubble.setText('ほう……よいぞ');
+      } else if (group !== 'normal') {
         AudioBus.play('se_evolve');
-      } else if (result.rewards.some((r) => r.kind === 'evolve')) {
-        bubble.setText('よいぞ');
-        AudioBus.play('se_evolve');
-      } else {
-        bubble.setText('ふむ');
       }
 
       // 報酬カード（縦に並べる）
