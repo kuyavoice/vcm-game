@@ -398,6 +398,36 @@ export function generateTextures(scene: Phaser.Scene) {
   g.fillCircle(8, 7, 2);
   g.generateTexture('item_cake', 16, 16);
 
+  // ミニチャーハン（小皿に盛った炒飯）
+  g.clear();
+  g.fillStyle(0xffffff, 1);
+  g.fillEllipse(8, 12, 14, 5);
+  g.fillStyle(0xd8d8e0, 1);
+  g.fillEllipse(8, 13, 12, 3);
+  g.fillStyle(0xf2c14e, 1);
+  g.fillEllipse(8, 9, 11, 8);
+  g.fillStyle(0xffe08a, 1);
+  g.fillEllipse(7, 7, 6, 4);
+  g.fillStyle(0x5fbf5f, 1);
+  g.fillRect(5, 8, 2, 1);
+  g.fillRect(10, 6, 2, 1);
+  g.fillStyle(0xff7f7f, 1);
+  g.fillRect(8, 10, 2, 1);
+  g.fillRect(11, 9, 1, 1);
+  g.generateTexture('item_chahan', 16, 16);
+
+  // 包丁（貫通チャーハン）：中華包丁、右向き
+  g.clear();
+  g.fillStyle(0x6b4a2a, 1);
+  g.fillRect(0, 5, 6, 3);
+  g.fillStyle(0xdfe6ee, 1);
+  g.fillRect(6, 2, 11, 9);
+  g.fillStyle(0xffffff, 1);
+  g.fillRect(6, 9, 11, 2);
+  g.fillStyle(0x9aa6b4, 1);
+  g.fillRect(14, 3, 2, 2);
+  g.generateTexture('art_knife', 18, 12);
+
   // 久遠の十字架（白い光）
   g.clear();
   g.fillStyle(0xffffff, 0.35);

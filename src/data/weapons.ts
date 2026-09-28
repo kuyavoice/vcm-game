@@ -1,4 +1,4 @@
-// 武器（初期武器5種＋共鳴アーツ17種＋合体アーツ5種）の定義。挙動は systems/arts.ts、ここは数値とテキストのみ。
+// 武器（初期武器5種＋共鳴アーツ18種＋合体アーツ7種）の定義。挙動は systems/arts.ts、ここは数値とテキストのみ。
 // ゲーム内テキストは技の説明と軽い雰囲気づけに留める（本編の出来事には触れない）。
 
 /** 全武器共通のパラメータ。各アーツは必要な項目だけ使う（意味は各アーツのコメント参照） */
@@ -423,6 +423,33 @@ const SEIATSU: WeaponDef = {
   },
 };
 
+/**
+ * 『貫通チャーハン』（拳士郎。追補パッチ⑧）：移動方向へ一直線に放ち、直線上の敵を貫通。通り道にスパイスの帯が残る。
+ * area=長さ, extra.width=幅, duration=帯の持続, count=本数。
+ * extra.vuln=帯の中の敵が受けるダメージの増加（全ての攻撃が対象。重ならず最大値だけ。ボスには半分）, extra.bandDps=帯の継続ダメージ,
+ * extra.knives=発動ごとに帯の中の敵へ飛ぶ包丁の本数（Lv4〜）, extra.dropChance=帯の中で倒した敵がミニチャーハンを落とす確率（進化）
+ */
+const CHAHAN: WeaponDef = {
+  id: 'chahan', name: '貫通チャーハン', owner: '鈴鳴 拳士郎', kind: 'art', tags: ['projectile'],
+  desc: '中華鍋を振り、激辛チャーハンを一直線に放つ。通り道のスパイスの帯の中では、敵はあらゆる攻撃に弱くなる。',
+  color: 0xff3b1f, maxLevel: 8,
+  base: stats({ damage: 12, intervalSec: 2.2, count: 1, area: 360, duration: 3, extra: { width: 30, vuln: 0.25, bandDps: 2, knives: 0, knifeDamage: 15, spreadDeg: 28, dropChance: 0 } }),
+  levels: [
+    wider(25, '長さ'),
+    { desc: '帯の中の敵が受けるダメージ +5%（30%）', apply: (s) => { s.extra.vuln += 0.05; } },
+    { desc: '帯の中の敵へ、包丁が飛ぶ', apply: (s) => { s.extra.knives = 3; } },
+    { desc: '受けるダメージ +5%（35%）・幅 +40%', apply: (s) => { s.extra.vuln += 0.05; s.extra.width *= 1.4; } },
+    { desc: '帯の持続 +30%', apply: (s) => { s.duration *= 1.3; } },
+    { desc: '帯の中の敵が受けるダメージ +5%（40%）', apply: (s) => { s.extra.vuln += 0.05; } },
+    { desc: '長さ +25%・帯の持続 +30%', apply: (s) => { s.area *= 1.25; s.duration *= 1.3; } },
+  ],
+  evolution: {
+    name: '運命のチャーハン', passiveId: 'makanai',
+    desc: '三方向へチャーハンを放ち、スパイスの帯も3本に。帯の中で倒した敵が、まれにミニチャーハンを落とす。',
+    apply: (s) => { s.evolved = true; s.count = 3; s.extra.dropChance = 0.05; },
+  },
+};
+
 // ───────────────────────── 合体アーツ（v2 §5.5） ─────────────────────────
 
 // 数値は「素材2つ（Lv8）の合計を少し上回る」水準（2026-09-27 引き上げ）。合体して弱くならないこと。
@@ -483,6 +510,32 @@ const RICOCHET: WeaponDef = {
   levels: [],
 };
 
+/**
+ * 『白銀の残響』（雪人のみ。追補パッチ⑧）：画面内で最も強い敵へ空夜の弾（extra.shots 連射）→ 着弾点に白銀の斬撃が extra.slashes 回続けて走る
+ * （半径 area）→ 着弾点の周りへ星の光弾 extra.stars 発（追尾）。damage=斬撃1回。説明文は「3人の力」の余韻だけを書くこと（パッチ⑧の注意）
+ */
+const HAKUGIN: WeaponDef = {
+  id: 'hakugin', name: '白銀の残響', owner: '宵月 空夜・黒崎 詩音', kind: 'art', tags: ['melee', 'projectile'], fusion: true,
+  desc: '3人の力が、白銀の余韻となって響き渡る。',
+  color: 0xe8f4ff, maxLevel: 1,
+  // 数値はパッチ⑧の初期値の2倍（斬撃 40→80／弾 20→40／星 15→30）。実測で、素材2つの進化と『トライスター』に見劣りしない強さに合わせた
+  base: stats({ damage: 80, intervalSec: 2.0, area: 80, speed: 950, extra: { shots: 3, shotDamage: 40, slashes: 3, echoMs: 180, stars: 6, starDamage: 30 } }),
+  levels: [],
+};
+
+/**
+ * 『シャイニング・レイ』（詩音のみ。追補パッチ⑧）：敵が最も多い方向へ、画面の端まで貫く光線を duration 秒。
+ * area=長さ, extra.width=幅, extra.tickSec ごとに damage。説明文に「終わり」を連想させる言葉を使わないこと（パッチ⑤ §1）
+ */
+const SHININGRAY: WeaponDef = {
+  id: 'shiningray', name: 'シャイニング・レイ', owner: '宵月 空夜・狐森 雪人', kind: 'art', tags: ['projectile'], fusion: true,
+  desc: '3人の光がひとつに束ねられ、画面の端まで貫く。',
+  color: 0xffd54a, maxLevel: 1,
+  // パッチ⑧の初期値（6.0秒ごと・1回40）から引き上げ（4.0秒ごと・1回165）。実測で、素材2つの進化を少し上回る強さに合わせた
+  base: stats({ damage: 165, intervalSec: 4.0, area: 1600, duration: 1.5, extra: { width: 120, tickSec: 0.25 } }),
+  levels: [],
+};
+
 export const WEAPONS: Record<string, WeaponDef> = {
   yoisei: YOISEI,
   reisuisen: REISUISEN,
@@ -506,7 +559,10 @@ export const WEAPONS: Record<string, WeaponDef> = {
   engo: ENGO,
   shunei: SHUNEI,
   seiatsu: SEIATSU,
+  chahan: CHAHAN,
   tristar: TRISTAR,
+  hakugin: HAKUGIN,
+  shiningray: SHININGRAY,
   nekobako: NEKOBAKO,
   meteocage: METEOCAGE,
   honjin: HONJIN,

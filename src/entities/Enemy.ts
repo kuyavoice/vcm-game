@@ -51,6 +51,11 @@ export class Enemy extends Phaser.GameObjects.Sprite {
   burnSpecialUntil = 0;
   /** 氷漬け（『氷狼牙』）：この時刻まで水色で覆う。動きは stun で止める */
   frozenUntil = 0;
+  /** スパイスの帯（『貫通チャーハン』）の中にいる：この時刻まで、受けるダメージが vuln だけ増える */
+  vulnUntil = 0;
+  vuln = 0;
+  /** 帯の中で倒れたとき、ミニチャーハンを落とす確率 */
+  bandDrop = 0;
   /** 凍らない敵（ボス・騎兵）への減速。ボスは歩く速さだけに掛かる */
   chillUntil = 0;
   chillMul = 1;
@@ -84,6 +89,9 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     this.burnDps = 0;
     this.burnTick = 0;
     this.burnSpecialUntil = 0;
+    this.vulnUntil = 0;
+    this.vuln = 0;
+    this.bandDrop = 0;
     this.frozenUntil = 0;
     this.chillUntil = 0;
     this.chillMul = 1;

@@ -8,6 +8,8 @@ import { FUSIONS } from '../data/fusions';
 import { PORTRAITS, portraitKey } from '../data/portraits';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave } from '../utils/storage';
+import { CHARACTERS } from '../data/characters';
+import { isCharacterOwned } from '../utils/unlock';
 import { makeButton } from '../ui/Button';
 
 /**
@@ -37,7 +39,8 @@ export class CodexScene extends Phaser.Scene {
 
     // 項目：共鳴アーツ（合体以外）→ 合体アーツ → サポート
     const arts = Object.values(WEAPONS).filter((w) => w.kind === 'art' && !w.fusion);
-    const fusions = FUSIONS.map((f) => ({ f, def: WEAPONS[f.id] }));
+    // 隠しキャラ専用の合体は、そのキャラを解放するまで行ごと出さない（総数にも数えない）
+    const fusions = FUSIONS.filter((f) => !f.secretOf || isCharacterOwned(f.secretOf, save)).map((f) => ({ f, def: WEAPONS[f.id] }));
     const rows: { def: CodexDef; fusionHint?: string; fusionOf?: [string, string]; requiredChara?: string; passiveId?: string }[] = [
       ...arts.map((def) => ({ def })),
       ...fusions.map(({ f, def }) => ({ def, fusionHint: f.hint, fusionOf: [f.a, f.b] as [string, string], requiredChara: f.requiredChara })),
@@ -108,7 +111,9 @@ export class CodexScene extends Phaser.Scene {
         const [a, b] = r.fusionOf;
         const ka = found.has(a) ? WEAPONS[a].name : '???';
         const kb = found.has(b) ? WEAPONS[b].name : '???';
-        line = known ? `合体：『${ka}』×『${kb}』${r.requiredChara ? '　※空夜でのみ' : ''}` : `素材：『${ka}』×『${kb}』…両方Lv8で宝箱を${r.requiredChara ? '（空夜でのみ）' : ''}`;
+        // 操作キャラが決まっている合体は、そのキャラの名前を出す
+        const who = r.requiredChara ? (CHARACTERS[r.requiredChara]?.name.split(' ').pop() ?? '') : '';
+        line = known ? `合体：『${ka}』×『${kb}』${who ? `　※${who}でのみ` : ''}` : `素材：『${ka}』×『${kb}』…両方Lv8で宝箱を${who ? `（${who}でのみ）` : ''}`;
         if (known) lineColor = COLOR_HEX.gold;
       } else if (r.passiveId) {
         // このサポートを相方にして進化するアーツ（見つけたものだけ名前を出す）

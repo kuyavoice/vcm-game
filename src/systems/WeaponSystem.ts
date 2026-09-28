@@ -19,7 +19,17 @@ export interface ZoneOpts {
   /** 足止め */
   stun: boolean;
   color: number;
-  shape: 'circle' | 'fence';
+  /** band：線分（x1,y1）→（x2,y2）に沿った帯。x・y・radius は、帯を囲む円（敵を探す範囲） */
+  shape: 'circle' | 'fence' | 'band';
+  x1?: number;
+  y1?: number;
+  x2?: number;
+  y2?: number;
+  halfWidth?: number;
+  /** 中の敵が受けるダメージの増加（0.25 = +25%。重ならず最大値だけ） */
+  vuln?: number;
+  /** 中で倒した敵がミニチャーハンを落とす確率 */
+  dropChance?: number;
   /** 出所の武器ID（黒騎士は『重圧の檻』の効果半分、など） */
   source?: string;
 }

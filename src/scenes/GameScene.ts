@@ -1596,6 +1596,14 @@ export class GameScene extends Phaser.Scene {
     this.zones.push({ ...z, elapsed: 0, tick: 0 });
   }
 
+  private distToSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len2 = dx * dx + dy * dy || 1;
+    const t = Phaser.Math.Clamp(((px - x1) * dx + (py - y1) * dy) / len2, 0, 1);
+    return Math.hypot(px - (x1 + dx * t), py - (y1 + dy * t));
+  }
+
   private updateZones(dt: number, now: number): void {
     const g = this.zoneGfx;
     g.clear();
@@ -1611,15 +1619,35 @@ export class GameScene extends Phaser.Scene {
       if (doTick) z.tick -= 0.25;
       this.tmp.length = 0;
       this.enemiesInCircle(z.x, z.y, z.radius, this.tmp);
+      const band = z.shape === 'band';
       for (const e of this.tmp) {
         if (e.def.isObject) continue;
+        if (band) {
+          // 帯：体が帯に触れていれば「中」。受けるダメージの増加は重ねず、最大値だけ（ボスには半分）
+          if (this.distToSegment(e.x, e.y, z.x1!, z.y1!, z.x2!, z.y2!) > z.halfWidth! + e.radius) continue;
+          const v = (z.vuln ?? 0) * (e.def.boss ? CONFIG.vulnBossMul : 1);
+          e.vuln = now < e.vulnUntil ? Math.max(e.vuln, v) : v;
+          e.bandDrop = now < e.vulnUntil ? Math.max(e.bandDrop, z.dropChance ?? 0) : (z.dropChance ?? 0);
+          e.vulnUntil = now + 300;
+        }
         if (z.stun) e.stun(0.3, now);
         else if (z.slow < 1) e.applySlow(z.slow, 0.3, now);
         if (doTick) this.damageEnemy(e, z.dps * 0.25 * (z.source === 'cage' && e.def.knight ? 0.5 : 1), 0, 0);
       }
       // 描画
       const fade = Math.min(1, (z.duration - z.elapsed) / 0.4, z.elapsed / 0.15);
-      if (z.shape === 'fence') {
+      if (band) {
+        // スパイスの帯：真っ赤な帯と、明るい芯
+        const hw = Math.max(z.halfWidth!, 12);
+        g.lineStyle(hw * 2, 0xff3b1f, 0.26 * fade);
+        g.lineBetween(z.x1!, z.y1!, z.x2!, z.y2!);
+        g.lineStyle(Math.max(4, hw * 0.5), 0xff8a3c, (0.45 + Math.sin(now / 120 + i) * 0.12) * fade);
+        g.lineBetween(z.x1!, z.y1!, z.x2!, z.y2!);
+        if (Math.random() < 0.25) {
+          const t = Math.random();
+          this.hitSpark(z.x1! + (z.x2! - z.x1!) * t, z.y1! + (z.y2! - z.y1!) * t, 0xff5a2a, 1);
+        }
+      } else if (z.shape === 'fence') {
         const r = z.radius;
         g.fillStyle(z.color, 0.12 * fade);
         g.fillRect(z.x - r, z.y - r, r * 2, r * 2);
@@ -1857,6 +1885,8 @@ export class GameScene extends Phaser.Scene {
   private damageEnemy(e: Enemy, dmg: number, kx: number, ky: number): void {
     if (!e.active) return;
     if (e.def.knight && this.gameNow < e.bk.invulnUntil) return;
+    // スパイスの帯（『貫通チャーハン』）の中の敵は、全ての攻撃で受けるダメージが増える
+    if (this.gameNow < e.vulnUntil) dmg *= 1 + e.vuln;
     if (this.debug) this.dmgLog.push({ t: this.gameNow, d: Math.min(dmg, e.hp) });
     if (e.hit(dmg, this.ctx.now, kx, ky)) this.killEnemy(e);
   }
@@ -1885,6 +1915,8 @@ export class GameScene extends Phaser.Scene {
       this.score += (SCORE.points[def.id] ?? 1) * this.comboMul;
     }
     this.xp.drop(e.x, e.y, def.xp, this.ctx.now, this.up.stats.luckMul);
+    // 『運命のチャーハン』：スパイスの帯の中で倒した敵が、まれにミニチャーハンを落とす
+    if (e.bandDrop > 0 && this.gameNow < e.vulnUntil && Math.random() < e.bandDrop) this.xp.spawn(e.x, e.y, 'chahan', 1, this.ctx.now);
     if (def.tier >= 2 && !def.boss && Math.random() < ITEMS.chest.dropChance * this.up.stats.luckMul) {
       this.xp.spawn(e.x, e.y, 'chest', 1, this.ctx.now);
     }
@@ -1938,6 +1970,14 @@ export class GameScene extends Phaser.Scene {
 
   private onItem(kind: PickupKind, _value: number, x: number, y: number): void {
     const msg = PICKUPS[kind].message;
+    if (kind === 'chahan') {
+      // 数が出るので、字幕と大きな音は出さない
+      const heal = Math.round(ITEMS.chahan.heal * this.player.def.traits.healItemMul * 10) / 10;
+      this.player.heal(heal);
+      this.fxText(this.player.x, this.player.y - 110, `+${heal}`, '#F2C14E');
+      AudioBus.play('se_gem', 60);
+      return;
+    }
     AudioBus.play('se_item');
     if (kind === 'magnet') {
       this.xp.magnetAllUntil = this.ctx.now + 1500;

@@ -1,6 +1,6 @@
 // フィールドアイテム・ドロップ（仕様 §6.5）。数値は初期値。
 
-export type PickupKind = 'xp' | 'yell' | 'magnet' | 'cake' | 'cross' | 'chest';
+export type PickupKind = 'xp' | 'yell' | 'magnet' | 'cake' | 'cross' | 'chest' | 'chahan';
 
 export interface PickupDef {
   kind: PickupKind;
@@ -17,6 +17,8 @@ export const PICKUPS: Record<PickupKind, PickupDef> = {
   cake: { kind: 'cake', name: '月光のチーズケーキ', texture: 'item_cake', message: '月光のチーズケーキ  HP+30' },
   cross: { kind: 'cross', name: '久遠の十字架', texture: 'item_cross', message: '久遠の十字架 —— 静かな光が満ちる' },
   chest: { kind: 'chest', name: '美麗の宝石箱', texture: 'item_chest' },
+  // 『運命のチャーハン』の帯の中で倒した敵が、まれに落とす（数が出るので、取得時の字幕は出さない）
+  chahan: { kind: 'chahan', name: 'ミニチャーハン', texture: 'item_chahan' },
 };
 
 export const ITEMS = {
@@ -35,6 +37,7 @@ export const ITEMS = {
     yellCount: 6,
   },
   cake: { heal: 30 },
+  chahan: { heal: 5 },
   cross: {
     /** 騎士級以上へのダメージ */
     damage: 300,

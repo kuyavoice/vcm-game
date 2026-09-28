@@ -878,6 +878,206 @@ const ricochet: ArtBehavior = {
   },
 };
 
+/** 点と線分の距離 */
+function distToSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len2 = dx * dx + dy * dy || 1;
+  const t = Phaser.Math.Clamp(((px - x1) * dx + (py - y1) * dy) / len2, 0, 1);
+  return Math.hypot(px - (x1 + dx * t), py - (y1 + dy * t));
+}
+
+/** 『貫通チャーハン』：移動方向へ一直線。通り道にスパイスの帯（受けるダメージ増加）。進化『運命のチャーハン』：三方向 */
+const chahan: ArtBehavior = {
+  mimicable: true,
+  fire(ctx, s, w) {
+    const c = chest(ctx);
+    const base = facingAngle(ctx);
+    const n = projCount(ctx, s, w.def);
+    const len = s.area * ctx.stats.areaMul;
+    const half = (s.extra.width * ctx.stats.areaMul) / 2;
+    const dmg = artDmg(ctx, s, w.def);
+    const spread = Phaser.Math.DegToRad(s.extra.spreadDeg ?? 28);
+    const touched: Enemy[] = [];
+    for (let i = 0; i < n; i++) {
+      const a = base + (i - (n - 1) / 2) * spread;
+      const x2 = c.x + Math.cos(a) * len;
+      const y2 = c.y + Math.sin(a) * len;
+      tmp.length = 0;
+      ctx.enemiesInCircle((c.x + x2) / 2, (c.y + y2) / 2, len / 2 + half, tmp);
+      for (const e of tmp) {
+        if (distToSegment(e.x, e.y, c.x, c.y, x2, y2) > half + e.radius) continue;
+        ctx.damage(e, dmg, Math.cos(a) * 60, Math.sin(a) * 60);
+        if (e.active && !touched.includes(e)) touched.push(e);
+      }
+      ctx.fx.line(c.x, c.y, x2, y2, Math.max(18, half * 2), 0xf2c14e);
+      ctx.addZone({
+        x: (c.x + x2) / 2, y: (c.y + y2) / 2, radius: len / 2 + half, duration: dur(ctx, s),
+        dps: (s.extra.bandDps ?? 2) * ctx.stats.damageMul * ctx.artDamageMul, slow: 1, stun: false, color: w.def.color,
+        shape: 'band', source: 'chahan', x1: c.x, y1: c.y, x2, y2, halfWidth: half,
+        vuln: s.extra.vuln ?? 0.25, dropChance: s.evolved ? (s.extra.dropChance ?? 0) : 0,
+      });
+    }
+    // 包丁（Lv4〜）：帯の中の敵へ飛ぶ。いま放った直線上の敵と、残っている帯の中の敵が対象
+    const knives = s.extra.knives ?? 0;
+    if (knives > 0) {
+      for (const e of ctx.onScreenEnemies()) if (ctx.now < e.vulnUntil && !touched.includes(e)) touched.push(e);
+      touched.sort((a, b) => Phaser.Math.Distance.Between(c.x, c.y, a.x, a.y) - Phaser.Math.Distance.Between(c.x, c.y, b.x, b.y));
+      const kd = artDmg(ctx, { ...s, damage: s.extra.knifeDamage ?? 15 }, w.def);
+      touched.slice(0, knives).forEach((t, i) => {
+        ctx.scene.time.delayedCall(120 + i * 90, () => {
+          if (!t.active) return;
+          const p = chest(ctx);
+          ctx.fireBullet({ x: p.x, y: p.y, angle: Math.atan2(t.y - p.y, t.x - p.x), speed: 760, damage: kd, range: 700, pierce: 0, homing: true, turnRate: 5, texture: 'art_knife', scale: 1.2, spin: 14, rotateToVel: false, knockback: 50 });
+        });
+      });
+    }
+    ctx.scene.cameras.main.shake(50, 0.002);
+  },
+};
+
+/** 『白銀の残響』（雪人専用）：最も強い敵へ空夜の弾 → 着弾点に白銀の斬撃が続けて走る → 周りへ星の光弾 */
+const hakugin: ArtBehavior = {
+  mimicable: false,
+  fire(ctx, s, w) {
+    const c = chest(ctx);
+    const target = ctx.onScreenEnemies().sort((a, b) => b.hp - a.hp)[0];
+    if (!target) return;
+    const x = s.extra;
+    const shotDmg = artDmg(ctx, { ...s, damage: x.shotDamage ?? 20 }, w.def);
+    const slashDmg = artDmg(ctx, s, w.def);
+    const starDmg = artDmg(ctx, { ...s, damage: x.starDamage ?? 15 }, w.def);
+    const r = s.area * ctx.stats.areaMul;
+    // 着弾点：狙った敵の今の位置（途中で倒れたら、最後に居た場所）
+    const at = { x: target.x, y: target.y };
+    const track = () => { if (target.active) { at.x = target.x; at.y = target.y; } };
+    // ① 空夜の弾（スカイブルー）
+    for (let i = 0; i < (x.shots ?? 3); i++) {
+      ctx.scene.time.delayedCall(i * 80, () => {
+        track();
+        const p = chest(ctx);
+        ctx.fireBullet({ x: p.x, y: p.y, angle: Math.atan2(at.y - p.y, at.x - p.x), speed: s.speed, damage: shotDmg, range: 1400, pierce: 0, knockback: 60, tint: 0x87ceeb, scale: 1.3 });
+      });
+    }
+    const hitMs = Math.min(600, (Phaser.Math.Distance.Between(c.x, c.y, target.x, target.y) / s.speed) * 1000);
+    // ② 白銀の斬撃が、残響のように続けて走る（1回ごとに少し大きく広がる見た目）
+    for (let i = 0; i < (x.slashes ?? 3); i++) {
+      ctx.scene.time.delayedCall(hitMs + i * (x.echoMs ?? 180), () => {
+        track();
+        tmp.length = 0;
+        ctx.enemiesInCircle(at.x, at.y, r, tmp);
+        for (const e of tmp) ctx.damage(e, slashDmg, 0, 0);
+        ctx.fx.cross(at.x, at.y - 10, r * (1 + i * 0.15), 0xe8f4ff);
+        ctx.fx.ring(at.x, at.y - 10, r * (0.7 + i * 0.25), 0xe8f4ff, 3);
+        if (i === 0) yukihitoSlashSe();
+      });
+    }
+    // ③ 星の光弾（金色）が、着弾点の周りへ降る
+    ctx.scene.time.delayedCall(hitMs, () => {
+      track();
+      const n = x.stars ?? 6;
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        ctx.fireBullet({
+          x: at.x + Math.cos(a) * 150, y: at.y + Math.sin(a) * 150 - 60, angle: a + Math.PI, speed: 420, damage: starDmg, life: 2.2, pierce: 1,
+          homing: true, texture: 'art_star', scale: 1.2, spin: 6, rotateToVel: false, knockback: 40, tint: 0xffd54a,
+        });
+      }
+    });
+  },
+};
+
+interface Beam { angle: number; left: number; tick: number; gfx: Phaser.GameObjects.Graphics }
+
+/** 『シャイニング・レイ』（詩音専用）：敵が最も多い方向へ、画面の端まで貫く光線。3色の光が螺旋状に混ざる */
+const shiningray: ArtBehavior = {
+  mimicable: false,
+  update(dt, ctx, s, w) {
+    const b = w.state.beam as Beam | undefined;
+    if (!b) return;
+    const g = b.gfx;
+    g.clear();
+    if (b.left <= 0) return;
+    const total = dur(ctx, s);
+    b.left -= dt;
+    const c = chest(ctx);
+    const dx = Math.cos(b.angle);
+    const dy = Math.sin(b.angle);
+    const len = s.area;
+    const half = ((s.extra.width ?? 120) * ctx.stats.areaMul) / 2;
+    b.tick -= dt;
+    if (b.tick <= 0) {
+      b.tick += s.extra.tickSec ?? 0.25;
+      const dmg = artDmg(ctx, s, w.def);
+      for (const e of ctx.onScreenEnemies()) {
+        const ex = e.x - c.x;
+        const ey = e.y - c.y;
+        const along = ex * dx + ey * dy;
+        if (along < -e.radius || along > len) continue;
+        if (Math.abs(-ex * dy + ey * dx) > half + e.radius) continue;
+        ctx.damage(e, dmg, dx * 40, dy * 40);
+      }
+    }
+    // 見た目：白い芯＋3色（スカイブルー・白銀・金）の波が螺旋のように絡む
+    const k = Math.max(0, Math.min(1, b.left / 0.25, (total - b.left) / 0.12));
+    const ex = c.x + dx * len;
+    const ey = c.y + dy * len;
+    g.lineStyle(half * 2, 0xffffff, 0.14 * k);
+    g.lineBetween(c.x, c.y, ex, ey);
+    g.lineStyle(half * 1.1, 0xfff6c8, 0.32 * k);
+    g.lineBetween(c.x, c.y, ex, ey);
+    g.lineStyle(half * 0.35, 0xffffff, 0.85 * k);
+    g.lineBetween(c.x, c.y, ex, ey);
+    const colors = [0x87ceeb, 0xe8f4ff, 0xffd54a];
+    const t = ctx.now / 1000;
+    for (let ci = 0; ci < colors.length; ci++) {
+      g.lineStyle(5, colors[ci], 0.9 * k);
+      g.beginPath();
+      for (let d = 0; d <= len; d += 26) {
+        const off = Math.sin(d / 75 - t * 10 + ci * 2.094) * half * 0.8;
+        const px = c.x + dx * d - dy * off;
+        const py = c.y + dy * d + dx * off;
+        if (d === 0) g.moveTo(px, py);
+        else g.lineTo(px, py);
+      }
+      g.strokePath();
+    }
+  },
+  fire(ctx, s, w) {
+    const c = chest(ctx);
+    const half = ((s.extra.width ?? 120) * ctx.stats.areaMul) / 2;
+    // 敵が最も多い方向（ボスは3体分に数える）。敵が居なければ、向いている方向
+    const list = ctx.onScreenEnemies();
+    let best = facingAngle(ctx);
+    let bestScore = 0;
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      const dx = Math.cos(a);
+      const dy = Math.sin(a);
+      let score = 0;
+      for (const e of list) {
+        const ex = e.x - c.x;
+        const ey = e.y - c.y;
+        if (ex * dx + ey * dy < 0) continue;
+        if (Math.abs(-ex * dy + ey * dx) > half + e.radius) continue;
+        score += e.def.boss ? 3 : 1;
+      }
+      if (score > bestScore) { bestScore = score; best = a; }
+    }
+    let b = w.state.beam as Beam | undefined;
+    if (!b) {
+      b = { angle: best, left: 0, tick: 0, gfx: ctx.scene.add.graphics().setDepth(26) };
+      w.state.beam = b;
+    }
+    b.angle = best;
+    b.left = dur(ctx, s);
+    b.tick = 0;
+    ctx.scene.cameras.main.shake(140, 0.004);
+    ctx.fx.text(c.x, c.y - 110, 'シャイニング・レイ', '#FFD54A');
+    AudioBus.play('se_special', 400);
+  },
+};
+
 /** 『星屑の裁定』（詩音の初期武器）：挙動は共鳴アーツ版と同じ */
 const hoshikuzuMain: ArtBehavior = { mimicable: false, fire: (ctx, s, w) => hoshikuzu.fire(ctx, s, w) };
 
@@ -904,7 +1104,10 @@ export const ARTS: Record<string, ArtBehavior> = {
   engo,
   shunei,
   seiatsu,
+  chahan,
   tristar,
+  hakugin,
+  shiningray,
   nekobako,
   meteocage,
   honjin,
