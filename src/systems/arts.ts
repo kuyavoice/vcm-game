@@ -728,7 +728,7 @@ const tristar: ArtBehavior = {
     // 星弾（追尾）
     const star = ctx.nearestEnemy(c.x, c.y, 600);
     for (let i = 0; i < s.count; i++) {
-      ctx.fireBullet({ x: c.x, y: c.y, angle: Math.random() * Math.PI * 2, speed: s.speed, damage: dmg * 0.6, life: 2.5, pierce: 1, homing: true, texture: 'art_star', spin: 6, rotateToVel: false, knockback: 40, tint: 0xc0c0ff });
+      ctx.fireBullet({ x: c.x, y: c.y, angle: Math.random() * Math.PI * 2, speed: s.speed, damage: dmg * (s.extra.starMul ?? 0.6), life: 2.5, pierce: 1, homing: true, texture: 'art_star', spin: 6, rotateToVel: false, knockback: 40, tint: 0xc0c0ff });
     }
     if (star) w.state.starAt = { x: star.x, y: star.y };
     // 三角形の光
@@ -865,12 +865,16 @@ const ricochet: ArtBehavior = {
     }
     // 響の跳ね返る弾（飛んでいる敵に当たると加速させる）
     const t = ctx.nearestEnemy(c.x, c.y, 600);
-    ctx.fireBullet({
-      x: c.x, y: c.y, angle: t ? Math.atan2(t.y - c.y, t.x - c.x) : Math.random() * Math.PI * 2,
-      speed: s.extra.shotSpeed ?? 420, damage: artDmg(ctx, { ...s, damage: s.extra.shotDamage ?? 14 }, w.def), life: (s.extra.shotLife ?? 6) * ctx.stats.durationMul,
-      pierce: Infinity, bounce: true, slow: s.slow, slowSec: 2.5, texture: 'art_refresh',
-      scale: 1.2, spin: 4, rotateToVel: false, knockback: 30,
-    });
+    const aim = t ? Math.atan2(t.y - c.y, t.x - c.x) : Math.random() * Math.PI * 2;
+    const shots = s.extra.shots ?? 1;
+    for (let i = 0; i < shots; i++) {
+      ctx.fireBullet({
+        x: c.x, y: c.y, angle: aim + (i - (shots - 1) / 2) * 0.5,
+        speed: s.extra.shotSpeed ?? 420, damage: artDmg(ctx, { ...s, damage: s.extra.shotDamage ?? 14 }, w.def), life: (s.extra.shotLife ?? 6) * ctx.stats.durationMul,
+        pierce: Infinity, bounce: true, slow: s.slow, slowSec: 2.5, texture: 'art_refresh',
+        scale: 1.2, spin: 4, rotateToVel: false, knockback: 30,
+      });
+    }
   },
 };
 

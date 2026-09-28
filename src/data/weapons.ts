@@ -432,7 +432,8 @@ const TRISTAR: WeaponDef = {
   id: 'tristar', name: 'トライスター', owner: '狐森 雪人・黒崎 詩音', kind: 'art', tags: ['melee', 'projectile'], fusion: true,
   desc: '白銀の斬撃と星の弾。ときおり三つを結ぶ光が走り、内側の敵を裁く。',
   color: 0xffd700, maxLevel: 1,
-  base: stats({ damage: 45, intervalSec: 1.6, count: 6, area: 80, speed: 560, extra: { slashes: 4, triangleEvery: 3, triangleDamage: 200 } }),
+  // 2026-09-29：進化させた素材2つの合計に並ぶように引き上げ（斬撃 4→8か所／星 6→12発・27→30／間隔 1.6→1.3秒／三角形 200→300）
+  base: stats({ damage: 45, intervalSec: 1.3, count: 12, area: 80, speed: 560, extra: { slashes: 8, starMul: 0.67, triangleEvery: 3, triangleDamage: 300 } }),
   levels: [],
 };
 
@@ -444,7 +445,8 @@ const NEKOBAKO: WeaponDef = {
   id: 'nekobako', name: '夢見る猫箱', owner: '寿 律花・月怜 瑞穂', kind: 'art', tags: ['projectile', 'support'], fusion: true,
   desc: '一撃を防ぐ水の盾をまとい、前方へ大きな炎の矢を放つ。',
   color: 0xff69b4, maxLevel: 1,
-  base: stats({ damage: 45, intervalSec: 1.2, count: 5, area: 900, speed: 820, pierce: Infinity, extra: { shieldRegenSec: 3, medicHeal: 15 } }),
+  // 2026-09-29：引き上げ（矢 5→7本・45→55／盾の再生 3→2.5秒／回復 15→20）
+  base: stats({ damage: 55, intervalSec: 1.2, count: 7, area: 900, speed: 820, pierce: Infinity, extra: { shieldRegenSec: 2.5, medicHeal: 20 } }),
   levels: [],
 };
 
@@ -453,7 +455,8 @@ const METEOCAGE: WeaponDef = {
   id: 'meteocage', name: '星墜の檻', owner: '黒崎 詩音・若宮 征士郎', kind: 'art', tags: ['projectile', 'zone'], fusion: true,
   desc: '前方の空から星が降り、着弾した場所の敵を縫い止める。',
   color: 0x9d4dff, maxLevel: 1,
-  base: stats({ damage: 35, intervalSec: 2.2, count: 10, area: 320, duration: 1.0, slow: 0.5, extra: { blastRadius: 80, arcDeg: 210, slowSec: 3 } }),
+  // 2026-09-29：引き上げ（星 10→16発・35→45／間隔 2.2→1.8秒）
+  base: stats({ damage: 45, intervalSec: 1.8, count: 16, area: 320, duration: 1.0, slow: 0.5, extra: { blastRadius: 80, arcDeg: 210, slowSec: 3 } }),
   levels: [],
 };
 
@@ -475,7 +478,8 @@ const RICOCHET: WeaponDef = {
   id: 'ricochet', name: '跳弾バグ', owner: '振須 響・晴山 樹', kind: 'art', tags: ['melee'], fusion: true,
   desc: '蹴り飛ばした敵が画面の端で跳ね回り、ぶつかった敵を巻き込む。',
   color: 0x00ced1, maxLevel: 1,
-  base: stats({ damage: 50, intervalSec: 1.6, count: 3, speed: 900, duration: 6, slow: 0.45, extra: { bounces: 5, shotDamage: 14, shotSpeed: 420, shotLife: 6 } }),
+  // 2026-09-29：引き上げ（蹴る数 3→5・50→70／響の弾 14→25・1回に2発）
+  base: stats({ damage: 70, intervalSec: 1.6, count: 5, speed: 900, duration: 6, slow: 0.45, extra: { bounces: 5, shotDamage: 25, shotSpeed: 420, shotLife: 6, shots: 2 } }),
   levels: [],
 };
 
