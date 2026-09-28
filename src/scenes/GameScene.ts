@@ -7,6 +7,7 @@ import { SCORE } from '../data/score';
 import { ITEMS, PICKUPS, type PickupKind } from '../data/items';
 import { Player } from '../entities/Player';
 import { Enemy, type Hazard } from '../entities/Enemy';
+import { isCharacterOwned } from '../utils/unlock';
 import { Bullet, EnemyBullet, type BulletOpts } from '../entities/Bullet';
 import { Pickup } from '../entities/Pickup';
 import { SpatialHash } from '../systems/SpatialHash';
@@ -273,6 +274,8 @@ export class GameScene extends Phaser.Scene {
     this.vo('start');
     this.hud.banner(`${this.stage.nameEn} —— ${this.stage.name}`, Phaser.Display.Color.IntegerToColor(this.stage.color).rgba, 32);
     if (this.debug) this.buildDebugPanel();
+    // `?debug` の仮の解放で選んだキャラは、確認用のプレイとして扱う（記録・エールを保存しない）
+    if (this.debug && !isCharacterOwned(this.characterId, loadSave())) this.debugUsed = true;
   }
 
   /**

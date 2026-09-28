@@ -6,11 +6,26 @@ import { loadSave, writeSave, type SaveData } from './storage';
  * 隠しキャラ（CharacterDef.secret）は、解放するまでどの画面にも出さない。
  */
 
-export function isCharacterUnlocked(id: string, save: SaveData): boolean {
+/** URLに `?debug` が付いている（確認用） */
+const DEBUG = typeof location !== 'undefined' && /debug/.test(location.search);
+
+/** セーブの上で本当に解放しているか（`?debug` の仮の解放は含まない） */
+export function isCharacterOwned(id: string, save: SaveData): boolean {
   const def = CHARACTERS[id];
   if (!def) return false;
   if (def.secret) return save.unlockedCharacters.includes(id);
   return def.unlockYell === 0 || save.unlockedCharacters.includes(id);
+}
+
+/**
+ * 選べるキャラか。`?debug` のときは、隠しキャラ以外を解放済みとして扱う（セーブは書き換えない）。
+ * 仮の解放で選んだキャラのプレイは、記録・エールを保存しない（GameScene 側）。
+ */
+export function isCharacterUnlocked(id: string, save: SaveData): boolean {
+  const def = CHARACTERS[id];
+  if (!def) return false;
+  if (DEBUG && !def.secret) return true;
+  return isCharacterOwned(id, save);
 }
 
 /** 画面に出してよいキャラ（表示順）。隠しキャラは解放後だけ */
