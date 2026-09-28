@@ -6,7 +6,9 @@ import { Weapon, type ArtBehavior, type BattleContext } from './WeaponSystem';
 import { AudioBus } from '../utils/audio';
 
 /** 雪人の斬撃音（大剣・『乱れ雪月花』）。短い間隔で重ねすぎない */
-const yukihitoSlashSe = () => AudioBus.play('se_yukihito_slash', 250, 'se_slash');
+const yukihitoSlashSe = (volumeMul = 1) => AudioBus.play('se_yukihito_slash', 250, 'se_slash', volumeMul);
+/** 大剣は鳴る回数が多いので、少し小さく鳴らす（約 −3dB。2026-09-28 ユーザー指定） */
+const GREATSWORD_SE_VOLUME = 0.7;
 
 const tmp: Enemy[] = [];
 let hitStamp = 0;
@@ -154,7 +156,7 @@ function swingGreatsword(ctx: BattleContext, s: ArtStats, w: Weapon, angle: numb
   }
   // 振り抜いた側の縁に白い線を引いて、振りの向き（行き／返し）を見せる
   // 音は1回の攻撃につき1度（1撃目で鳴らし始めると、音の山が返し斬りに重なる）
-  if (!reverse) yukihitoSlashSe();
+  if (!reverse) yukihitoSlashSe(GREATSWORD_SE_VOLUME);
   ctx.fx.slash(c.x, c.y, r, reverse ? 0xffffff : w.def.color, angle, arc, false);
   const edge = angle + (reverse ? -half : half);
   ctx.fx.line(c.x, c.y, c.x + Math.cos(edge) * r, c.y + Math.sin(edge) * r, 4, 0xffffff);

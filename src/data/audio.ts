@@ -28,6 +28,8 @@ export const AUDIO_MANIFEST: AudioEntry[] = [
   { key: 'bgm_chara_ritsuka', path: 'assets/audio/bgm/chara_ritsuka.mp3', category: 'bgm', loop: true },
   { key: 'bgm_chara_shion', path: 'assets/audio/bgm/chara_shion.mp3', category: 'bgm', loop: true },
   { key: 'bgm_result', path: 'assets/audio/bgm/result.mp3', category: 'bgm', loop: true },
+  // ゲームオーバー・時間切れのリザルト（無ければ result → title）
+  { key: 'bgm_gameover', path: 'assets/audio/bgm/gameover.mp3', category: 'bgm', loop: true },
   // クリア後の曲（操作キャラ別。無ければ result → title）
   { key: 'bgm_clear_kuya', path: 'assets/audio/bgm/clear_kuya.mp3', category: 'bgm', loop: true },
   { key: 'bgm_clear_mizuho', path: 'assets/audio/bgm/clear_mizuho.mp3', category: 'bgm', loop: true },

@@ -62,7 +62,8 @@ class AudioBusImpl {
   }
 
   /** SE／ボイス。minGapMs で連打を間引く。fallback：key が未配置のときに代わりに鳴らすキー */
-  play(key: string, minGapMs = 0, fallback?: string): void {
+  /** volumeMul：この1回だけの音量の倍率（同じ音を場面によって少し小さく鳴らすとき） */
+  play(key: string, minGapMs = 0, fallback?: string, volumeMul = 1): void {
     if (!this.has(key) && fallback) key = fallback;
     if (!this.has(key) || !this.game) return;
     const now = performance.now();
@@ -71,7 +72,7 @@ class AudioBusImpl {
     this.lastPlayed.set(key, now);
     const entry = AUDIO_MANIFEST.find((e) => e.key === key);
     const cat = entry?.category ?? 'se';
-    this.game.sound.play(key, { volume: this.volumes[cat] });
+    this.game.sound.play(key, { volume: this.volumes[cat] * volumeMul });
   }
 
   /** fallbacks：key が未配置のときに順に試すキー（キャラ曲 → ステージ曲 → 共通曲 など） */

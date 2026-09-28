@@ -80,9 +80,9 @@ export class ResultScene extends Phaser.Scene {
     const W = cam.width;
     const H = cam.height;
     cam.fadeIn(300, 6, 9, 19);
-    // クリア時は操作キャラ別の曲（未配置なら result → title）
+    // クリア時は操作キャラ別の曲、それ以外はゲームオーバーの曲（未配置なら result → title）
     if (r.cleared) AudioBus.playBgm(`bgm_clear_${r.characterId}`, 'bgm_result', 'bgm_title');
-    else AudioBus.playBgm('bgm_result', 'bgm_title');
+    else AudioBus.playBgm('bgm_gameover', 'bgm_result', 'bgm_title');
 
     const stage = stageById(r.stageId ?? 1);
     const key = String(stage.id);
