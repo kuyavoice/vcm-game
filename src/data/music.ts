@@ -38,4 +38,5 @@ export const MUSIC: MusicDef[] = [
   { id: 'boss', key: 'bgm_boss', title: '王級のテーマ', sub: 'ボス戦', color: 0xff4d6d, price: PRICE },
   { id: 'boss_blackknight', key: 'bgm_boss_blackknight', title: '漆黒の闇', sub: '黒騎士のテーマ ／ 前編', color: 0x9d4dff, price: PRICE },
   { id: 'boss_blackknight2', key: 'bgm_boss_blackknight2', title: '沈黙の世界', sub: '黒騎士のテーマ ／ 後編', color: 0x9d4dff, price: PRICE },
+  { id: 'gameover', key: 'bgm_gameover', title: 'おやすみなさい', sub: 'ゲームオーバー', color: 0x8fa3d9, price: PRICE },
 ];

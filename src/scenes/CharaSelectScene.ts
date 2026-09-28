@@ -23,6 +23,7 @@ export class CharaSelectScene extends Phaser.Scene {
     const W = cam.width;
     const H = cam.height;
     cam.fadeIn(250, 6, 9, 19);
+    AudioBus.leaveGameOver();
 
     const bg = this.add.tileSprite(0, 0, W, H, 'bg').setOrigin(0);
     const onResize = () => bg.setSize(this.cameras.main.width, this.cameras.main.height);

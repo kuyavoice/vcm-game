@@ -62,6 +62,11 @@ class AudioBusImpl {
   }
 
   /** SE／ボイス。minGapMs で連打を間引く。fallback：key が未配置のときに代わりに鳴らすキー */
+  /** ゲームオーバーの曲が流れていたら、タイトルの曲に戻す（リザルトから選択画面へ戻ったとき） */
+  leaveGameOver(): void {
+    if (this.currentKey() === 'bgm_gameover') this.playBgm('bgm_title');
+  }
+
   /** volumeMul：この1回だけの音量の倍率（同じ音を場面によって少し小さく鳴らすとき） */
   play(key: string, minGapMs = 0, fallback?: string, volumeMul = 1): void {
     if (!this.has(key) && fallback) key = fallback;
