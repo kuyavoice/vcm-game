@@ -457,12 +457,16 @@ const METEOCAGE: WeaponDef = {
   levels: [],
 };
 
-/** 『本陣の咆哮』：2秒ごとに周囲へ逆茂木（一辺 fenceRadius×2 の四角。足止め＋継続ダメージ）＋岩の衝撃波（半径 area の大円・強ノックバック） */
+/**
+ * 『本陣の咆哮』：2秒ごとに周囲へ逆茂木（一辺 fenceRadius×2 の四角。鈍化＋継続ダメージ）＋岩の衝撃波（半径 area の大円・強ノックバック）。
+ * 衝撃波が当たった雑魚は extra.stunSec 秒、足が止まる（ボスには効かない）。
+ * 2026-09-29：進化させた素材2つに見劣りしていたので引き上げ（衝撃波 60→90・半径 330→420／逆茂木 毎秒30→45・一辺 420→560／足止めを追加）
+ */
 const HONJIN: WeaponDef = {
   id: 'honjin', name: '本陣の咆哮', owner: '護乃 豪・弼辺 徹', kind: 'art', tags: ['melee', 'zone'], fusion: true,
-  desc: '足元に逆茂木が立ち、岩の衝撃波が周囲をなぎ払う。',
+  desc: '足元に逆茂木が立ち、岩の衝撃波が周囲をなぎ払って、敵の足を止める。',
   color: 0x8b4513, maxLevel: 1,
-  base: stats({ damage: 60, intervalSec: 2.0, area: 330, duration: 2.0, knockback: 420, slow: 0.2, extra: { fenceRadius: 210, fenceDps: 30 } }),
+  base: stats({ damage: 90, intervalSec: 2.0, area: 420, duration: 2.0, knockback: 420, slow: 0.2, extra: { fenceRadius: 280, fenceDps: 45, stunSec: 0.5 } }),
   levels: [],
 };
 

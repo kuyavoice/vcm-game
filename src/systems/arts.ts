@@ -838,9 +838,11 @@ const honjin: ArtBehavior = {
     const dmg = artDmg(ctx, s, w.def);
     tmp.length = 0;
     ctx.enemiesInCircle(c.x, c.y, r, tmp);
+    const stunSec = s.extra.stunSec ?? 0;
     for (const e of tmp) {
       const a = Math.atan2(e.y - c.y, e.x - c.x);
       ctx.damage(e, dmg, Math.cos(a) * s.knockback, Math.sin(a) * s.knockback);
+      if (stunSec > 0 && e.active) e.stun(stunSec, ctx.now);
     }
     ctx.fx.ring(c.x, c.y, r, w.def.color, 8);
     ctx.scene.cameras.main.shake(90, 0.004);
