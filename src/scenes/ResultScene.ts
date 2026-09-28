@@ -36,12 +36,12 @@ export class ResultScene extends Phaser.Scene {
     super('Result');
   }
 
-  /** クリア時に使う勝利立ち絵のテクスチャキー（無ければ空） */
+  /** リザルト専用の立ち絵のテクスチャキー（クリア＝勝利立ち絵／それ以外＝ゲームオーバーの立ち絵。無ければ空） */
   private victoryKey = '';
 
   init(r: RunResult): void {
-    const key = `victory_${r.characterId}`;
-    this.victoryKey = r.cleared && hasOptionalImage(key) ? key : '';
+    const key = r.cleared ? `victory_${r.characterId}` : `gameover_${r.characterId}`;
+    this.victoryKey = hasOptionalImage(key) ? key : '';
   }
 
   preload(): void {
@@ -129,7 +129,7 @@ export class ResultScene extends Phaser.Scene {
 
     // 立ち絵（あれば）
     const chara = CHARACTERS[r.characterId];
-    // クリア時は勝利立ち絵（無ければ通常の立ち絵）。ゲームオーバー時は通常の立ち絵
+    // クリア時は勝利立ち絵、ゲームオーバー・時間切れはゲームオーバーの立ち絵（どちらも、無ければ通常の立ち絵）
     const useVictory = !!this.victoryKey && this.textures.exists(this.victoryKey);
     const stKey = useVictory ? this.fadedTexture(this.victoryKey) : `standing_${r.characterId}`;
     if (this.textures.exists(stKey)) {

@@ -18,13 +18,19 @@ export const OPTIONAL_IMAGES: Record<string, string> = {
   victory_yukihito: 'assets/images/victory/yukihito_victory.webp',
   victory_ritsuka: 'assets/images/victory/ritsuka_victory.webp',
   victory_shion: 'assets/images/victory/shion_victory.webp',
+  // ゲームオーバー（時間切れを含む）の立ち絵。勝利立ち絵と同じ扱い（透過・1024×1536）。無ければ通常の立ち絵
+  gameover_kuya: 'assets/images/gameover/kuya_gameover.webp',
+  gameover_mizuho: 'assets/images/gameover/mizuho_gameover.webp',
+  gameover_yukihito: 'assets/images/gameover/yukihito_gameover.webp',
+  gameover_ritsuka: 'assets/images/gameover/ritsuka_gameover.webp',
+  gameover_shion: 'assets/images/gameover/shion_gameover.webp',
 };
 
 // ギャラリーの絵（存在確認だけ。読み込みはギャラリー画面で、解放済みのものだけ）
 for (const g of GALLERY) OPTIONAL_IMAGES[galleryKey(g.id)] = g.file;
 
 /** 起動時に読まず、使う場面で読む画像（キーの接頭辞） */
-export const LAZY_IMAGE_PREFIXES = ['victory_', 'gal_'];
+export const LAZY_IMAGE_PREFIXES = ['victory_', 'gameover_', 'gal_'];
 export const isLazyImage = (key: string) => LAZY_IMAGE_PREFIXES.some((p) => key.startsWith(p));
 
 const available = new Set<string>();

@@ -56,7 +56,8 @@ export async function renderShareCard(r: RunResult): Promise<Blob | null> {
   g.beginPath(); g.moveTo(W * 0.55, 0); g.lineTo(W, 0); g.lineTo(W, H * 0.6); g.lineTo(W * 0.3, H); g.lineTo(0, H); g.closePath(); g.fill();
 
   // 立ち絵：クリア時は勝利立ち絵（下端をなめらかに消す）→ 無ければ通常の立ち絵 → ドット立ち絵
-  const victory = r.cleared ? await loadImage(`assets/images/victory/${r.characterId}_victory.webp`) : null;
+  // クリア＝勝利立ち絵／それ以外＝ゲームオーバーの立ち絵（無ければ通常の立ち絵）
+  const victory = await loadImage(r.cleared ? `assets/images/victory/${r.characterId}_victory.webp` : `assets/images/gameover/${r.characterId}_gameover.webp`);
   let standing: CanvasImageSource & { width: number; height: number } | null = null;
   if (victory) {
     const vc = document.createElement('canvas');
