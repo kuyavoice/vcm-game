@@ -116,6 +116,8 @@ export class GameScene extends Phaser.Scene {
   private debugInvincible = false;
   private debugNoSpawn = false;
   private debugExIndex = 0;
+  private debugRookIndex = 0;
+  private debugQueenIndex = 0;
   private fullMoon = false;
   private enemySpeedMul = 1;
 
@@ -337,6 +339,38 @@ export class GameScene extends Phaser.Scene {
             b.bk.forceCombo = true;
             b.bossState.chargeTimer = 0;
           }
+        },
+      },
+      {
+        label: '城兵の技',
+        run: (set) => {
+          used();
+          // 押すたびに 砲撃 → 岩壁 → 突進 → 連続砲撃 の順で、次の技として予約する
+          const order = ['cannon', 'wall', 'charge', 'barrage'];
+          const names = ['砲撃', '岩壁', '突進', '連続砲撃'];
+          const i = this.debugRookIndex++ % order.length;
+          for (const b of this.bosses) {
+            if (!b.active || b.def.bossKind !== 'rook') continue;
+            b.bk.exForce = order[i];
+            b.bossState.actTimer = 0;
+          }
+          set(`城:${names[i]}`);
+        },
+      },
+      {
+        label: '女王の技',
+        run: (set) => {
+          used();
+          // 押すたびに 蔓の鞭 → 鱗粉 → 地中の触手 → 触手の突き の順で、次の技として予約する
+          const order = ['whip', 'pollen', 'burrow', 'thrust'];
+          const names = ['蔓の鞭', '鱗粉', '地中の触手', '触手の突き'];
+          const i = this.debugQueenIndex++ % order.length;
+          for (const b of this.bosses) {
+            if (!b.active || b.def.bossKind !== 'queen') continue;
+            b.bk.exForce = order[i];
+            b.bossState.actTimer = 0;
+          }
+          set(`女:${names[i]}`);
         },
       },
       {
@@ -766,7 +800,10 @@ export class GameScene extends Phaser.Scene {
         my = r.my;
         spd = walking ? r.spd * e.chillFactor(now) : r.spd;
       } else if (def.bossKind === 'rook') {
-        spd = this.updateRook(e, dt, now, dist) * e.chillFactor(now);
+        spd = this.updateRook(e, dt, now, dist, nx, ny);
+        if (walking) spd *= e.chillFactor(now);
+        mx = e.bossState.dashing > 0 ? e.bossState.dirX : nx;
+        my = e.bossState.dashing > 0 ? e.bossState.dirY : ny;
       } else if (def.bossKind === 'queen') {
         this.updateQueen(e, dt, now, dist, nx, ny);
         spd = 0;
@@ -1264,6 +1301,22 @@ export class GameScene extends Phaser.Scene {
       if (now >= h.until) { this.hazards.splice(i, 1); continue; }
       const fade = Math.min(1, (h.until - now) / 500);
       const flick = 0.5 + Math.sin(now / 70 + i) * 0.12;
+      if (h.circle) {
+        // 燃えている円（城兵級の連続砲撃）
+        g.fillStyle(0x3a1206, 0.5 * fade);
+        g.fillCircle(h.x1, h.y1, h.halfWidth);
+        g.fillStyle(0xff6a1a, flick * 0.45 * fade);
+        g.fillCircle(h.x1, h.y1, h.halfWidth * 0.72);
+        g.lineStyle(2, 0xff8844, 0.7 * fade);
+        g.strokeCircle(h.x1, h.y1, h.halfWidth);
+        if (Math.random() < 0.4) {
+          const a = Math.random() * Math.PI * 2;
+          const d = Math.random() * h.halfWidth;
+          this.hitSpark(h.x1 + Math.cos(a) * d, h.y1 + Math.sin(a) * d - 8, 0xff8844, 1);
+        }
+        if (Math.hypot(p.x - h.x1, p.y - 12 - h.y1) < h.halfWidth) this.hurt(h.damage, now);
+        continue;
+      }
       g.lineStyle(h.halfWidth * 2, 0x2a0610, 0.55 * fade);
       g.lineBetween(h.x1, h.y1, h.x2, h.y2);
       g.lineStyle(h.halfWidth, 0xff2244, flick * 0.5 * fade);
@@ -1504,6 +1557,8 @@ export class GameScene extends Phaser.Scene {
   private pollenTick = 0;
   /** 動かないボスの方向の矢印を出している */
   private fixedArrow = false;
+  /** 連続砲撃：砲弾の絵を出し終えた着弾点 */
+  private shellsShown = new WeakSet<object>();
 
   /** 重み付きの乱数で行動を選ぶ（last と skip の行動は選ばない）。選べなければ空 */
   private pickAct(table: Readonly<Record<string, number>>, last: string, skip: string[] = []): string {
@@ -1657,7 +1712,10 @@ export class GameScene extends Phaser.Scene {
 
   /** ボスが倒れたあとの片付け：岩壁・毒の粉・蕾 */
   private clearBossField(kind?: 'rook' | 'queen'): void {
-    if (kind === 'rook') this.updateWalls(this.gameNow, true);
+    if (kind === 'rook') {
+      this.updateWalls(this.gameNow, true);
+      this.hazards = this.hazards.filter((h) => !h.circle);
+    }
     if (kind === 'queen') {
       this.pollens.length = 0;
       for (const o of this.enemies.getChildren() as Enemy[]) {
@@ -1673,9 +1731,10 @@ export class GameScene extends Phaser.Scene {
    * HP50%を切ると、砲撃の着弾点が増える。範囲攻撃はすべて予告を出してから当てる。
    * 返り値: このフレームの移動速度
    */
-  private updateRook(e: Enemy, dt: number, now: number, dist: number): number {
+  private updateRook(e: Enemy, dt: number, now: number, dist: number, nx: number, ny: number): number {
     const b = e.bossState;
     const R = CONFIG.rook;
+    const B = CONFIG.boss;
     const g = this.bossGfx;
     const p = this.player;
     e.tickPose(dt);
@@ -1699,6 +1758,83 @@ export class GameScene extends Phaser.Scene {
       b.act = '';
       if (!e.flashUntil) e.clearTint();
     };
+
+
+    // 突進：予兆（前半は狙いを追う細い線 → 後半は向きを固定した帯）→ ダッシュ
+    if (b.dashing > 0) {
+      b.dashing -= dt;
+      if (b.dashing <= 0) e.playLoop();
+      return B.chargeSpeed;
+    }
+    if (b.windup > 0) {
+      b.windup -= dt;
+      e.x += (Math.random() - 0.5) * 6;
+      const reach = B.chargeSpeed * B.chargeDurationSec + e.radius;
+      if (b.windup > B.kingChargeLockSec) {
+        b.dirX = nx;
+        b.dirY = ny;
+        g.lineStyle(4, 0xff2244, 0.55);
+        g.lineBetween(e.x, e.y - 40, e.x + nx * reach, e.y - 40 + ny * reach);
+      } else {
+        const k = 1 - Math.max(0, b.windup) / B.kingChargeLockSec;
+        g.lineStyle(e.radius * 1.7, 0xff2244, 0.14 + k * 0.22);
+        g.lineBetween(e.x, e.y - 40, e.x + b.dirX * reach, e.y - 40 + b.dirY * reach);
+        g.lineStyle(4, 0xff2244, 0.8);
+        g.lineBetween(e.x, e.y - 40, e.x + b.dirX * reach, e.y - 40 + b.dirY * reach);
+      }
+      glow(1 - Math.max(0, b.windup) / (B.kingChargeTrackSec + B.kingChargeLockSec));
+      if (b.windup <= 0) {
+        b.dashing = B.chargeDurationSec;
+        if (!e.flashUntil) e.clearTint();
+        e.pose('stomp', B.chargeDurationSec);
+        AudioBus.play('se_knight_charge', 200, 'se_boss');
+        this.cameras.main.shake(120, 0.005);
+      }
+      return 0;
+    }
+
+    // 連続砲撃：直線の上に円を順に出す → 順に着弾 → 着弾した所が燃える
+    if (b.act === 'barrage') {
+      b.actT += dt;
+      const total = b.actLeft;
+      let done = 0;
+      for (let i = 0; i < e.aim.length; i++) {
+        const t = e.aim[i];
+        const shown = b.actT - i * R.barrageGapSec;
+        if (shown < 0) continue;
+        if (t.a === 1) { done++; continue; }
+        if (shown >= R.barrageWindupSec) {
+          // 着弾
+          t.a = 1;
+          done++;
+          this.fxRing(t.x, t.y, R.barrageRadius, 0xff8844, 6);
+          this.particles.setParticleTint(0xff8844);
+          this.particles.explode(8, t.x, t.y - 6);
+          AudioBus.play('se_kill', 60);
+          this.cameras.main.shake(100, 0.006);
+          if (Math.hypot(p.x - t.x, p.y - 12 - t.y) < R.barrageRadius) this.hurt(R.barrageDamage, now);
+          this.hazards.push({ circle: true, x1: t.x, y1: t.y, x2: t.x, y2: t.y, halfWidth: R.barrageRadius, until: now + R.barrageFireSec * 1000, damage: R.barrageFireDamage });
+          continue;
+        }
+        const k = shown / R.barrageWindupSec;
+        g.fillStyle(0xff2244, 0.1 + k * 0.2);
+        g.fillCircle(t.x, t.y, R.barrageRadius);
+        g.lineStyle(2, 0xff2244, 0.85);
+        g.strokeCircle(t.x, t.y, R.barrageRadius);
+        g.lineStyle(3, 0xff2244, 0.5 + k * 0.4);
+        g.strokeCircle(t.x, t.y, R.barrageRadius * k);
+        // 着弾の少し前に、砲弾が降ってくる
+        if (t.x !== 0 && shown >= R.barrageWindupSec - 0.35 && !this.shellsShown.has(t)) {
+          this.shellsShown.add(t);
+          const shell = this.add.image(t.x, t.y - 600, 'fx_shell').setDepth(27).setScale(2.4);
+          this.tweens.add({ targets: shell, y: t.y - 10, angle: 360, duration: 350, ease: 'Quad.easeIn', onComplete: () => shell.destroy() });
+        }
+      }
+      if (b.actT < 0.6) glow(b.actT / 0.6);
+      else if (!e.flashUntil && e.isTinted) e.clearTint();
+      if (done >= total) endAct();
+      return 0;
+    }
 
     // 砲撃：着弾点を赤い円で予告 → 発射 → 岩の砲弾が降る
     if (b.act === 'cannon') {
@@ -1804,12 +1940,30 @@ export class GameScene extends Phaser.Scene {
 
     b.actTimer -= dt;
     if (b.actTimer <= 0) {
-      // 岩壁は続けて出さない（砲撃は続いてよい）
-      const act = this.pickAct(R.weights, b.lastAct === 'wall' ? 'wall' : '') || 'cannon';
+      // 岩壁・突進・連続砲撃は続けて出さない（砲撃は続いてよい）
+      // デバッグで予約した技があれば、それを出す
+      const act = e.bk.exForce || this.pickAct(R.weights, b.lastAct === 'cannon' ? '' : b.lastAct) || 'cannon';
+      e.bk.exForce = '';
       b.lastAct = act;
       b.actTimer = R.attackEverySec;
       e.aim.length = 0;
-      if (act === 'cannon') {
+      if (act === 'charge') {
+        b.windup = B.kingChargeTrackSec + B.kingChargeLockSec;
+        e.pose('wall', b.windup);
+        this.fxText(e.x, e.y - 150, '!!', '#FF4D6D');
+      } else if (act === 'barrage') {
+        const n = p2 ? R.barrageCountPhase2 : R.barrageCount;
+        const a = Math.atan2(p.y - 12 - e.y, p.x - e.x);
+        for (let i = 0; i < n; i++) {
+          const d = R.barrageStart + i * R.barrageStep;
+          e.aim.push({ x: e.x + Math.cos(a) * d, y: e.y + Math.sin(a) * d, a: 0 });
+        }
+        b.act = 'barrage';
+        b.actT = 0;
+        b.actLeft = n;
+        e.pose('aim', 0.6);
+        AudioBus.play('se_break', 120);
+      } else if (act === 'cannon') {
         const range = p2 ? R.cannonPointsPhase2 : R.cannonPoints;
         const n = Phaser.Math.Between(range[0], range[1]);
         // 1発目はプレイヤーの位置。残りは周りに散らす（近すぎる点は選び直す）
@@ -1938,6 +2092,80 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+
+    // 触手の突き（開花のあと）：プレイヤーの居た場所まで、一直線に伸びる。予兆は短い
+    if (b.act === 'thrust') {
+      b.actT -= dt;
+      const ox = e.x;
+      const oy = e.y - 40;
+      const w = e.aim[0];
+      const tx = ox + Math.cos(w.a) * w.x;
+      const ty = oy + Math.sin(w.a) * w.x;
+      if (b.actT > 0) {
+        const k = 1 - b.actT / Q.thrustWindupSec;
+        g.lineStyle(Q.thrustHalfWidth * 2, 0xff2244, 0.16 + k * 0.26);
+        g.lineBetween(ox, oy, tx, ty);
+        g.lineStyle(3, 0xff2244, 0.9);
+        g.lineBetween(ox, oy, tx, ty);
+        return;
+      }
+      b.act = '';
+      e.pose('whip', 0.5);
+      AudioBus.play('se_slash_heavy', 80, 'se_slash');
+      this.fxBand(ox, oy, tx, ty, Q.thrustHalfWidth * 2, 0x9d4dff);
+      const vine = this.add.graphics().setDepth(26);
+      vine.lineStyle(14, 0x0a0612, 1);
+      vine.lineBetween(ox, oy, tx, ty);
+      vine.lineStyle(4, 0x6a3a9a, 1);
+      vine.lineBetween(ox, oy, tx, ty);
+      vine.fillStyle(0x0a0612, 1);
+      vine.fillCircle(tx, ty, 12);
+      this.fadeOut(vine, 300);
+      this.cameras.main.shake(120, 0.006);
+      if (this.distToSegment(p.x, p.y - 12, ox, oy, tx, ty) < Q.thrustHalfWidth) this.hurt(Q.thrustDamage, now);
+      return;
+    }
+
+    // 地中の触手：床に刺す → プレイヤーの周りの円から突き出る
+    if (b.act === 'burrow') {
+      b.actT -= dt;
+      if (b.actT > 0) {
+        const k = 1 - b.actT / Q.burrowWindupSec;
+        for (const t of e.aim) {
+          g.fillStyle(0xff2244, 0.1 + k * 0.2);
+          g.fillCircle(t.x, t.y, Q.burrowRadius);
+          g.lineStyle(2, 0xff2244, 0.85);
+          g.strokeCircle(t.x, t.y, Q.burrowRadius);
+          g.lineStyle(3, 0xff2244, 0.5 + k * 0.4);
+          g.strokeCircle(t.x, t.y, Q.burrowRadius * k);
+          // 地面が揺れる
+          if (Math.random() < 0.2) this.hitSpark(t.x + (Math.random() - 0.5) * Q.burrowRadius, t.y + (Math.random() - 0.5) * Q.burrowRadius, 0x4a2a6a, 1);
+        }
+        return;
+      }
+      b.act = '';
+      AudioBus.play('se_slash_heavy', 80, 'se_slash');
+      let hit = false;
+      for (const t of e.aim) {
+        // 触手が突き出る（3本の黒い棘）
+        const sp = this.add.graphics({ x: t.x, y: t.y }).setDepth(26);
+        for (const [ox2, h] of [[-22, 70], [0, 100], [22, 64]] as const) {
+          sp.fillStyle(0x0a0612, 1);
+          sp.fillTriangle(ox2 - 12, 8, ox2 + 12, 8, ox2 + (ox2 === 0 ? 0 : ox2 * 0.3), -h);
+          sp.lineStyle(2, 0x6a3a9a, 1);
+          sp.strokeTriangle(ox2 - 12, 8, ox2 + 12, 8, ox2 + (ox2 === 0 ? 0 : ox2 * 0.3), -h);
+        }
+        sp.setScale(1, 0.1);
+        this.tweens.add({ targets: sp, scaleY: 1, duration: 90, ease: 'Back.easeOut' });
+        this.tweens.add({ targets: sp, alpha: 0, delay: 260, duration: 220, onComplete: () => sp.destroy() });
+        this.fxRing(t.x, t.y, Q.burrowRadius, 0x9d4dff, 5);
+        if (Math.hypot(p.x - t.x, p.y - 12 - t.y) < Q.burrowRadius) hit = true;
+      }
+      this.cameras.main.shake(160, 0.007);
+      if (hit) this.hurt(Q.burrowDamage, now);
+      return;
+    }
+
     // 召喚：体の周りに蕾を産み落とす（ほかの行動とは別の間隔）
     b.ringTimer -= dt;
     if (b.ringTimer <= 0) {
@@ -1967,11 +2195,39 @@ export class GameScene extends Phaser.Scene {
     b.actTimer -= dt;
     if (b.actTimer <= 0) {
       const skip = dist > Q.whipMaxDist ? ['whip'] : [];
-      const act = this.pickAct(Q.weights, b.lastAct, skip) || this.pickAct(Q.weights, '', skip);
+      const table = p2 ? Q.weightsBloom : Q.weights;
+      const act = e.bk.exForce || this.pickAct(table, b.lastAct, skip) || this.pickAct(table, '', skip);
+      e.bk.exForce = '';
       b.lastAct = act;
       b.actTimer = Q.attackEverySec;
       e.aim.length = 0;
-      if (act === 'whip') {
+      if (act === 'thrust') {
+        // x に届く長さを入れておく
+        const len = Math.min(Q.thrustMaxLength, Math.hypot(p.x - e.x, p.y - 12 - (e.y - 40)) + Q.thrustOver);
+        e.aim.push({ x: len, y: 0, a: Math.atan2(p.y - 12 - (e.y - 40), p.x - e.x) });
+        b.act = 'thrust';
+        b.actT = Q.thrustWindupSec;
+        e.pose('summon', Q.thrustWindupSec);
+      } else if (act === 'burrow') {
+        const range = p2 ? Q.burrowCountBloom : Q.burrowCount;
+        const n = Phaser.Math.Between(range[0], range[1]);
+        e.aim.push({ x: p.x, y: p.y - 12, a: 0 });
+        for (let i = 1; i < n; i++) {
+          let x = p.x;
+          let y = p.y;
+          for (let tries = 0; tries < 8; tries++) {
+            const a = Math.random() * Math.PI * 2;
+            const d = Phaser.Math.Between(Q.burrowRadius, Q.burrowSpread);
+            x = p.x + Math.cos(a) * d;
+            y = p.y - 12 + Math.sin(a) * d;
+            if (e.aim.every((t) => Math.hypot(t.x - x, t.y - y) > Q.burrowRadius * 1.2)) break;
+          }
+          e.aim.push({ x, y, a: 0 });
+        }
+        b.act = 'burrow';
+        b.actT = Q.burrowWindupSec;
+        e.pose('whip', Q.burrowWindupSec + 0.3);
+      } else if (act === 'whip') {
         const n = Phaser.Math.Between(1, 3);
         const base = Math.atan2(ny, nx);
         const offs = n === 1 ? [0] : n === 2 ? [-0.5, 0.5] : [-1, 0, 1];

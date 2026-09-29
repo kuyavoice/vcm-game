@@ -118,9 +118,9 @@ export const CONFIG = {
 
   // 城兵級（追補パッチ⑪ §2）。数値は初期値
   rook: {
-    /** 行動の間隔（砲撃か岩壁を選ぶ） */
+    /** 行動の間隔。重み付きの乱数で選ぶ（岩壁と突進は、続けて出さない） */
     attackEverySec: 4.5,
-    weights: { cannon: 3, wall: 2 } as Readonly<Record<string, number>>,
+    weights: { cannon: 3, wall: 2, charge: 2, barrage: 2 } as Readonly<Record<string, number>>,
     /** HPがこの割合を切ると、砲撃の着弾点が増える */
     phase2At: 0.5,
     /** 砲撃：構え → 発射 → 着弾。予告の円は構えの最初から出る */
@@ -149,6 +149,26 @@ export const CONFIG = {
     stompCooldownSec: 4,
     /** 踏み鳴らしで吹き飛ぶ速さ（すぐ弱まる。動く距離はおよそ 速さ÷8） */
     stompKnockback: 900,
+    /**
+     * 突進（2026-09-30 追加）：旧ボスの突進と同じ形。最初の track 秒は狙いを追い、残り lock 秒は向きを固定して帯で予告 → ダッシュ。
+     * 速さ・長さ・予兆は CONFIG.boss の値（chargeSpeed・chargeDurationSec・kingChargeTrackSec・kingChargeLockSec）を使う
+     */
+    /**
+     * 連続砲撃（2026-09-30 追加）：城兵級からプレイヤーへ向かう直線の上に、円を順に出す → 順に着弾 → 着弾した所が燃える。
+     * 1発目は城兵級から barrageStart だけ離れた所。そこから barrageStep ずつ先へ
+     */
+    barrageCount: 5,
+    barrageCountPhase2: 7,
+    barrageStart: 210,
+    barrageStep: 125,
+    barrageRadius: 70,
+    barrageDamage: 18,
+    /** 円が出てから着弾するまでと、次の円が出るまでの間隔 */
+    barrageWindupSec: 1.0,
+    barrageGapSec: 0.22,
+    /** 燃える時間と、燃えている所のダメージ */
+    barrageFireSec: 3,
+    barrageFireDamage: 8,
   },
 
   // 女王級（追補パッチ⑪ §3）。数値は初期値
@@ -158,7 +178,9 @@ export const CONFIG = {
     emergeSec: 1.5,
     /** 蔓の鞭か鱗粉を選ぶ間隔 */
     attackEverySec: 4.0,
-    weights: { whip: 3, pollen: 2 } as Readonly<Record<string, number>>,
+    weights: { whip: 3, pollen: 2, burrow: 2 } as Readonly<Record<string, number>>,
+    /** 開花のあとの重み（触手の突きが加わる） */
+    weightsBloom: { whip: 2, pollen: 2, burrow: 2, thrust: 3 } as Readonly<Record<string, number>>,
     /** 召喚の間隔（ほかの行動とは別に数える）。開花のあとは短くなる */
     summonEverySec: 9,
     summonEverySecBloom: 6,
@@ -181,6 +203,25 @@ export const CONFIG = {
     whipDamage: 20,
     whipSpreadRad: 0.38,
     whipMaxDist: 480,
+    /**
+     * 触手の突き（2026-09-30 追加。開花のあとだけ）：プレイヤーの居る場所まで、触手を一直線に伸ばす。予兆は短い。
+     * 届く長さは「プレイヤーまでの距離＋thrustOver」で、thrustMaxLength まで
+     */
+    thrustWindupSec: 0.45,
+    thrustOver: 80,
+    thrustMaxLength: 760,
+    thrustHalfWidth: 18,
+    thrustDamage: 20,
+    /**
+     * 地中の触手（2026-09-30 追加）：触手を床に刺す → プレイヤーの周りの円から突き出る。
+     * 1つ目はプレイヤーの位置。残りは周り burrowSpread までに散らす
+     */
+    burrowCount: [3, 4] as readonly [number, number],
+    burrowCountBloom: [5, 6] as readonly [number, number],
+    burrowRadius: 60,
+    burrowSpread: 210,
+    burrowWindupSec: 0.9,
+    burrowDamage: 18,
     /** 鱗粉：プレイヤーの周りに毒の粉。中では足が遅くなり、少しずつ削られる */
     pollenCount: [2, 3] as readonly [number, number],
     pollenRadius: 90,

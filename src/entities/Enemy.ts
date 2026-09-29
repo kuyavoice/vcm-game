@@ -2,8 +2,9 @@ import Phaser from 'phaser';
 import { ENEMIES, type EnemyDef } from '../data/enemies';
 import { CONFIG } from '../data/config';
 
-/** 地面に残る危険な帯（赤騎士の『闇の炎』）。線分＋半幅 */
+/** 地面に残る危険な場所。帯（『闇の炎』）は線分＋半幅。円（城兵級の連続砲撃の炎）は circle を立てて、(x1, y1) が中心・halfWidth が半径 */
 export interface Hazard {
+  circle?: boolean;
   x1: number;
   y1: number;
   x2: number;
