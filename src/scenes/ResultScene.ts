@@ -25,8 +25,12 @@ export interface RunResult {
   /** スコアアタック */
   score?: number;
   timeUp?: boolean;
-  /** 所持していたアーツ（共有画像・ポスト用） */
+  /** 所持していたアーツ（リザルト・共有画像・ポスト用） */
   arts?: { name: string; level: number; color: number; evolved: boolean; fusion: boolean }[];
+  /** 初期武器 */
+  main?: { name: string; level: number; color: number };
+  /** 所持していたサポート */
+  passives?: { name: string; level: number; color: number }[];
   /** デバッグ操作を使ったプレイ（記録・エールを保存しない） */
   debug?: boolean;
 }
@@ -170,7 +174,11 @@ export class ResultScene extends Phaser.Scene {
     // スタッツ（右寄せのパネル）
     const px = W * 0.58;
     const py = H * 0.27;
-    const panel = this.add.rectangle(px, py, W * 0.40, r.score !== undefined ? 510 : 450, 0x0b1026, 0.88).setOrigin(0, 0).setStrokeStyle(2, 0x87ceeb, 0.6);
+    // 下にビルドの一覧を置くので、行の間隔を詰める（スコアアタックは1行多い）
+    const rowCount = r.score !== undefined ? 8 : 7;
+    const pitch = rowCount >= 8 ? 48 : 52;
+    const panelH = 20 + rowCount * pitch;
+    const panel = this.add.rectangle(px, py, W * 0.40, panelH, 0x0b1026, 0.88).setOrigin(0, 0).setStrokeStyle(2, 0x87ceeb, 0.6);
     const mm = Math.floor(r.timeSec / 60).toString().padStart(2, '0');
     const ss = Math.floor(r.timeSec % 60).toString().padStart(2, '0');
     const rows: [string, string][] = [
@@ -184,11 +192,36 @@ export class ResultScene extends Phaser.Scene {
       ['SPEED', `×${r.speed ?? 1}`],
     ];
     rows.forEach(([k, v], i) => {
-      const y = py + 24 + i * 60;
-      this.add.text(px + 18, y, k, { fontFamily: FONT_EN, fontSize: '18px', color: COLOR_HEX.dim, fontStyle: '700' });
+      const y = py + 14 + i * pitch;
+      this.add.text(px + 18, y, k, { fontFamily: FONT_EN, fontSize: '16px', color: COLOR_HEX.dim, fontStyle: '700' });
       const jp = k === 'CHARACTER' || k === 'STAGE';
-      this.add.text(px + 18, y + 20, v, { fontFamily: jp ? FONT_JP : FONT_EN, fontSize: jp ? '24px' : '30px', color: COLOR_HEX.white, fontStyle: '700' });
+      this.add.text(px + 18, y + 17, v, { fontFamily: jp ? FONT_JP : FONT_EN, fontSize: jp ? '22px' : '26px', color: COLOR_HEX.white, fontStyle: '700' });
     });
+
+    // ビルド：初期武器・共鳴アーツ（左の列）と、サポート（右の列）
+    const artRows: { name: string; tag: string; color: number; gold: boolean }[] = [];
+    if (r.main) artRows.push({ name: r.main.name, tag: `Lv${r.main.level}`, color: r.main.color, gold: false });
+    for (const a of r.arts ?? []) artRows.push({ name: a.name, tag: a.fusion ? 'FUSION' : a.evolved ? 'EVO' : `Lv${a.level}`, color: a.color, gold: a.fusion || a.evolved });
+    const supRows = (r.passives ?? []).map((p) => ({ name: p.name, tag: `Lv${p.level}`, color: p.color, gold: false }));
+    if (artRows.length + supRows.length > 0) {
+      const bw = Math.min(680, W - 40);
+      const bx = (W - bw) / 2;
+      const by0 = py + panelH + 12;
+      const lines = Math.max(artRows.length, supRows.length, 1);
+      const rowH = 24;
+      this.add.rectangle(bx, by0, bw, 38 + lines * rowH + 10, 0x0b1026, 0.9).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.6);
+      const col = (x: number, head: string, list: typeof artRows) => {
+        this.add.text(x, by0 + 8, head, { fontFamily: FONT_EN, fontSize: '16px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 2 });
+        list.forEach((it, i) => {
+          const y = by0 + 36 + i * rowH;
+          this.add.rectangle(x, y + 3, 5, 17, it.color, 1).setOrigin(0);
+          this.add.text(x + 12, y, it.name, { fontFamily: FONT_JP, fontSize: '17px', color: it.gold ? COLOR_HEX.gold : COLOR_HEX.white, fontStyle: '700' });
+          this.add.text(x + bw / 2 - 28, y + 1, it.tag, { fontFamily: FONT_EN, fontSize: '15px', color: it.gold ? COLOR_HEX.gold : COLOR_HEX.dim, fontStyle: '700' }).setOrigin(1, 0);
+        });
+      };
+      col(bx + 14, 'ARTS', artRows);
+      col(bx + bw / 2 + 8, 'SUPPORT', supRows);
+    }
     if (isBest) {
       this.add.text(panel.x + panel.width - 14, py - 14, 'NEW BEST', {
         fontFamily: FONT_EN, fontSize: '20px', color: '#060913', backgroundColor: '#FFD700', fontStyle: '700', padding: { x: 8, y: 2 },

@@ -2515,6 +2515,8 @@ export class GameScene extends Phaser.Scene {
       speed: this.speed,
       stageId: this.stage.id,
       arts: this.up.arts.map((w) => ({ name: w.name, level: w.level, color: w.def.color, evolved: w.evolved, fusion: !!w.def.fusion })),
+      main: { name: this.up.main.name, level: this.up.main.level, color: this.up.main.def.color },
+      passives: [...this.up.passives].map(([id, lv]) => ({ name: PASSIVES[id].name, level: lv, color: PASSIVES[id].color })),
       debug: this.debugUsed,
     };
     if (!cleared) {

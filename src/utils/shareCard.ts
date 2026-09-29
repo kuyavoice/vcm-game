@@ -114,47 +114,71 @@ export async function renderShareCard(r: RunResult): Promise<Blob | null> {
   const px = W * 0.56;
   const py = H * 0.34;
   const pw = W * 0.40;
+  const hasScore = r.score !== undefined;
+  const pitch = hasScore ? 72 : 80;
+  const ph = 28 + (hasScore ? 8 : 7) * pitch;
   g.fillStyle = 'rgba(11,16,38,0.88)';
-  g.fillRect(px, py, pw, 560);
+  g.fillRect(px, py, pw, ph);
   g.strokeStyle = accent; g.lineWidth = 3;
-  g.strokeRect(px, py, pw, 560);
+  g.strokeRect(px, py, pw, ph);
   const mm = Math.floor(r.timeSec / 60).toString().padStart(2, '0');
   const ss = Math.floor(r.timeSec % 60).toString().padStart(2, '0');
   const rows: [string, string, boolean][] = [
+    ...(hasScore ? [['SCORE', (r.score ?? 0).toLocaleString(), false] as [string, string, boolean]] : []),
     ['CHARACTER', chara?.name ?? r.characterId, true],
-    ['STAGE', `${stage.nameEn}  ${stage.name}`, true],
+    ['STAGE', stage.scoreMode ? stage.nameEn : `${stage.nameEn}  ${stage.name}`, true],
     ['TIME', `${mm}:${ss}`, false],
     ['DEFEATED', `${r.kills}`, false],
     ['LEVEL', `${r.level}`, false],
     ['YELL', `★ ${r.yell}`, false],
+    ['SPEED', `×${r.speed ?? 1}`, false],
   ];
   g.textAlign = 'left';
   rows.forEach(([k, v, isJp], i) => {
-    const y = py + 26 + i * 86;
-    g.fillStyle = '#8A94B8'; g.font = en(24);
+    const y = py + 20 + i * pitch;
+    g.fillStyle = '#8A94B8'; g.font = en(22);
     g.fillText(k, px + 24, y);
-    g.fillStyle = '#FFFFFF'; g.font = isJp ? jp(34) : en(44);
-    g.fillText(v, px + 24, y + 28);
+    g.fillStyle = '#FFFFFF'; g.font = isJp ? jp(32) : en(40);
+    g.fillText(v, px + 24, y + 26);
   });
 
-  // 所持アーツ（進化・合体は強調）
-  const arts = r.arts ?? [];
-  const ay = H * 0.34 + 600;
-  // 立ち絵と重なっても読めるように下地を敷く
-  if (arts.length > 0) {
-    g.fillStyle = 'rgba(11,16,38,0.78)';
-    g.fillRect(px - 14, ay - 14, pw + 14, 40 + Math.min(arts.length, 6) * 48 + 22);
+  // ビルド：初期武器・共鳴アーツ（左の列）と、サポート（右の列）。進化・合体は強調。立ち絵と重なっても読めるように下地を敷く
+  type Row = { name: string; tag: string; color: number; gold: boolean };
+  const artRows: Row[] = [];
+  if (r.main) artRows.push({ name: r.main.name, tag: `Lv${r.main.level}`, color: r.main.color, gold: false });
+  for (const a of r.arts ?? []) artRows.push({ name: a.name, tag: a.fusion ? 'FUSION' : a.evolved ? 'EVO' : `Lv${a.level}`, color: a.color, gold: a.fusion || a.evolved });
+  const supRows: Row[] = (r.passives ?? []).map((p) => ({ name: p.name, tag: `Lv${p.level}`, color: p.color, gold: false }));
+  if (artRows.length + supRows.length > 0) {
+    const bx = 40;
+    const bw = W - 80;
+    const by = py + ph + 24;
+    const rowH = 46;
+    const lines = Math.max(artRows.length, supRows.length, 1);
+    g.fillStyle = 'rgba(11,16,38,0.86)';
+    g.fillRect(bx, by, bw, 62 + lines * rowH + 12);
+    g.strokeStyle = accent; g.lineWidth = 3;
+    g.strokeRect(bx, by, bw, 62 + lines * rowH + 12);
+    const col = (x: number, head: string, list: Row[]) => {
+      g.textAlign = 'left';
+      g.fillStyle = '#87CEEB'; g.font = en(26);
+      g.fillText(head, x, by + 16);
+      list.forEach((it, i) => {
+        const y = by + 60 + i * rowH;
+        g.fillStyle = hex(it.color);
+        g.fillRect(x, y + 5, 9, 30);
+        g.fillStyle = it.gold ? '#FFD700' : '#FFFFFF';
+        g.font = jp(27);
+        g.textAlign = 'left';
+        g.fillText(it.name, x + 20, y);
+        g.fillStyle = it.gold ? '#FFD700' : '#8A94B8';
+        g.font = en(24);
+        g.textAlign = 'right';
+        g.fillText(it.tag, x + bw / 2 - 44, y + 3);
+      });
+    };
+    col(bx + 24, 'ARTS', artRows);
+    col(bx + bw / 2 + 12, 'SUPPORT', supRows);
   }
-  g.fillStyle = '#87CEEB'; g.font = en(26); g.textAlign = 'left';
-  g.fillText('RESONANCE ARTS', px, ay);
-  arts.slice(0, 6).forEach((a, i) => {
-    const y = ay + 40 + i * 48;
-    g.fillStyle = hex(a.color);
-    g.fillRect(px, y + 6, 10, 30);
-    g.fillStyle = a.fusion || a.evolved ? '#FFD700' : '#FFFFFF';
-    g.font = jp(28);
-    g.fillText(`${a.name}${a.fusion ? '  FUSION' : a.evolved ? '  EVO' : `  Lv${a.level}`}`, px + 22, y);
-  });
 
   // フッター：タイトル・日付・URL
   g.textAlign = 'center';
