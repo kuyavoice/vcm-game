@@ -45,9 +45,12 @@ export const ENDLESS = {
     { id: 'blackknight', hpMul: 3.0 },
     { id: 'redknight', hpMul: 4.0 },
   ] as const,
-  /** 1周ごとに足す倍率：ボスのHP／敵の攻撃力 */
-  cycleBossHpAdd: 0.6,
-  cycleDamageAdd: 0.25,
+  /**
+   * 1周ごとに足す倍率：ボスのHP／敵の攻撃力。
+   * 0.6／0.25 → 0.8／0.35（2026-09-30 試遊：瑞穂で73:56・4周目。3周目までは、3倍速で放置しても負けなかった）
+   */
+  cycleBossHpAdd: 0.8,
+  cycleDamageAdd: 0.35,
   /** ボスが居る間の、雑魚の湧きの倍率 */
   bossSpawnMul: 0.6,
   /** 1回のプレイで持ち帰れるエールの上限（長く遊ぶほど入るので、上限を付ける） */
@@ -86,7 +89,9 @@ export const ENDLESS_TITLES: { fromSec: number; name: string }[] = [
   { fromSec: 2400, name: '悪夢を越えし者' },
   { fromSec: 3000, name: '眠らない守り手' },
   { fromSec: 3600, name: '明けない夜の覇者' },
+  { fromSec: 4500, name: '夜を統べる者' },
   { fromSec: 5400, name: '伝説の一等星' },
+  { fromSec: 7200, name: '銀河を渡る者' },
 ];
 
 /** その時間の称号と、次の称号（無ければ null） */
