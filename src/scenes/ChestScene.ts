@@ -85,6 +85,8 @@ export class ChestScene extends Phaser.Scene {
         headerEn.setText('JACKPOT');
         this.cameras.main.shake(200, 0.006);
         AudioBus.play('se_evolve');
+      } else if (group === 'fusion') {
+        AudioBus.play('se_fusion', 0, 'se_evolve');
       } else if (group !== 'normal') {
         AudioBus.play('se_evolve');
       }

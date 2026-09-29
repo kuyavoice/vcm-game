@@ -1083,6 +1083,9 @@ export class GameScene extends Phaser.Scene {
     b.exStage = 0;
     const names: Record<string, string> = { shingetsu: '新月', hangetsu: '半月', kiba: '漆黒の牙', ori: '漆黒の檻', honoo: '闇の炎' };
     this.hud.banner(`『${names[pick]}』`, '#FF4D6D', 34);
+    // 技ごとの音（発動の瞬間＝予兆の始まり。未配置なら無音）
+    const exSe: Record<string, string> = { shingetsu: 'se_redknight_moon', hangetsu: 'se_redknight_moon', kiba: 'se_redknight_fang', honoo: 'se_redknight_flame' };
+    if (exSe[pick]) AudioBus.play(exSe[pick], 0);
     e.play(`anim_e_${e.def.id}_windup`, true);
     b.ex = pick;
     if (pick === 'honoo') {
@@ -1642,7 +1645,7 @@ export class GameScene extends Phaser.Scene {
     if (now < c.until) return;
     // 突き上げ
     this.cage = null;
-    AudioBus.play('se_slash_heavy', 80, 'se_slash');
+    AudioBus.play('se_queen_burrow', 80, 'se_slash_heavy');
     this.cameras.main.shake(220, 0.009);
     this.fxRing(c.x, c.y, R, 0x9d4dff, 8);
     for (let i = 0; i < 9; i++) {
@@ -1693,7 +1696,7 @@ export class GameScene extends Phaser.Scene {
     const spin = Math.random() * Math.PI * 2;
     for (let k = 0; k < R.shardCount; k++) this.fireEnemyBullet(cx, cy - 10, spin + (k / R.shardCount) * Math.PI * 2, R.shardSpeed, R.shardLifeSec, R.shardDamage, 0x40e0ff);
     this.fxRing(cx, cy, 90, 0x40e0ff, 6);
-    AudioBus.play('se_break', 120);
+    AudioBus.play('se_rook_wall_break', 120, 'se_break');
     this.cameras.main.shake(140, 0.007);
     w.until = 0;
     this.updateWalls(this.gameNow);
@@ -1840,6 +1843,7 @@ export class GameScene extends Phaser.Scene {
     const hatch = e.def.hatch;
     e.despawn();
     this.hitSpark(x, y - 10, 0xffc83d, 6);
+    AudioBus.play('se_queen_hatch', 120);
     if (hatch) {
       this.spawner.spawnOne(hatch, x, y, this.stage.enemyHpMul);
       return;
@@ -1886,6 +1890,7 @@ export class GameScene extends Phaser.Scene {
     if (b.phase === 1 && e.hp <= e.maxHp * R.phase2At) {
       b.phase = 2;
       if (!b.act) e.pose('hit', 0.7);
+      AudioBus.play('se_boss_enrage', 0, 'se_boss');
       this.hud.banner(`${e.def.name} —— 激昂`, '#FF4D6D', 34);
       this.cameras.main.shake(400, 0.007);
       this.fxRing(e.x, e.y - 60, 240, 0x40e0ff, 10);
@@ -1937,7 +1942,7 @@ export class GameScene extends Phaser.Scene {
         b.dashing = B.chargeDurationSec;
         if (!e.flashUntil) e.clearTint();
         e.pose('stomp', B.chargeDurationSec);
-        AudioBus.play('se_knight_charge', 200, 'se_boss');
+        AudioBus.play('se_rook_charge', 200, 'se_knight_charge');
         this.cameras.main.shake(120, 0.005);
       }
       return 0;
@@ -1960,7 +1965,7 @@ export class GameScene extends Phaser.Scene {
           this.fxRing(t.x, t.y, R.barrageRadius, 0xff8844, 6);
           this.particles.setParticleTint(0xff8844);
           this.particles.explode(8, t.x, t.y - 6);
-          AudioBus.play('se_kill', 60);
+          AudioBus.play('se_rook_impact', 60, 'se_kill');
           this.cameras.main.shake(100, 0.006);
           if (Math.hypot(p.x - t.x, p.y - 12 - t.y) < R.barrageRadius) this.hurt(R.barrageDamage, now);
           this.hazards.push({ circle: true, x1: t.x, y1: t.y, x2: t.x, y2: t.y, halfWidth: R.barrageRadius, until: now + R.barrageFireSec * 1000, damage: R.barrageFireDamage });
@@ -2005,7 +2010,7 @@ export class GameScene extends Phaser.Scene {
           b.actLeft = 0;
           if (!e.flashUntil) e.clearTint();
           e.pose('fire', 0.5);
-          AudioBus.play('se_break', 120);
+          AudioBus.play('se_rook_cannon', 120, 'se_break');
           this.cameras.main.shake(120, 0.005);
           const ms = Math.max(60, b.actT * 1000);
           for (const t of e.aim) {
@@ -2025,7 +2030,7 @@ export class GameScene extends Phaser.Scene {
           // 激昂のあとは、着弾した所が燃える
           if (p2) this.hazards.push({ circle: true, x1: t.x, y1: t.y, x2: t.x, y2: t.y, halfWidth: R.cannonRadius, until: now + R.barrageFireSec * 1000, damage: R.barrageFireDamage });
         }
-        AudioBus.play('se_kill', 60);
+        AudioBus.play('se_rook_impact', 60, 'se_kill');
         this.cameras.main.shake(200, 0.008);
         if (hit) this.hurt(R.cannonDamage, now);
       }
@@ -2048,7 +2053,7 @@ export class GameScene extends Phaser.Scene {
       if (b.actT <= 0) {
         endAct();
         for (const w of e.aim) this.raiseWall(w.x, w.y, w.a, now);
-        AudioBus.play('se_break', 120);
+        AudioBus.play('se_rook_wall', 120, 'se_break');
         this.cameras.main.shake(160, 0.006);
       }
       return 0;
@@ -2071,7 +2076,7 @@ export class GameScene extends Phaser.Scene {
       endAct();
       b.chargeTimer = R.stompCooldownSec;
       e.pose('stomp', 0.5);
-      AudioBus.play('se_break', 120);
+      AudioBus.play('se_rook_stomp', 120, 'se_break');
       this.cameras.main.shake(220, 0.009);
       this.fxRing(cx, cy, R.stompRadius, 0x40e0ff, 8);
       this.fxRing(cx, cy, R.stompRadius * 0.6, 0xffffff, 4);
@@ -2094,10 +2099,12 @@ export class GameScene extends Phaser.Scene {
     if (b.actTimer <= 0) {
       // 岩壁・突進・連続砲撃は続けて出さない（砲撃は続いてよい）
       // デバッグで予約した技があれば、それを出す
-      const act = e.bk.exForce || this.pickAct(R.weights, b.lastAct === 'cannon' ? '' : b.lastAct) || 'cannon';
+      // 岩壁のあとは、必ず突進
+      const act = e.bk.exForce || (b.lastAct === 'wall' ? 'charge' : '') || this.pickAct(R.weights, b.lastAct === 'cannon' ? '' : b.lastAct) || 'cannon';
       e.bk.exForce = '';
       b.lastAct = act;
-      b.actTimer = R.attackEverySec;
+      // 行動の途中は数えないので、岩壁のあとの待ち時間は「壁がせり上がってから」になる
+      b.actTimer = act === 'wall' ? R.wallChargeDelaySec : R.attackEverySec;
       e.aim.length = 0;
       if (act === 'charge') {
         b.windup = B.kingChargeTrackSec + B.kingChargeLockSec;
@@ -2114,7 +2121,7 @@ export class GameScene extends Phaser.Scene {
         b.actT = 0;
         b.actLeft = n;
         e.pose('aim', 0.6);
-        AudioBus.play('se_break', 120);
+        AudioBus.play('se_rook_cannon', 120, 'se_break');
       } else if (act === 'cannon') {
         const range = p2 ? R.cannonPointsPhase2 : R.cannonPoints;
         const n = Phaser.Math.Between(range[0], range[1]);
@@ -2191,6 +2198,7 @@ export class GameScene extends Phaser.Scene {
       e.aim.length = 0;
       e.pose('bloom', Q.bloomInvulnSec);
       b.ringTimer = Math.min(b.ringTimer, 1);
+      AudioBus.play('se_boss_enrage', 0, 'se_boss');
       this.hud.banner(`${e.def.name} —— 開花`, '#FFC83D', 34);
       this.cameras.main.shake(400, 0.007);
       this.fxRing(e.x, e.y - 60, 240, 0xffc83d, 10);
@@ -2225,7 +2233,7 @@ export class GameScene extends Phaser.Scene {
       }
       b.act = '';
       e.pose('whip', 0.5);
-      AudioBus.play('se_slash_heavy', 80, 'se_slash');
+      AudioBus.play('se_queen_whip', 80, 'se_slash_heavy');
       let hit = false;
       for (const w of e.aim) {
         const tx = ox + Math.cos(w.a) * Q.whipLength;
@@ -2263,7 +2271,7 @@ export class GameScene extends Phaser.Scene {
       }
       b.act = '';
       e.pose('whip', 0.5);
-      AudioBus.play('se_slash_heavy', 80, 'se_slash');
+      AudioBus.play('se_queen_thrust', 80, 'se_slash_heavy');
       this.fxBand(ox, oy, tx, ty, Q.thrustHalfWidth * 2, 0x9d4dff);
       const vine = this.add.graphics().setDepth(26);
       vine.lineStyle(14, 0x0a0612, 1);
@@ -2296,7 +2304,7 @@ export class GameScene extends Phaser.Scene {
         return;
       }
       b.act = '';
-      AudioBus.play('se_slash_heavy', 80, 'se_slash');
+      AudioBus.play('se_queen_burrow', 80, 'se_slash_heavy');
       let hit = false;
       for (const t of e.aim) {
         this.thornSpikes(t.x, t.y);
@@ -2333,6 +2341,7 @@ export class GameScene extends Phaser.Scene {
           this.hitSpark(bud.x, bud.y - 10, 0xffc83d, 4);
         }
         e.pose('summon', 0.8);
+        AudioBus.play('se_queen_summon', 0);
         this.fxRing(e.x, e.y - 40, 190, 0xffc83d, 5);
         b.act = 'cast';
         b.actT = 0.8;
@@ -2361,6 +2370,7 @@ export class GameScene extends Phaser.Scene {
         this.cage = { x: p.x, y: p.y - 12, gap: Math.random() * Math.PI * 2, shown: now, from, until: from + Q.cageCloseSec * 1000 };
         b.act = 'cage';
         e.pose('bloom', Q.cageWindupSec + 0.6);
+        AudioBus.play('se_queen_cage', 0);
       } else if (act === 'thrust') {
         // x に届く長さを入れておく
         const len = Math.min(Q.thrustMaxLength, Math.hypot(p.x - e.x, p.y - 12 - (e.y - 40)) + Q.thrustOver);
@@ -2405,6 +2415,7 @@ export class GameScene extends Phaser.Scene {
           this.pollens.push({ x: p.x + Math.cos(a) * d, y: p.y - 12 + Math.sin(a) * d, r: Q.pollenRadius, from, until: from + Q.pollenSec * 1000 });
         }
         e.pose('pollen', 0.9);
+        AudioBus.play('se_queen_pollen', 0);
         b.act = 'cast';
         b.actT = 0.9;
       }
@@ -2863,7 +2874,10 @@ export class GameScene extends Phaser.Scene {
     if (d.isObject) return;
     if (d.boss || d.charger) e.chill(chillMul, sec, now);
     else if (d.id === 'knight') e.applySlow(chillMul, sec, now);
-    else e.freeze(sec, now);
+    else {
+      e.freeze(sec, now);
+      AudioBus.play('se_freeze', 200);
+    }
   }
 
   private updateEnemyBullets(dt: number, now: number): void {
@@ -3353,7 +3367,8 @@ export class GameScene extends Phaser.Scene {
     if (index === 0) {
       this.hud.banner(total > 1 ? `${boss.def.name} ×${total} —— 出現` : `${boss.def.name} —— 出現`, '#FF4D6D', 40);
       this.cameras.main.shake(300, 0.006);
-      AudioBus.play('se_boss');
+      if (boss.def.fixed) AudioBus.play('se_queen_emerge', 0, 'se_boss');
+      else AudioBus.play('se_boss');
     }
     this.resumeBgm();
   }

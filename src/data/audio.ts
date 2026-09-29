@@ -56,6 +56,32 @@ export const AUDIO_MANIFEST: AudioEntry[] = [
   { key: 'se_item', path: 'assets/audio/se/item.mp3', category: 'se' },
   { key: 'se_evolve', path: 'assets/audio/se/evolve.mp3', category: 'se' },
   { key: 'se_boss', path: 'assets/audio/se/boss.mp3', category: 'se' },
+  // ボスの激昂・開花（未配置なら boss で代用）
+  { key: 'se_boss_enrage', path: 'assets/audio/se/boss_enrage.mp3', category: 'se' },
+  // 城兵級（未配置なら、それぞれ近い音で代用。docs/SE依頼リスト_ボスの行動.md）
+  { key: 'se_rook_cannon', path: 'assets/audio/se/rook_cannon.mp3', category: 'se' },
+  { key: 'se_rook_impact', path: 'assets/audio/se/rook_impact.mp3', category: 'se' },
+  { key: 'se_rook_wall', path: 'assets/audio/se/rook_wall.mp3', category: 'se' },
+  { key: 'se_rook_wall_break', path: 'assets/audio/se/rook_wall_break.mp3', category: 'se' },
+  { key: 'se_rook_stomp', path: 'assets/audio/se/rook_stomp.mp3', category: 'se' },
+  { key: 'se_rook_charge', path: 'assets/audio/se/rook_charge.mp3', category: 'se' },
+  // 女王級
+  { key: 'se_queen_emerge', path: 'assets/audio/se/queen_emerge.mp3', category: 'se' },
+  { key: 'se_queen_summon', path: 'assets/audio/se/queen_summon.mp3', category: 'se' },
+  { key: 'se_queen_hatch', path: 'assets/audio/se/queen_hatch.mp3', category: 'se' },
+  { key: 'se_queen_whip', path: 'assets/audio/se/queen_whip.mp3', category: 'se' },
+  { key: 'se_queen_thrust', path: 'assets/audio/se/queen_thrust.mp3', category: 'se' },
+  { key: 'se_queen_pollen', path: 'assets/audio/se/queen_pollen.mp3', category: 'se' },
+  { key: 'se_queen_burrow', path: 'assets/audio/se/queen_burrow.mp3', category: 'se' },
+  { key: 'se_queen_cage', path: 'assets/audio/se/queen_cage.mp3', category: 'se' },
+  // 悪夢の黒騎士の専用技（未配置なら無音）
+  { key: 'se_redknight_moon', path: 'assets/audio/se/redknight_moon.mp3', category: 'se' },
+  { key: 'se_redknight_fang', path: 'assets/audio/se/redknight_fang.mp3', category: 'se' },
+  { key: 'se_redknight_flame', path: 'assets/audio/se/redknight_flame.mp3', category: 'se' },
+  // そのほか
+  { key: 'se_fusion', path: 'assets/audio/se/fusion.mp3', category: 'se' },
+  { key: 'se_beam', path: 'assets/audio/se/beam.mp3', category: 'se' },
+  { key: 'se_freeze', path: 'assets/audio/se/freeze.mp3', category: 'se' },
   // 詩音ボイス
   { key: 'vo_shion_start', path: 'assets/audio/voice/shion_start.mp3', category: 'voice' },
   { key: 'vo_shion_evolve', path: 'assets/audio/voice/shion_evolve.mp3', category: 'voice' },

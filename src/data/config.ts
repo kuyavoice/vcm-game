@@ -120,7 +120,9 @@ export const CONFIG = {
   rook: {
     /** 行動の間隔。重み付きの乱数で選ぶ（岩壁と突進は、続けて出さない） */
     attackEverySec: 4.5,
-    weights: { cannon: 3, wall: 2, charge: 2, barrage: 2 } as Readonly<Record<string, number>>,
+    weights: { cannon: 3, wall: 2, charge: 1, barrage: 2 } as Readonly<Record<string, number>>,
+    /** 岩壁のあとは、必ず突進（2026-10-01 ユーザー指定）。壁がせり上がってから、この秒数で突進の予兆を始める */
+    wallChargeDelaySec: 1.6,
     /** HPがこの割合を切ると、砲撃の着弾点が増える */
     phase2At: 0.5,
     /** 砲撃：構え → 発射 → 着弾。予告の円は構えの最初から出る */

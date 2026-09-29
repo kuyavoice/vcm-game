@@ -1044,6 +1044,7 @@ const shiningray: ArtBehavior = {
     }
   },
   fire(ctx, s, w) {
+    AudioBus.play('se_beam', 0);
     const c = chest(ctx);
     const half = ((s.extra.width ?? 120) * ctx.stats.areaMul) / 2;
     // 敵が最も多い方向（ボスは3体分に数える）。敵が居なければ、向いている方向
