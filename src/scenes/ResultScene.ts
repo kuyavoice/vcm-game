@@ -209,7 +209,7 @@ export class ResultScene extends Phaser.Scene {
       ['CHARACTER', chara?.name ?? r.characterId],
       ['DEFEATED', `${r.kills}`],
       ['LEVEL', `${r.level}`],
-      ['YELL', `★ ${r.yell}${r.yell >= ENDLESS.yellCap ? '（上限）' : ''}`],
+      ['YELL', `★ ${r.yell}`],
       ['SPEED', `×${r.speed ?? 1}`],
     ] : [
       ...(r.score !== undefined ? [['SCORE', `${r.score.toLocaleString()}${rank ? `  #${rank}` : ''}`] as [string, string]] : []),
@@ -224,7 +224,7 @@ export class ResultScene extends Phaser.Scene {
     rows.forEach(([k, v], i) => {
       const y = py + 14 + i * pitch;
       this.add.text(px + 18, y, k, { fontFamily: FONT_EN, fontSize: '16px', color: COLOR_HEX.dim, fontStyle: '700' });
-      const jp = k === 'CHARACTER' || k === 'STAGE' || k === 'LOOP' || k === 'YELL';
+      const jp = k === 'CHARACTER' || k === 'STAGE' || k === 'LOOP';
       const main = endless && k === 'TIME';
       this.add.text(px + 18, y + (main ? 15 : 17), v, { fontFamily: jp ? FONT_JP : FONT_EN, fontSize: main ? '30px' : jp ? '22px' : '26px', color: main ? COLOR_HEX.gold : COLOR_HEX.white, fontStyle: '700' });
     });

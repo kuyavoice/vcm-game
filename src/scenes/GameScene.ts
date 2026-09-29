@@ -3553,8 +3553,7 @@ export class GameScene extends Phaser.Scene {
       kills: this.kills,
       timeSec: Math.floor(this.elapsed),
       level: this.xp.level,
-      // エンドレスは、持ち帰れるエールに上限がある
-      yell: this.stage.endless ? Math.min(this.xp.yell, ENDLESS.yellCap) : this.xp.yell,
+      yell: this.xp.yell,
       speed: this.speed,
       stageId: this.stage.id,
       arts: this.up.arts.map((w) => ({ name: w.name, level: w.level, color: w.def.color, evolved: w.evolved, fusion: !!w.def.fusion })),

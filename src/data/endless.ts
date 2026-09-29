@@ -53,8 +53,6 @@ export const ENDLESS = {
   cycleDamageAdd: 0.35,
   /** ボスが居る間の、雑魚の湧きの倍率 */
   bossSpawnMul: 0.6,
-  /** 1回のプレイで持ち帰れるエールの上限（長く遊ぶほど入るので、上限を付ける） */
-  yellCap: 3000,
   /** 端末の中の記録の件数（生存時間の長い順） */
   rankingSize: 10,
 };

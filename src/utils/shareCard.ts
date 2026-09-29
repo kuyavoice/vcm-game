@@ -3,7 +3,7 @@
 import type { RunResult } from '../scenes/ResultScene';
 import { CHARACTERS } from '../data/characters';
 import { stageById } from '../data/stages';
-import { ENDLESS, endlessTitle, endlessLoop } from '../data/endless';
+import { endlessTitle, endlessLoop } from '../data/endless';
 
 export const SHARE_URL = 'https://kuyavoice.github.io/vcm-game/';
 export const SHARE_TAG = '#DSTAGESURVIVORS';
@@ -133,7 +133,7 @@ export async function renderShareCard(r: RunResult): Promise<Blob | null> {
     ['CHARACTER', chara?.name ?? r.characterId, true],
     ['DEFEATED', `${r.kills}`, false],
     ['LEVEL', `${r.level}`, false],
-    ['YELL', `★ ${r.yell}${r.yell >= ENDLESS.yellCap ? '（上限）' : ''}`, true],
+    ['YELL', `★ ${r.yell}`, false],
     ['SPEED', `×${r.speed ?? 1}`, false],
   ] : [
     ...(hasScore ? [['SCORE', (r.score ?? 0).toLocaleString(), false] as [string, string, boolean]] : []),
