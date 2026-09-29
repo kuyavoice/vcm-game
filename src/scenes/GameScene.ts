@@ -4,6 +4,7 @@ import { CHARACTERS, DEFAULT_CHARACTER } from '../data/characters';
 import { ENEMIES } from '../data/enemies';
 import { stageById, type StageDef } from '../data/stages';
 import { SCORE } from '../data/score';
+import { ENDLESS } from '../data/endless';
 import { ITEMS, PICKUPS, type PickupKind } from '../data/items';
 import { Player } from '../entities/Player';
 import { Enemy, type Hazard } from '../entities/Enemy';
@@ -149,6 +150,8 @@ export class GameScene extends Phaser.Scene {
     this.bosses = [];
     this.cavalryWarnings = [];
     this.hazards = [];
+    this.cycleShown = 0;
+    this.cycleDamageMul = 1;
     this.walls = [];
     this.pollens = [];
     this.cage = null;
@@ -528,7 +531,7 @@ export class GameScene extends Phaser.Scene {
       boss: (() => { const b = this.bosses.find((x) => x.active) ?? null; return b ? { name: this.bosses.filter((x) => x.active).length > 1 ? `${b.def.name} ×${this.bosses.filter((x) => x.active).length}` : b.def.name, hp: b.hp, maxHp: b.maxHp } : null; })(),
       score: this.stage.scoreMode ? { score: Math.round(this.score), combo: this.comboMul } : null,
       // スコアアタック：時間切れが近づいたら残り時間を出す
-      remainSec: this.stage.scoreMode && SCORE.timeLimitSec - this.elapsed <= SCORE.countdownFromSec ? Math.max(0, SCORE.timeLimitSec - this.elapsed) : null,
+      remainSec: this.stage.scoreMode && !this.stage.endless && SCORE.timeLimitSec - this.elapsed <= SCORE.countdownFromSec ? Math.max(0, SCORE.timeLimitSec - this.elapsed) : null,
     });
     if (this.debug) {
       while (this.dmgLog.length && this.dmgLog[0].t < now - 5000) this.dmgLog.shift();
@@ -607,13 +610,23 @@ export class GameScene extends Phaser.Scene {
     // 時間・湧き
     this.elapsed += dt;
     if (!this.debugNoSpawn) this.spawner.update(dt, this.elapsed);
-    if (this.stage.ramp) this.enemySpeedMul = this.stage.enemySpeedMul * (1 + this.stage.ramp.speedPerMin * (this.elapsed / 60)) * (this.fullMoon ? CONFIG.fullMoon.enemySpeedMul : 1);
+    if (this.stage.ramp) this.enemySpeedMul = this.stage.enemySpeedMul * Math.min(this.stage.ramp.speedMax ?? Infinity, 1 + this.stage.ramp.speedPerMin * (this.elapsed / 60)) * (this.fullMoon ? CONFIG.fullMoon.enemySpeedMul : 1);
+    // エンドレス：1周するたびに、敵の攻撃力が上がる
+    if (this.stage.endless && this.spawner.cycle !== this.cycleShown) {
+      this.cycleShown = this.spawner.cycle;
+      this.cycleDamageMul = 1 + ENDLESS.cycleDamageAdd * this.cycleShown;
+      if (this.cycleShown > 0) {
+        this.hud.banner(`— ${this.cycleShown + 1}周目 —`, '#7CFFB2', 40);
+        this.cameras.main.flash(300, 124, 255, 178);
+      }
+    }
     if (this.stage.scoreMode) {
       this.noDamageSec += dt;
       if (now > this.comboUntil && this.combo > 0) { this.combo = 0; this.comboMul = 1; }
-      if (this.elapsed >= SCORE.timeLimitSec && !this.timeUp) { this.timeUp = true; }
+      // エンドレスには、時間切れが無い
+      if (!this.stage.endless && this.elapsed >= SCORE.timeLimitSec && !this.timeUp) { this.timeUp = true; }
       // 残り1分の知らせ（1回だけ）
-      if (!this.lastMinuteShown && SCORE.timeLimitSec - this.elapsed <= 60) {
+      if (!this.stage.endless && !this.lastMinuteShown && SCORE.timeLimitSec - this.elapsed <= 60) {
         this.lastMinuteShown = true;
         this.hud.banner('残り 1:00', '#FF4D6D', 36);
       }
@@ -1563,6 +1576,9 @@ export class GameScene extends Phaser.Scene {
   private pollenTick = 0;
   /** 動かないボスの方向の矢印を出している */
   private fixedArrow = false;
+  /** エンドレス：字幕を出し終えた周（0から）と、その周の敵の攻撃力の倍率 */
+  private cycleShown = 0;
+  private cycleDamageMul = 1;
   /** 連続砲撃：砲弾の絵を出し終えた着弾点 */
   private shellsShown = new WeakSet<object>();
 
@@ -1823,7 +1839,7 @@ export class GameScene extends Phaser.Scene {
     // 盾が張られている間と無敵の設定中は、削られない。被弾の無敵時間は関係なく削る
     const shielded = now < p.shieldUntil || p.hitShield > 0;
     if (!this.debugInvincible && !shielded) {
-      let mul = (this.stage.enemyDamageMul ?? 1) * this.up.stats.damageTakenMul;
+      let mul = (this.stage.enemyDamageMul ?? 1) * this.cycleDamageMul * this.up.stats.damageTakenMul;
       if (now < this.soulUntil && p.def.special.id === 'aqua_lament') mul *= 0.3;
       p.hp = Math.max(0, p.hp - Q.pollenDps * mul * dt);
     }
@@ -3064,7 +3080,8 @@ export class GameScene extends Phaser.Scene {
       if (this.bosses.every((b) => !b.active)) this.spawner.bossActive = false;
       // 最後のボスが決まっているステージ（スコアアタック・悪夢）は、それ以外のボスを倒しても続く
       const finalBoss = this.stage.finalBoss ?? (this.stage.scoreMode ? 'blackknight' : undefined);
-      if (finalBoss && def.id !== finalBoss) {
+      // エンドレスは、どのボスを倒しても続く
+      if (this.stage.endless || (finalBoss && def.id !== finalBoss)) {
         // 一瞬止めてから弾ける
         this.hitStopMs = 140;
         this.bossBurst(e.x, e.y - 60, def.eyeColor, 3);
@@ -3167,7 +3184,7 @@ export class GameScene extends Phaser.Scene {
     // 盾が割れるか（重い攻撃か）は、倍率を掛ける前の値で見る（悪夢の1.5倍で騎兵まで「重い攻撃」になっていた）
     const raw = amount;
     // ステージごとの敵の攻撃力（悪夢は1.5倍）
-    amount *= this.stage.enemyDamageMul ?? 1;
+    amount *= (this.stage.enemyDamageMul ?? 1) * this.cycleDamageMul;
     if (contact) amount *= def.traits.contactDamageMul ?? 1;
     let mul = this.up.stats.damageTakenMul;
     if (now < this.soulUntil && def.special.id === 'aqua_lament') mul *= 0.3;
@@ -3519,7 +3536,8 @@ export class GameScene extends Phaser.Scene {
       kills: this.kills,
       timeSec: Math.floor(this.elapsed),
       level: this.xp.level,
-      yell: this.xp.yell,
+      // エンドレスは、持ち帰れるエールに上限がある
+      yell: this.stage.endless ? Math.min(this.xp.yell, ENDLESS.yellCap) : this.xp.yell,
       speed: this.speed,
       stageId: this.stage.id,
       arts: this.up.arts.map((w) => ({ name: w.name, level: w.level, color: w.def.color, evolved: w.evolved, fusion: !!w.def.fusion })),

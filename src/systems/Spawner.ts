@@ -4,6 +4,7 @@ import { ENEMIES, type EnemyId } from '../data/enemies';
 import { ITEMS } from '../data/items';
 import { bandAt, type WaveBand } from '../data/waves';
 import { STAGES, type StageDef } from '../data/stages';
+import { ENDLESS } from '../data/endless';
 import { Enemy } from '../entities/Enemy';
 
 /** waves.ts に従って画面外から敵を湧かせる。壊れたスピーカーの配置とボス出現も担当 */
@@ -16,6 +17,9 @@ export class Spawner {
   private bossBands = new Set<WaveBand>();
   /** ボスが生きている間は true（スピーカーを置かない） */
   bossActive = false;
+  /** エンドレス：いま何周目か（0から）と、出し終えたボスの数 */
+  cycle = 0;
+  private endlessBosses = 0;
   /** index／total：同じ時間帯に出すボスの何体目か（字幕・効果音は1体目だけ） */
   onBossSpawn?: (boss: Enemy, hpMul: number, index: number, total: number, enraged: boolean) => void;
   onBandChange?: (band: WaveBand) => void;
@@ -41,11 +45,21 @@ export class Spawner {
     const b = this.lastBand;
     if (!b) return '';
     const boss = this.bossOf(b);
+    if (this.stage.endless) return `${this.cycle + 1}周目　${b.label}`;
     return boss && !this.stage.waves ? ENEMIES[boss].name : b.label;
   }
 
   update(dt: number, t: number): void {
-    const band = bandAt(t, this.stage.waves);
+    // エンドレス：2周目からは、20分の時間帯を繰り返す
+    const endless = !!this.stage.endless;
+    let list = this.stage.waves;
+    let tl = t;
+    if (endless) {
+      this.cycle = Math.floor(t / ENDLESS.loopSec);
+      tl = t - this.cycle * ENDLESS.loopSec;
+      if (this.cycle > 0) list = ENDLESS.loopWaves;
+    }
+    const band = bandAt(tl, list);
     const ramp = this.stage.ramp;
     const min = t / 60;
     const rampHp = ramp ? 1 + ramp.hpPerMin * min : 1;
@@ -56,9 +70,10 @@ export class Spawner {
       this.onBandChange?.(band);
     }
 
-    const p = Phaser.Math.Clamp((t - band.from) / Math.max(1, band.to - band.from), 0, 1);
+    const p = Phaser.Math.Clamp((tl - band.from) / Math.max(1, band.to - band.from), 0, 1);
     let rate = Phaser.Math.Linear(band.spawnPerSecStart, band.spawnPerSecEnd, p) * this.stage.spawnMul * rampSpawn;
     if (band.fullMoon) rate *= CONFIG.fullMoon.spawnMul;
+    if (endless && this.bossActive) rate *= ENDLESS.bossSpawnMul;
     const hpMul = band.hpMul * this.stage.enemyHpMul * rampHp;
     this.acc += rate * dt;
     while (this.acc >= 1) {
@@ -73,6 +88,19 @@ export class Spawner {
       if (this.ambushTimer >= band.ambush.everySec) {
         this.ambushTimer = 0;
         this.ambush(band.ambush.type, Math.round(band.ambush.count * this.stage.spawnMul), hpMul);
+      }
+    }
+
+    // エンドレスのボス：5分ごとに1体。順番に出て、1周するたびに硬くなる。2周目からは最初から後半の行動
+    if (endless) {
+      const k = Math.floor(t / ENDLESS.bossEverySec);
+      if (k > this.endlessBosses) {
+        this.endlessBosses = k;
+        const def = ENDLESS.bosses[(k - 1) % ENDLESS.bosses.length];
+        const round = Math.floor((k - 1) / ENDLESS.bosses.length);
+        const pos = ENEMIES[def.id].fixed ? this.nearPoint(CONFIG.queen.spawnDistance) : this.ringPoint();
+        const boss = this.spawnBoss(def.id, pos.x, pos.y);
+        if (boss) { this.bossActive = true; this.onBossSpawn?.(boss, def.hpMul * (1 + ENDLESS.cycleBossHpAdd * round), 0, 1, round >= 1); }
       }
     }
 

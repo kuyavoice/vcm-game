@@ -1,6 +1,7 @@
 import type { EnemyId } from './enemies';
 import type { WaveBand } from './waves';
 import { NIGHTMARE_STAGE } from './nightmare';
+import { ENDLESS_STAGE } from './endless';
 
 // ステージ定義。前のステージをクリアすると次が解放される。数値は初期値。
 
@@ -35,9 +36,12 @@ export interface StageDef {
   /** 独自の時間帯（既定は WAVES） */
   waves?: WaveBand[];
   /** 時間経過で上昇する倍率（1分ごとの加算率） */
-  ramp?: { hpPerMin: number; spawnPerMin: number; speedPerMin: number };
+  /** speedMax：速さの倍率の上限（ステージの速さに掛ける分。未指定なら上限なし） */
+  ramp?: { hpPerMin: number; spawnPerMin: number; speedPerMin: number; speedMax?: number };
   /** スコアアタック */
   scoreMode?: boolean;
+  /** エンドレス：時間切れもクリアも無い。時間帯とボスの出し方は data/endless.ts */
+  endless?: boolean;
   /** 敵の攻撃力の倍率（接触・弾・ボスの攻撃すべて。既定1） */
   enemyDamageMul?: number;
   /** 永続強化（ショップの PERMANENT）を無効にする */
@@ -76,6 +80,7 @@ export const STAGES: StageDef[] = [
 export function stageById(id: number): StageDef {
   if (id === 99) return SCORE_STAGE_REF.value;
   if (id === NIGHTMARE_STAGE.id) return NIGHTMARE_STAGE;
+  if (id === ENDLESS_STAGE.id) return ENDLESS_STAGE;
   return STAGES.find((s) => s.id === id) ?? STAGES[0];
 }
 

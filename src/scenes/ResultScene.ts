@@ -11,6 +11,7 @@ import { OPTIONAL_IMAGES, hasOptionalImage } from '../utils/optionalAssets';
 import { unlockSecret } from '../utils/unlock';
 import { NIGHTMARE_STAGE, NIGHTMARE_AVAILABLE } from '../data/nightmare';
 import { GALLERY, galleryKey } from '../data/gallery';
+import { ENDLESS, ENDLESS_STAGE, endlessTitle, endlessLoop } from '../data/endless';
 
 export interface RunResult {
   characterId: string;
@@ -49,7 +50,9 @@ export class ResultScene extends Phaser.Scene {
   init(r: RunResult): void {
     const ck = galleryKey('sp_congratulation');
     this.congratsKey = r.cleared && r.stageId === NIGHTMARE_STAGE.id && hasOptionalImage(ck) ? ck : '';
-    const key = r.cleared ? `victory_${r.characterId}` : `gameover_${r.characterId}`;
+    // エンドレスは、倒れて終わっても勝利立ち絵（記録をたたえる画面にする）
+    const win = r.cleared || r.stageId === ENDLESS_STAGE.id;
+    const key = win ? `victory_${r.characterId}` : `gameover_${r.characterId}`;
     this.victoryKey = hasOptionalImage(key) ? key : '';
   }
 
@@ -91,7 +94,8 @@ export class ResultScene extends Phaser.Scene {
     const H = cam.height;
     cam.fadeIn(300, 6, 9, 19);
     // クリア時は操作キャラ別の曲、それ以外はゲームオーバーの曲（未配置なら result → title）
-    if (r.cleared) AudioBus.playBgm(`bgm_clear_${r.characterId}`, 'bgm_result', 'bgm_title');
+    const endless = r.stageId === ENDLESS_STAGE.id;
+    if (r.cleared || endless) AudioBus.playBgm(`bgm_clear_${r.characterId}`, 'bgm_result', 'bgm_title');
     else AudioBus.playBgm('bgm_gameover', 'bgm_result', 'bgm_title');
 
     const stage = stageById(r.stageId ?? 1);
@@ -101,12 +105,20 @@ export class ResultScene extends Phaser.Scene {
     const save = loadSave();
     const score = (x: { kills: number; timeSec: number }) => x.timeSec * 10 + x.kills;
     const prev = save.bests[key];
-    const isBest = !r.debug && (!prev || score(r) > score(prev));
+    let isBest = !r.debug && (!prev || score(r) > score(prev));
     if (isBest) save.bests[key] = { kills: r.kills, timeSec: r.timeSec, level: r.level, yell: r.yell, cleared: r.cleared || !!prev?.cleared };
     else if (!r.debug && r.cleared && prev && !prev.cleared) save.bests[key] = { ...prev, cleared: true };
     // スコアアタックのランキング（端末内ベスト10）
     let rank = 0;
-    if (stage.scoreMode && r.score !== undefined && !r.debug) {
+    if (endless && !r.debug) {
+      // エンドレスの記録（端末内）：生存時間の長い順
+      const entry = { timeSec: r.timeSec, score: r.score ?? 0, kills: r.kills, level: r.level, character: r.characterId, date: new Date().toISOString().slice(0, 10) };
+      save.endlessRanking.push(entry);
+      save.endlessRanking.sort((a, b) => b.timeSec - a.timeSec || b.score - a.score);
+      save.endlessRanking = save.endlessRanking.slice(0, ENDLESS.rankingSize);
+      rank = save.endlessRanking.indexOf(entry) + 1;
+      isBest = rank === 1;
+    } else if (stage.scoreMode && r.score !== undefined && !r.debug) {
       const entry = { score: r.score, kills: r.kills, timeSec: r.timeSec, character: r.characterId, date: new Date().toISOString().slice(0, 10), cleared: r.cleared };
       save.scoreRanking.push(entry);
       save.scoreRanking.sort((a, b) => b.score - a.score);
@@ -150,15 +162,23 @@ export class ResultScene extends Phaser.Scene {
     }
 
     // 見出し（「死」を使わない）
-    const title = r.cleared ? 'SIGNAL CLEAR' : r.timeUp ? 'TIME UP' : 'SIGNAL LOST';
-    const sub = r.cleared ? '声は、届いた。' : r.timeUp ? '長い夜が、明けた。' : '声が、途切れた……';
+    // エンドレス：見出しは記録。称号（生存時間で決まる）を大きく出す
+    const rankTitle = endless ? endlessTitle(r.timeSec) : null;
+    const title = endless ? 'ENDLESS' : r.cleared ? 'SIGNAL CLEAR' : r.timeUp ? 'TIME UP' : 'SIGNAL LOST';
+    const sub = rankTitle ? `称号　「${rankTitle.name}」` : r.cleared ? '声は、届いた。' : r.timeUp ? '長い夜が、明けた。' : '声が、途切れた……';
     this.add.text(W / 2, H * 0.10, title, {
-      fontFamily: FONT_EN, fontSize: '76px', color: r.cleared ? COLOR_HEX.accent : COLOR_HEX.danger, fontStyle: '700', letterSpacing: 4,
+      fontFamily: FONT_EN, fontSize: '76px', color: endless ? COLOR_HEX.gold : r.cleared ? COLOR_HEX.accent : COLOR_HEX.danger, fontStyle: '700', letterSpacing: endless ? 10 : 4,
       stroke: '#060913', strokeThickness: 8,
     }).setOrigin(0.5);
     this.add.text(W / 2, H * 0.10 + 62, sub, {
-      fontFamily: FONT_JP, fontSize: '26px', color: COLOR_HEX.white, stroke: '#060913', strokeThickness: 6,
+      fontFamily: FONT_JP, fontSize: endless ? '32px' : '26px', color: endless ? COLOR_HEX.gold : COLOR_HEX.white, fontStyle: endless ? '700' : 'normal', stroke: '#060913', strokeThickness: 6,
     }).setOrigin(0.5);
+    if (rankTitle?.next && !r.debug) {
+      const left = rankTitle.next.inSec;
+      this.add.text(W / 2, H * 0.10 + 106, `次の称号「${rankTitle.next.name}」まで　あと ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, {
+        fontFamily: FONT_JP, fontSize: '19px', color: COLOR_HEX.white, stroke: '#060913', strokeThickness: 5,
+      }).setOrigin(0.5);
+    }
     if (r.debug) {
       this.add.text(W / 2, H * 0.10 + 104, 'DEBUG：このプレイの記録・エールは保存されません', {
         fontFamily: FONT_JP, fontSize: '20px', color: '#00FF88', stroke: '#060913', strokeThickness: 6,
@@ -181,7 +201,17 @@ export class ResultScene extends Phaser.Scene {
     const panel = this.add.rectangle(px, py, W * 0.40, panelH, 0x0b1026, 0.88).setOrigin(0, 0).setStrokeStyle(2, 0x87ceeb, 0.6);
     const mm = Math.floor(r.timeSec / 60).toString().padStart(2, '0');
     const ss = Math.floor(r.timeSec % 60).toString().padStart(2, '0');
-    const rows: [string, string][] = [
+    // エンドレスは、生存時間を一番上に大きく。順位は生存時間で決まる
+    const rows: [string, string][] = endless ? [
+      ['TIME', `${mm}:${ss}${rank ? `  #${rank}` : ''}`],
+      ['LOOP', `${endlessLoop(r.timeSec)}周目`],
+      ['SCORE', `${(r.score ?? 0).toLocaleString()}`],
+      ['CHARACTER', chara?.name ?? r.characterId],
+      ['DEFEATED', `${r.kills}`],
+      ['LEVEL', `${r.level}`],
+      ['YELL', `★ ${r.yell}${r.yell >= ENDLESS.yellCap ? '（上限）' : ''}`],
+      ['SPEED', `×${r.speed ?? 1}`],
+    ] : [
       ...(r.score !== undefined ? [['SCORE', `${r.score.toLocaleString()}${rank ? `  #${rank}` : ''}`] as [string, string]] : []),
       ['STAGE', stage.scoreMode ? stage.nameEn : `${stage.nameEn}  ${stage.name}`],
       ['CHARACTER', chara?.name ?? r.characterId],
@@ -194,8 +224,9 @@ export class ResultScene extends Phaser.Scene {
     rows.forEach(([k, v], i) => {
       const y = py + 14 + i * pitch;
       this.add.text(px + 18, y, k, { fontFamily: FONT_EN, fontSize: '16px', color: COLOR_HEX.dim, fontStyle: '700' });
-      const jp = k === 'CHARACTER' || k === 'STAGE';
-      this.add.text(px + 18, y + 17, v, { fontFamily: jp ? FONT_JP : FONT_EN, fontSize: jp ? '22px' : '26px', color: COLOR_HEX.white, fontStyle: '700' });
+      const jp = k === 'CHARACTER' || k === 'STAGE' || k === 'LOOP' || k === 'YELL';
+      const main = endless && k === 'TIME';
+      this.add.text(px + 18, y + (main ? 15 : 17), v, { fontFamily: jp ? FONT_JP : FONT_EN, fontSize: main ? '30px' : jp ? '22px' : '26px', color: main ? COLOR_HEX.gold : COLOR_HEX.white, fontStyle: '700' });
     });
 
     // ビルド：初期武器・共鳴アーツ（左の列）と、サポート（右の列）
@@ -237,7 +268,7 @@ export class ResultScene extends Phaser.Scene {
       note.setText('生成中…');
       const blob = await renderShareCard(r);
       if (!blob) { note.setText('生成に失敗しました'); busy = false; return; }
-      const res = await shareOrDownload(blob, `dstage_${stage.id}_${r.cleared ? 'clear' : 'lost'}.png`, buildPostText(r));
+      const res = await shareOrDownload(blob, `dstage_${stage.id}_${endless ? 'record' : r.cleared ? 'clear' : 'lost'}.png`, buildPostText(r));
       note.setText(res === 'shared' ? '共有しました' : res === 'downloaded' ? '画像を保存しました' : '保存できませんでした');
       busy = false;
     }, { width: 280, height: 60, fontSize: 22 });

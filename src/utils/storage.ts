@@ -30,6 +30,8 @@ export interface SaveData {
   colorSelected: Record<string, string>;
   /** スコアアタックの端末内ランキング */
   scoreRanking: { score: number; kills: number; timeSec: number; character: string; date: string; cleared: boolean }[];
+  /** エンドレスの端末内の記録（生存時間の長い順） */
+  endlessRanking: { timeSec: number; score: number; kills: number; level: number; character: string; date: string }[];
   /** 隠しキャラの出現状態（キャラID → pending＝出現演出がまだ／shown＝演出済みで NEW の印だけ）。一度選ぶと消える */
   secretNew: Record<string, 'pending' | 'shown'>;
   /** ギャラリーで解放した絵のID */
@@ -53,6 +55,7 @@ const DEFAULT: SaveData = {
   colors: {},
   colorSelected: {},
   scoreRanking: [],
+  endlessRanking: [],
   secretNew: {},
   gallery: [],
   music: [],
@@ -77,6 +80,7 @@ export function loadSave(): SaveData {
       colors: { ...(parsed.colors ?? {}) },
       colorSelected: { ...(parsed.colorSelected ?? {}) },
       scoreRanking: [...(parsed.scoreRanking ?? [])],
+      endlessRanking: [...(parsed.endlessRanking ?? [])],
       secretNew: { ...(parsed.secretNew ?? {}) },
       gallery: [...(parsed.gallery ?? [])],
       music: [...(parsed.music ?? [])],
