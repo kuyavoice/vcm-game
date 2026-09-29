@@ -124,12 +124,20 @@ export const CONFIG = {
     comboChance: 0.35,
     /** 二連斬が三連になる（右 → 左 → 右） */
     cleaveSwings: 3,
-    /** HPがこの割合を切ると激昂：専用の技（新月／漆黒の牙／漆黒の檻／闇の炎）を使い始める */
+    /** HPがこの割合を切ると激昂：専用の技（新月／半月／漆黒の牙／漆黒の檻／闇の炎）を使い始める */
     enrageAt: 0.5,
     enrageInvulnSec: 1.2,
     /** 専用の技を使う間隔（秒）と、選ぶ重み（直前と同じ技は選ばない） */
-    exEverySec: 9,
-    exWeights: { shingetsu: 3, kiba: 3, ori: 2, honoo: 2 } as Readonly<Record<string, number>>,
+    exEverySec: 6, // 9 → 6（2026-09-30。配信での試遊で、4分の戦闘に技が7回ほどしか出ていなかった）
+    exWeights: { shingetsu: 3, hangetsu: 3, kiba: 3, ori: 2, honoo: 2 } as Readonly<Record<string, number>>,
+    /**
+     * 『半月』（新月の亜種。2026-09-30 ユーザー指定）：技を始めた瞬間のプレイヤーの位置に、縦の軸を引く。
+     * 軸から左の全面 → 続けて右の全面、の順に範囲攻撃。軸をまたいで避ける。halfMoonMargin＝軸からこれ以上離れていれば当たらない
+     */
+    halfMoonWindupSec: 1.4,
+    halfMoonSecondWindupSec: 1.3, // 一段目のあいだ走り続けて軸から離れても、足の遅い雪人（135）で戻れる長さ
+    halfMoonDamage: 25,
+    halfMoonMargin: 10,
     /** 『新月』：赤騎士の周りの円の中だけ安全な広範囲 → 直後に足元の円。足の遅いキャラでも間に合う長さ */
     moonSafeRadius: 360,
     moonOuterRadius: 1100,

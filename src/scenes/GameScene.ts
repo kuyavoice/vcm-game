@@ -317,9 +317,9 @@ export class GameScene extends Phaser.Scene {
         label: '赤騎士の技',
         run: (set) => {
           used();
-          // 押すたびに 新月 → 漆黒の牙 → 漆黒の檻 → 闇の炎 の順で、次の技として予約する
-          const order = ['shingetsu', 'kiba', 'ori', 'honoo'];
-          const names = ['新月', '漆黒の牙', '漆黒の檻', '闇の炎'];
+          // 押すたびに 新月 → 半月 → 漆黒の牙 → 漆黒の檻 → 闇の炎 の順で、次の技として予約する
+          const order = ['shingetsu', 'hangetsu', 'kiba', 'ori', 'honoo'];
+          const names = ['新月', '半月', '漆黒の牙', '漆黒の檻', '闇の炎'];
           const i = this.debugExIndex % order.length;
           this.debugExIndex++;
           for (const b of this.bosses) {
@@ -965,7 +965,7 @@ export class GameScene extends Phaser.Scene {
     }
     b.lastEx = pick;
     b.exStage = 0;
-    const names: Record<string, string> = { shingetsu: '新月', kiba: '漆黒の牙', ori: '漆黒の檻', honoo: '闇の炎' };
+    const names: Record<string, string> = { shingetsu: '新月', hangetsu: '半月', kiba: '漆黒の牙', ori: '漆黒の檻', honoo: '闇の炎' };
     this.hud.banner(`『${names[pick]}』`, '#FF4D6D', 34);
     e.play(`anim_e_${e.def.id}_windup`, true);
     b.ex = pick;
@@ -974,6 +974,11 @@ export class GameScene extends Phaser.Scene {
       b.exT = R.flameWindupSec;
       b.exAngle = Math.atan2(p.y - 12 - (e.y - 40), p.x - e.x);
       b.animLock = now + R.flameWindupSec * 1000;
+    } else if (pick === 'hangetsu') {
+      // 軸は、技を始めた瞬間のプレイヤーの位置で固定する
+      b.exT = R.halfMoonWindupSec;
+      b.exX = p.x;
+      b.animLock = now + R.halfMoonWindupSec * 1000;
     } else if (pick === 'shingetsu') {
       b.exT = R.moonWindupSec;
       b.animLock = now + R.moonWindupSec * 1000;
@@ -987,7 +992,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** 赤騎士の専用技の進行。『新月』：外側 → 内側／『漆黒の牙』：飛び込み／『闇の炎』：3方向の直線／『漆黒の檻』：騎兵の格子 */
+  /** 赤騎士の専用技の進行。『新月』：外側 → 内側／『半月』：左の全面 → 右の全面／『漆黒の牙』：飛び込み／『闇の炎』：3方向の直線／『漆黒の檻』：騎兵の格子 */
   private updateKnightEx(e: Enemy, dt: number, now: number): { mx: number; my: number; spd: number } {
     const b = e.bk;
     const R = CONFIG.redKnight;
@@ -1040,6 +1045,50 @@ export class GameScene extends Phaser.Scene {
         this.cameras.main.shake(160, 0.006);
         AudioBus.play('se_slash_heavy2', 0, 'se_slash');
         e.play(`anim_e_${e.def.id}_slash`, true);
+        b.animLock = now + 400;
+        finish();
+      }
+      return still;
+    }
+
+    if (b.ex === 'hangetsu') {
+      // 軸（縦の線）から左の全面 → 右の全面。画面の外まで届く
+      const left = b.exStage === 0;
+      const total = left ? R.halfMoonWindupSec : R.halfMoonSecondWindupSec;
+      const k = 1 - Math.max(0, b.exT) / total;
+      const v = this.cameras.main.worldView;
+      const x0 = left ? v.left - 300 : b.exX;
+      const w = left ? b.exX - (v.left - 300) : v.right + 300 - b.exX;
+      const draw = (gfx: Phaser.GameObjects.Graphics, alpha: number) => {
+        gfx.fillStyle(0xff2244, alpha);
+        gfx.fillRect(x0, v.top - 300, w, v.height + 600);
+      };
+      if (b.exT > 0) {
+        draw(g, 0.1 + k * 0.24);
+        // 反対側は「次に来る」ことが分かるように、うっすら見せる（一段目のあいだだけ）
+        if (left) {
+          g.fillStyle(0xff2244, 0.05);
+          g.fillRect(b.exX, v.top - 300, v.right + 300 - b.exX, v.height + 600);
+        }
+        g.lineStyle(4, 0xffffff, 0.85);
+        g.lineBetween(b.exX, v.top - 300, b.exX, v.bottom + 300);
+        return still;
+      }
+      const side = p.x - b.exX;
+      if (left ? side < R.halfMoonMargin : side > -R.halfMoonMargin) this.hurt(R.halfMoonDamage, now);
+      const flash = this.add.graphics().setDepth(26);
+      draw(flash, 0.45);
+      flash.lineStyle(5, 0xffffff, 0.9);
+      flash.lineBetween(b.exX, v.top - 300, b.exX, v.bottom + 300);
+      this.fadeOut(flash, 260);
+      this.cameras.main.shake(160, 0.006);
+      AudioBus.play(left ? 'se_slash_heavy2' : 'se_slash_heavy', 0, 'se_slash');
+      e.play(`anim_e_${e.def.id}_slash`, true);
+      if (left) {
+        b.exStage = 1;
+        b.exT = R.halfMoonSecondWindupSec;
+        b.animLock = now + R.halfMoonSecondWindupSec * 1000;
+      } else {
         b.animLock = now + 400;
         finish();
       }
