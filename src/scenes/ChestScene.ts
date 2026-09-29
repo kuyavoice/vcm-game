@@ -43,7 +43,30 @@ export class ChestScene extends Phaser.Scene {
     // ルナ（チビ）：画像があれば表示、無ければ小さなプレースホルダー
     const lunaX = W / 2 + 190;
     const lunaY = H * 0.36 + 40;
-    if (this.textures.exists('luna_chibi')) {
+    // 4コマの絵があれば、瞬きをする。大当たりのときは、きらきらの2コマを交互に出す
+    let lunaSprite: Phaser.GameObjects.Image | null = null;
+    let lunaJackpot = false;
+    if (this.textures.exists('luna_chest')) {
+      const tex = this.textures.get('luna_chest');
+      if (!tex.has('f0')) {
+        const src = tex.getSourceImage() as HTMLImageElement;
+        const fw = Math.floor(src.width / 4);
+        for (let i = 0; i < 4; i++) tex.add(`f${i}`, 0, i * fw, 0, fw, src.height);
+        // 大きな絵を縮めて出すので、なめらかに
+        tex.setFilter(Phaser.Textures.FilterMode.LINEAR);
+      }
+      const luna = this.add.image(lunaX, lunaY, 'luna_chest', 'f0').setOrigin(0.5, 1);
+      luna.setScale(230 / luna.height);
+      lunaSprite = luna;
+      this.tweens.add({ targets: luna, y: lunaY - 6, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      const blink = () => {
+        if (lunaJackpot) return;
+        luna.setFrame('f1');
+        this.time.delayedCall(130, () => { if (!lunaJackpot) luna.setFrame('f0'); });
+        this.time.delayedCall(Phaser.Math.Between(2200, 4200), blink);
+      };
+      this.time.delayedCall(1400, blink);
+    } else if (this.textures.exists('luna_chibi')) {
       const luna = this.add.image(lunaX, lunaY, 'luna_chibi').setOrigin(0.5, 1);
       const sc = 220 / luna.height;
       luna.setScale(sc);
@@ -85,6 +108,14 @@ export class ChestScene extends Phaser.Scene {
         headerEn.setText('JACKPOT');
         this.cameras.main.shake(200, 0.006);
         AudioBus.play('se_evolve');
+        // ルナ：大当たりの2コマを交互に
+        if (lunaSprite) {
+          const luna = lunaSprite;
+          lunaJackpot = true;
+          let f = 0;
+          luna.setFrame('f2');
+          this.time.addEvent({ delay: 260, loop: true, callback: () => { f = 1 - f; luna.setFrame(f === 0 ? 'f2' : 'f3'); } });
+        }
       } else if (group === 'fusion') {
         AudioBus.play('se_fusion', 0, 'se_evolve');
       } else if (group !== 'normal') {

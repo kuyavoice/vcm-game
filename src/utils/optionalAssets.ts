@@ -7,6 +7,8 @@ import { CODEX_ENEMIES, bestiaryKey, bestiaryFile } from '../data/codex';
 
 export const OPTIONAL_IMAGES: Record<string, string> = {
   luna_chibi: 'assets/images/luna_chibi.png',
+  // 宝箱の画面のルナ（4コマ横並び：0 通常／1 瞬き／2・3 大当たり）。無ければ luna_chibi
+  luna_chest: 'assets/images/luna_chest.webp',
   // キャラ選択画面のドット立ち絵（高さ約130px・整数倍で表示）
   portrait_kuya: 'assets/images/portrait/kuya_portrait.png',
   portrait_mizuho: 'assets/images/portrait/mizuho_portrait.png',
