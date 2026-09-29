@@ -36,6 +36,8 @@ export interface SaveData {
   gallery: string[];
   /** ミュージックで解放した曲のID */
   music: string[];
+  /** 図鑑：遭遇した敵のID。null は、まだ一度も作っていない（これまでの記録から作る。utils/bestiary.ts） */
+  bestiary: string[] | null;
 }
 
 const DEFAULT: SaveData = {
@@ -54,6 +56,7 @@ const DEFAULT: SaveData = {
   secretNew: {},
   gallery: [],
   music: [],
+  bestiary: null,
 };
 
 export function loadSave(): SaveData {
@@ -77,6 +80,7 @@ export function loadSave(): SaveData {
       secretNew: { ...(parsed.secretNew ?? {}) },
       gallery: [...(parsed.gallery ?? [])],
       music: [...(parsed.music ?? [])],
+      bestiary: parsed.bestiary ? [...parsed.bestiary] : null,
     };
     // 旧形式の移行：best → bests[1]
     if (data.best && !data.bests['1']) {

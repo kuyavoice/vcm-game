@@ -26,6 +26,7 @@ import { makeButton } from '../ui/Button';
 import { getSafeInsets } from '../utils/safeArea';
 import { FONT_JP } from '../utils/fonts';
 import { loadSave, writeSave } from '../utils/storage';
+import { ensureBestiary, recordEnemySeen } from '../utils/bestiary';
 import { ensureColorVariant } from '../utils/recolor';
 import type { RunResult } from './ResultScene';
 import type { LevelUpData } from './LevelUpScene';
@@ -110,6 +111,8 @@ export class GameScene extends Phaser.Scene {
   private debug = typeof location !== 'undefined' && /debug/.test(location.search);
   /** デバッグ操作を使ったプレイは記録・エールを保存しない */
   private debugUsed = false;
+  /** 図鑑に登録済みの敵（このプレイで画面に入った敵を含む） */
+  private seenEnemies = new Set<string>();
   private debugInvincible = false;
   private debugNoSpawn = false;
   private debugExIndex = 0;
@@ -131,6 +134,7 @@ export class GameScene extends Phaser.Scene {
     this.soulUntil = 0;
     // デバッグ操作の状態は1プレイごとに戻す（シーンは使い回されるため）
     this.debugUsed = false;
+    this.seenEnemies = new Set(ensureBestiary(loadSave()));
     this.debugInvincible = false;
     this.debugNoSpawn = false;
     this.specialHost = { state: {} };
@@ -627,6 +631,15 @@ export class GameScene extends Phaser.Scene {
       const e = enemies[i];
       if (!e.active) continue;
       const def = e.def;
+
+      // 図鑑：初めて画面に入った敵を登録する（デバッグ操作をしたプレイは登録しない）
+      if (!this.seenEnemies.has(def.id) && !def.isObject) {
+        const v = this.cameras.main.worldView;
+        if (e.x > v.left && e.x < v.right && e.y > v.top && e.y < v.bottom) {
+          this.seenEnemies.add(def.id);
+          if (!this.debugUsed) recordEnemySeen(def.id);
+        }
+      }
 
       // 被弾フラッシュ解除
       if (e.flashUntil && now > e.flashUntil) {

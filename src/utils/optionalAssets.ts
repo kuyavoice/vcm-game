@@ -3,6 +3,7 @@
  * 開発サーバは未配置パスに index.html を返すため、Content-Type で判定する。
  */
 import { GALLERY, galleryKey } from '../data/gallery';
+import { CODEX_ENEMIES, bestiaryKey, bestiaryFile } from '../data/codex';
 
 export const OPTIONAL_IMAGES: Record<string, string> = {
   luna_chibi: 'assets/images/luna_chibi.png',
@@ -29,8 +30,11 @@ export const OPTIONAL_IMAGES: Record<string, string> = {
 // ギャラリーの絵（存在確認だけ。読み込みはギャラリー画面で、解放済みのものだけ）
 for (const g of GALLERY) OPTIONAL_IMAGES[galleryKey(g.id)] = g.file;
 
+// 図鑑の敵の設定画（透過）。図鑑で、開いた項目の1枚だけ読む
+for (const e of CODEX_ENEMIES) if (e.art) OPTIONAL_IMAGES[bestiaryKey(e.id)] = bestiaryFile(e.id);
+
 /** 起動時に読まず、使う場面で読む画像（キーの接頭辞） */
-export const LAZY_IMAGE_PREFIXES = ['victory_', 'gameover_', 'gal_'];
+export const LAZY_IMAGE_PREFIXES = ['victory_', 'gameover_', 'gal_', 'best_'];
 export const isLazyImage = (key: string) => LAZY_IMAGE_PREFIXES.some((p) => key.startsWith(p));
 
 const available = new Set<string>();

@@ -7,36 +7,297 @@ import { PASSIVES } from '../data/passives';
 import { FUSIONS } from '../data/fusions';
 import { PORTRAITS, portraitKey } from '../data/portraits';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
-import { loadSave } from '../utils/storage';
+import { loadSave, type SaveData } from '../utils/storage';
 import { CHARACTERS } from '../data/characters';
+import { ENEMIES } from '../data/enemies';
+import { CODEX_CHARACTERS, CODEX_ENEMIES, BESTIARY_INTRO, bestiaryKey, type CodexEnemy } from '../data/codex';
 import { isCharacterOwned } from '../utils/unlock';
+import { ensureBestiary } from '../utils/bestiary';
+import { OPTIONAL_IMAGES, hasOptionalImage } from '../utils/optionalAssets';
+import { wrapJa } from '../utils/wrapJa';
 import { makeButton } from '../ui/Button';
 
+type Tab = 'arts' | 'chara' | 'enemy';
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'arts', label: '共鳴アーツ' },
+  { id: 'chara', label: 'キャラクター' },
+  { id: 'enemy', label: 'ネミノクス' },
+];
+
+/** 未登録の絵を塗りつぶす色（シルエット） */
+const SILHOUETTE = 0x24305c;
+
+interface Area { x: number; y: number; w: number; h: number }
+interface TabResult { found: number; total: number; pages: number }
+
 /**
- * 共鳴アーツ図鑑（v2 §10.5）。一度手に入れたアーツ・進化・合体・サポートが登録される（サポートは追補パッチ⑥で追加）。
- * 未発見は「???」。ヒントは半分だけ示す。
+ * 図鑑。3つのタブに分かれる（追補パッチ⑩）。
+ * - 共鳴アーツ（v2 §10.5）：一度手に入れたアーツ・進化・合体・サポートが登録される。未発見は「???」。ヒントは半分だけ示す。
+ * - キャラクター：操作キャラ。解放された時に登録。隠しキャラは、解放するまで項目そのものを出さない。
+ * - ネミノクス：敵。初めて遭遇した時に登録。先頭のページは総説と一覧。
  */
 export class CodexScene extends Phaser.Scene {
+  private tab: Tab = 'arts';
   private page = 0;
+  private openedAt = 0;
 
   constructor() {
     super('Codex');
   }
 
-  create(data?: { page?: number }): void {
+  create(data?: { tab?: Tab; page?: number }): void {
+    this.tab = data?.tab ?? 'arts';
     this.page = data?.page ?? 0;
+    this.openedAt = performance.now();
     const cam = this.cameras.main;
     const W = cam.width;
     const H = cam.height;
     cam.fadeIn(200, 6, 9, 19);
-    this.add.tileSprite(0, 0, W, H, 'bg').setOrigin(0);
+    this.add.tileSprite(0, 0, W, H, 'bg').setOrigin(0).setDepth(-5);
 
     const save = loadSave();
-    const found = new Set(save.codex);
     const top = Math.max(H * 0.06, 40);
     this.add.text(W / 2, top, 'RESONANCE CODEX', { fontFamily: FONT_EN, fontSize: '44px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 5 }).setOrigin(0.5);
-    this.add.text(W / 2, top + 42, '共鳴アーツ図鑑 —— 借りた声の記録', { fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim }).setOrigin(0.5);
+    this.drawTabs(W, top + 56);
 
+    const by = H - Math.max(90, H * 0.08);
+    // 横長の画面（PC）では、キャラクターとネミノクスの欄を中央に寄せる（共鳴アーツは従来どおり横幅いっぱい）
+    const aw = this.tab === 'arts' ? W - 56 : Math.min(W - 56, 960);
+    const area: Area = { x: (W - aw) / 2, y: top + 120, w: aw, h: by - 46 - (top + 120) };
+    const res = this.tab === 'arts' ? this.drawArts(save, area) : this.tab === 'chara' ? this.drawCharacters(save, area) : this.drawEnemies(save, area);
+    this.add.text(W / 2, top + 98, `${res.found} / ${res.total}　　${this.page + 1} / ${res.pages}`, { fontFamily: FONT_EN, fontSize: '20px', color: COLOR_HEX.gold, fontStyle: '700' }).setOrigin(0.5);
+
+    const go = (d: number) => {
+      const next = Phaser.Math.Clamp(this.page + d, 0, res.pages - 1);
+      if (next !== this.page) this.scene.restart({ tab: this.tab, page: next });
+    };
+    makeButton(this, W / 2 - 200, by, '◀', () => go(-1), { width: 100, height: 60, fontSize: 26 });
+    makeButton(this, W / 2, by, 'TITLE', () => this.scene.start('Title'), { width: 200, height: 60, fontSize: 24 });
+    makeButton(this, W / 2 + 200, by, '▶', () => go(1), { width: 100, height: 60, fontSize: 26 });
+
+    this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
+      if (ev.repeat) return;
+      if (ev.key === 'ArrowRight' || ev.key === 'd' || ev.key === 'D') go(1);
+      else if (ev.key === 'ArrowLeft' || ev.key === 'a' || ev.key === 'A') go(-1);
+      else if (ev.key === 'Escape') this.scene.start('Title');
+    });
+  }
+
+  /** 開いた直後のタップは受け付けない（前の画面のタップの続きで、別の項目が開くのを防ぐ） */
+  private armed(): boolean {
+    return performance.now() - this.openedAt > 250;
+  }
+
+  /** 押し始めと離した位置が同じ枠の上にある時だけ反応する枠 */
+  private tapZone(x: number, y: number, w: number, h: number, onTap: () => void): void {
+    const z = this.add.zone(x, y, w, h).setOrigin(0).setInteractive({ useHandCursor: true });
+    let pressed = false;
+    z.on('pointerdown', () => { pressed = this.armed(); });
+    z.on('pointerout', () => { pressed = false; });
+    z.on('pointerup', () => {
+      if (!pressed) return;
+      pressed = false;
+      onTap();
+    });
+  }
+
+  private drawTabs(W: number, cy: number): void {
+    const gap = 8;
+    const tw = Math.min(216, Math.floor((W - 56 - gap * 2) / 3));
+    const th = 46;
+    const x0 = W / 2 - (tw * 3 + gap * 2) / 2;
+    TABS.forEach((t, i) => {
+      const on = t.id === this.tab;
+      const x = x0 + i * (tw + gap);
+      this.add.rectangle(x, cy - th / 2, tw, th, on ? 0x87ceeb : 0x111a3a, on ? 1 : 0.92).setOrigin(0).setStrokeStyle(2, 0x87ceeb, on ? 1 : 0.5);
+      this.add.text(x + tw / 2, cy, t.label, { fontFamily: FONT_JP, fontSize: '20px', color: on ? '#060913' : COLOR_HEX.white, fontStyle: '700' }).setOrigin(0.5);
+      if (!on) this.tapZone(x, cy - th / 2, tw, th, () => this.scene.restart({ tab: t.id, page: 0 }));
+    });
+  }
+
+  /** 使う場面で読む画像を読んでから呼ぶ（読み込み済みならすぐ呼ぶ）。無い画像なら呼ばない */
+  private withImage(key: string, then: () => void): void {
+    if (this.textures.exists(key)) {
+      then();
+      return;
+    }
+    if (!hasOptionalImage(key)) return;
+    this.load.image(key, OPTIONAL_IMAGES[key]);
+    this.load.once(`filecomplete-image-${key}`, () => {
+      // 大きな絵を縮めて出すので、なめらかに
+      this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
+      if (this.scene.isActive()) then();
+    });
+    this.load.start();
+  }
+
+  /** 枠に収まる大きさで絵を置く（下端を枠の下端に合わせる） */
+  private fitImage(img: Phaser.GameObjects.Image, a: Area): void {
+    const s = Math.min(a.w / img.width, a.h / img.height);
+    img.setOrigin(0.5, 1).setScale(s).setPosition(a.x + a.w / 2, a.y + a.h);
+  }
+
+  /** 名前・分類・紹介文の枠 */
+  private infoPanel(a: Area, o: { name: string; reading?: string; tag: string; tagColor: string; text: string; known: boolean; color: number }): void {
+    this.add.rectangle(a.x, a.y, a.w, a.h, 0x111a3a, 0.96).setOrigin(0).setStrokeStyle(2, o.known ? o.color : 0x3a4a8a, o.known ? 0.8 : 0.4);
+    this.add.rectangle(a.x + 4, a.y + 10, 6, a.h - 20, o.known ? o.color : 0x3a4a8a, 1).setOrigin(0);
+    const tx = a.x + 26;
+    const name = this.add.text(tx, a.y + 14, o.name, { fontFamily: FONT_JP, fontSize: '30px', color: o.known ? COLOR_HEX.white : '#5A6488', fontStyle: '700' });
+    if (o.reading) this.add.text(name.x + name.width + 14, a.y + 30, o.reading, { fontFamily: FONT_JP, fontSize: '16px', color: COLOR_HEX.dim });
+    this.add.text(tx, a.y + 58, o.tag, { fontFamily: FONT_JP, fontSize: '17px', color: o.tagColor, fontStyle: '700' });
+    this.add.text(tx, a.y + 92, o.text, {
+      fontFamily: FONT_JP, fontSize: '18px', color: o.known ? COLOR_HEX.white : COLOR_HEX.dim, lineSpacing: 7,
+      wordWrap: { width: a.w - 52, callback: wrapJa },
+    });
+  }
+
+  // ───────────────────────── キャラクター ─────────────────────────
+
+  private drawCharacters(save: SaveData, area: Area): TabResult {
+    // 隠しキャラは、解放するまで項目そのものを出さない（件数にも数えない）
+    const list = CODEX_CHARACTERS.filter((c) => CHARACTERS[c.id] && (!CHARACTERS[c.id].secret || isCharacterOwned(c.id, save)));
+    const pages = list.length;
+    this.page = Phaser.Math.Clamp(this.page, 0, pages - 1);
+    const c = list[this.page];
+    const def = CHARACTERS[c.id];
+    const known = isCharacterOwned(c.id, save);
+
+    const panelH = 232;
+    const panel: Area = { x: area.x, y: area.y + area.h - panelH, w: area.w, h: panelH };
+    // 勝利立ち絵は膝上で切れているので、下端を紹介文の枠の裏に少し隠す
+    const pic: Area = { x: area.x, y: area.y, w: area.w, h: area.h - panelH + 28 };
+
+    // 絵：勝利立ち絵 → タップでゲームオーバーの絵。無ければ通常の立ち絵
+    const keys = [`victory_${c.id}`, `gameover_${c.id}`].filter((k) => hasOptionalImage(k));
+    if (!keys.length && this.textures.exists(`standing_${c.id}`)) keys.push(`standing_${c.id}`);
+    let shown = 0;
+    let img: Phaser.GameObjects.Image | null = null;
+    const show = (i: number) => {
+      const key = keys[i];
+      this.withImage(key, () => {
+        shown = i;
+        if (!img) img = this.add.image(0, 0, key).setDepth(-2);
+        else img.setTexture(key);
+        this.fitImage(img, pic);
+        if (!known) img.setTintFill(SILHOUETTE);
+      });
+    };
+    if (keys.length) show(0);
+    if (known && keys.length > 1) {
+      this.tapZone(pic.x, pic.y, pic.w, panel.y - pic.y, () => show((shown + 1) % keys.length));
+    }
+
+    this.infoPanel(panel, known
+      ? { name: c.name, reading: c.reading, tag: `クラス：${c.cls}`, tagColor: COLOR_HEX.accent, text: c.text, known, color: def.color }
+      : { name: '???', tag: 'クラス：???', tagColor: COLOR_HEX.dim, text: 'まだ、解放していない。', known, color: def.color });
+    if (known && keys.length > 1) {
+      this.add.text(panel.x + panel.w - 18, panel.y + 22, '絵をタップで切り替え', { fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.dim }).setOrigin(1, 0);
+    }
+
+    return { found: list.filter((x) => isCharacterOwned(x.id, save)).length, total: list.length, pages };
+  }
+
+  // ───────────────────────── ネミノクス ─────────────────────────
+
+  /** ゲーム内のドット（歩きアニメ）。まだゲームに出ない敵は null */
+  private enemyDot(e: CodexEnemy, x: number, y: number, scale: number, known: boolean): Phaser.GameObjects.Sprite | null {
+    if (!e.enemyId) return null;
+    const def = ENEMIES[e.enemyId];
+    const tex = def.sheet ? `e_${def.id}` : `e_${def.id}_0`;
+    if (!this.textures.exists(tex)) return null;
+    const sp = this.add.sprite(x, y, tex).setOrigin(0.5, 1).setScale(scale);
+    sp.play(`anim_e_${def.id}`, true);
+    if (!known) sp.setTintFill(SILHOUETTE);
+    return sp;
+  }
+
+  private drawEnemies(save: SaveData, area: Area): TabResult {
+    const seen = new Set(ensureBestiary(save));
+    const isKnown = (e: CodexEnemy) => !!e.enemyId && seen.has(e.enemyId);
+    const pages = CODEX_ENEMIES.length + 1;
+    this.page = Phaser.Math.Clamp(this.page, 0, pages - 1);
+    const result: TabResult = { found: CODEX_ENEMIES.filter(isKnown).length, total: CODEX_ENEMIES.length, pages };
+
+    // 先頭のページ：総説と一覧
+    if (this.page === 0) {
+      const body = this.add.text(area.x + 26, area.y + 58, BESTIARY_INTRO.text, {
+        fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.white, lineSpacing: 7, wordWrap: { width: area.w - 52, callback: wrapJa },
+      });
+      const introH = 58 + body.height + 22;
+      this.add.rectangle(area.x, area.y, area.w, introH, 0x111a3a, 0.94).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.6).setDepth(-1);
+      this.add.rectangle(area.x + 4, area.y + 10, 6, introH - 20, 0x87ceeb, 1).setOrigin(0);
+      this.add.text(area.x + 26, area.y + 14, BESTIARY_INTRO.title, { fontFamily: FONT_JP, fontSize: '28px', color: COLOR_HEX.accent, fontStyle: '700' });
+
+      const gap = 12;
+      const cols = 3;
+      const rows = Math.ceil(CODEX_ENEMIES.length / cols);
+      const gy = area.y + introH + 16;
+      const cw = Math.floor((area.w - gap * (cols - 1)) / cols);
+      const ch = Math.min(250, Math.floor((area.y + area.h - gy - gap * (rows - 1)) / rows));
+      CODEX_ENEMIES.forEach((e, i) => {
+        const x = area.x + (i % cols) * (cw + gap);
+        const y = gy + Math.floor(i / cols) * (ch + gap);
+        const known = isKnown(e);
+        this.add.rectangle(x, y, cw, ch, 0x111a3a, 0.92).setOrigin(0).setStrokeStyle(2, known ? 0x87ceeb : 0x3a4a8a, known ? 0.8 : 0.4);
+        const iconH = ch - 50;
+        if (known && e.enemyId) {
+          const size = ENEMIES[e.enemyId].sheet?.frameHeight ?? ENEMIES[e.enemyId].size;
+          const s = Math.max(1, Math.floor((iconH - 12) / size));
+          this.enemyDot(e, x + cw / 2, y + 6 + (iconH + size * s) / 2, s, true);
+        } else {
+          this.add.text(x + cw / 2, y + 6 + iconH / 2, '?', { fontFamily: FONT_EN, fontSize: '56px', color: '#5A6488', fontStyle: '700' }).setOrigin(0.5);
+        }
+        this.add.text(x + cw / 2, y + ch - 26, known ? e.name : '???', { fontFamily: FONT_JP, fontSize: '18px', color: known ? COLOR_HEX.white : '#5A6488', fontStyle: '700' }).setOrigin(0.5);
+        this.tapZone(x, y, cw, ch, () => this.scene.restart({ tab: 'enemy', page: i + 1 }));
+      });
+      return result;
+    }
+
+    // 2ページ目から：1体ずつ
+    const e = CODEX_ENEMIES[this.page - 1];
+    const known = isKnown(e);
+    const panelH = 190;
+    const panel: Area = { x: area.x, y: area.y + area.h - panelH, w: area.w, h: panelH };
+    const pic: Area = { x: area.x, y: area.y, w: area.w, h: area.h - panelH - 16 };
+    const artKey = bestiaryKey(e.id);
+
+    if (e.art && hasOptionalImage(artKey)) {
+      // 設定画を大きく。右下に、ゲーム内のドットを小さく添える
+      this.withImage(artKey, () => {
+        const img = this.add.image(0, 0, artKey).setDepth(-1);
+        this.fitImage(img, pic);
+        if (!known) img.setTintFill(SILHOUETTE);
+      });
+      if (known && e.enemyId) {
+        const size = ENEMIES[e.enemyId].size;
+        const s = Math.max(1, Math.round(100 / size));
+        const bw = 150;
+        const bx = pic.x + pic.w - bw;
+        const byy = pic.y + pic.h - bw;
+        this.add.rectangle(bx, byy, bw, bw, 0x0b1026, 0.85).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.5);
+        this.add.text(bx + bw / 2, byy + 16, 'IN GAME', { fontFamily: FONT_EN, fontSize: '14px', color: COLOR_HEX.dim, fontStyle: '700', letterSpacing: 2 }).setOrigin(0.5);
+        this.enemyDot(e, bx + bw / 2, byy + 28 + (bw - 36 + size * s) / 2, s, true);
+      }
+    } else if (e.enemyId) {
+      // 設定画が無い敵は、ゲーム内のドットを大きく（整数倍）
+      const size = ENEMIES[e.enemyId].sheet?.frameHeight ?? ENEMIES[e.enemyId].size;
+      const s = Phaser.Math.Clamp(Math.floor(Math.min(pic.w, pic.h) / size), 1, 5);
+      this.enemyDot(e, pic.x + pic.w / 2, pic.y + (pic.h + size * s) / 2, s, known);
+    } else {
+      this.add.text(pic.x + pic.w / 2, pic.y + pic.h / 2, '?', { fontFamily: FONT_EN, fontSize: '160px', color: '#3A4A8A', fontStyle: '700' }).setOrigin(0.5);
+    }
+
+    const color = e.enemyId ? ENEMIES[e.enemyId].eyeColor : 0x87ceeb;
+    this.infoPanel(panel, known
+      ? { name: e.name, reading: e.reading, tag: `ランク：${e.rank}`, tagColor: COLOR_HEX.gold, text: e.text, known, color }
+      : { name: '???', tag: 'ランク：???', tagColor: COLOR_HEX.dim, text: 'まだ、遭遇していない。', known, color });
+    return result;
+  }
+
+  // ───────────────────────── 共鳴アーツ ─────────────────────────
+
+  private drawArts(save: SaveData, area: Area): TabResult {
+    const found = new Set(save.codex);
     // 項目：共鳴アーツ（合体以外）→ 合体アーツ → サポート
     const arts = Object.values(WEAPONS).filter((w) => w.kind === 'art' && !w.fusion);
     // 隠しキャラ専用の合体は、そのキャラを解放するまで行ごと出さない（総数にも数えない）
@@ -50,12 +311,11 @@ export class CodexScene extends Phaser.Scene {
     const pages = Math.ceil(rows.length / perPage);
     this.page = Phaser.Math.Clamp(this.page, 0, pages - 1);
     const discovered = rows.filter((r) => found.has(r.def.id)).length;
-    this.add.text(W / 2, top + 70, `${discovered} / ${rows.length}　　${this.page + 1} / ${pages}`, { fontFamily: FONT_EN, fontSize: '20px', color: COLOR_HEX.gold, fontStyle: '700' }).setOrigin(0.5);
 
-    const left = 28;
-    const rowW = W - left * 2;
+    const left = area.x;
+    const rowW = area.w;
     const rowH = 148;
-    let y = top + 104;
+    let y = area.y;
     rows.slice(this.page * perPage, (this.page + 1) * perPage).forEach((r) => {
       const def = r.def;
       const known = found.has(def.id);
@@ -125,10 +385,6 @@ export class CodexScene extends Phaser.Scene {
       if (line) this.add.text(tx, y + rowH - 36, line, { fontFamily: FONT_JP, fontSize: '14px', color: lineColor, wordWrap: { width: descW, useAdvancedWrap: true } });
       y += rowH;
     });
-
-    const by = H - Math.max(90, H * 0.08);
-    makeButton(this, W / 2 - 200, by, '◀', () => this.scene.restart({ page: this.page - 1 }), { width: 100, height: 60, fontSize: 26 });
-    makeButton(this, W / 2, by, 'TITLE', () => this.scene.start('Title'), { width: 200, height: 60, fontSize: 24 });
-    makeButton(this, W / 2 + 200, by, '▶', () => this.scene.restart({ page: this.page + 1 }), { width: 100, height: 60, fontSize: 26 });
+    return { found: discovered, total: rows.length, pages };
   }
 }
