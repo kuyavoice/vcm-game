@@ -7,7 +7,7 @@ import type { WaveBand } from './waves';
 export const SCORE = {
   /** 撃破点 */
   points: {
-    grunt: 1, hunter: 1, bishop: 4, knight: 5, cavalry: 5, king: 500, rook: 500, queen: 1000, bud: 0, blackknight: 1000, redknight: 1500, speaker: 0,
+    grunt: 1, hunter: 1, bishop: 4, knight: 5, cavalry: 5, king: 500, rook: 500, queen: 1000, bud: 0, goldbud: 0, blackknight: 1000, redknight: 1500, speaker: 0,
   } as Record<EnemyId, number>,
   /** 連撃：この秒数以内に次の撃破で倍率上昇 */
   comboWindowSec: 1.0,

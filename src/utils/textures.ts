@@ -182,7 +182,7 @@ export function ensureDamageFont(scene: Phaser.Scene): string {
 }
 
 /** 女王級の蕾：黒い茨に包まれた蕾。芯が金色に光る */
-function makeBudTexture(scene: Phaser.Scene, key: string, size: number, glow: number, frame: number, outline: boolean) {
+function makeBudTexture(scene: Phaser.Scene, key: string, size: number, glow: number, frame: number, outline: boolean, bodyColor = 0x141022) {
   const g = scene.make.graphics({ x: 0, y: 0 }, false);
   const c = size / 2;
   const V = (x: number, y: number) => new Phaser.Math.Vector2(x, y);
@@ -191,7 +191,7 @@ function makeBudTexture(scene: Phaser.Scene, key: string, size: number, glow: nu
   g.fillEllipse(c, size - 4, size * 0.8, 7);
   // 蕾の外側（しずく形）
   const body = [V(c, 2), V(c + size * 0.3, size * 0.4), V(c + size * 0.36, size * 0.66), V(c + size * 0.2, size - 4), V(c - size * 0.2, size - 4), V(c - size * 0.36, size * 0.66), V(c - size * 0.3, size * 0.4)];
-  g.fillStyle(0x141022, 1);
+  g.fillStyle(bodyColor, 1);
   g.fillPoints(body, true);
   g.lineStyle(outline ? 2 : 1, outline ? 0xb8c4ff : 0x3a2a55, outline ? 0.5 : 1);
   g.strokePoints(body, true);
@@ -255,10 +255,10 @@ export function generateTextures(scene: Phaser.Scene) {
     if (def.isObject || def.sheet) continue; // スピーカーは別途生成、画像の敵はBootで読み込み
     if (def.bud) {
       // 女王級の蕾：専用の絵（1コマ目は、芯の光が強い）
-      makeBudTexture(scene, `e_${def.id}_0`, def.size, def.eyeColor, 0, false);
-      makeBudTexture(scene, `e_${def.id}_1`, def.size, def.eyeColor, 1, false);
-      makeBudTexture(scene, `e_${def.id}_0_o`, def.size, def.eyeColor, 0, true);
-      makeBudTexture(scene, `e_${def.id}_1_o`, def.size, def.eyeColor, 1, true);
+      makeBudTexture(scene, `e_${def.id}_0`, def.size, def.eyeColor, 0, false, def.bodyColor);
+      makeBudTexture(scene, `e_${def.id}_1`, def.size, def.eyeColor, 1, false, def.bodyColor);
+      makeBudTexture(scene, `e_${def.id}_0_o`, def.size, def.eyeColor, 0, true, def.bodyColor);
+      makeBudTexture(scene, `e_${def.id}_1_o`, def.size, def.eyeColor, 1, true, def.bodyColor);
       continue;
     }
     makeEnemyTexture(scene, `e_${def.id}_0`, def.size, def.eyeColor, seed, false);

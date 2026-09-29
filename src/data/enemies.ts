@@ -1,7 +1,7 @@
 // 敵：ネミノクス。雑音級〜司祭級・城兵級・女王級はドット絵（追補パッチ⑪）。蕾とスピーカーはコード生成。
 // size はスプライトのpx（画面上は spriteScale 倍）。当たり判定は hitRadius（ワールドpx）で別管理。
 
-export type EnemyId = 'grunt' | 'hunter' | 'knight' | 'bishop' | 'king' | 'rook' | 'queen' | 'bud' | 'speaker' | 'blackknight' | 'redknight' | 'cavalry';
+export type EnemyId = 'grunt' | 'hunter' | 'knight' | 'bishop' | 'king' | 'rook' | 'queen' | 'bud' | 'goldbud' | 'speaker' | 'blackknight' | 'redknight' | 'cavalry';
 
 export interface EnemyDef {
   id: EnemyId;
@@ -54,6 +54,10 @@ export interface EnemyDef {
   fixed?: boolean;
   /** 女王級の蕾：時間が経つと孵る。攻撃で壊せる */
   bud?: boolean;
+  /** 蕾から孵る敵（未指定なら、雑音級の群れか狩人級） */
+  hatch?: EnemyId;
+  /** コード生成の絵の、体の色（蕾） */
+  bodyColor?: number;
   /** スパイスの帯（『貫通チャーハン』）の「受けるダメージ増加」が効く割合。未指定なら、ボスは CONFIG.vulnBossMul、雑魚は1 */
   vulnMul?: number;
   /** この敵の絵を色替えして使う（画像は読み込まず、起動時に作る） */
@@ -117,6 +121,12 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
     id: 'bud', name: '蕾', tier: 0,
     size: 28, hitRadius: 24, hp: 40, speed: 0, contactDamage: 0, xp: 0,
     eyeColor: 0xffc83d, knockbackResist: 1, bud: true,
+  },
+  // 金の蕾（開花のあと）：孵ると司祭級。先に壊したい
+  goldbud: {
+    id: 'goldbud', name: '金の蕾', tier: 0,
+    size: 28, hitRadius: 24, hp: 60, speed: 0, contactDamage: 0, xp: 0,
+    eyeColor: 0xffffff, knockbackResist: 1, bud: true, hatch: 'bishop', bodyColor: 0x8a6a14,
   },
   blackknight: {
     id: 'blackknight', name: '黒騎士', tier: 4,

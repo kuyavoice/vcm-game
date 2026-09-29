@@ -143,7 +143,8 @@ export const CONFIG = {
     wallDistance: 170,
     /** 踏み鳴らし：プレイヤーが近いときだけ */
     stompTriggerDist: 180,
-    stompWindupSec: 0.6,
+    /** 0.6 → 0.9（2026-09-30。近接の雪人が、円の外へ出られなかったため） */
+    stompWindupSec: 0.9,
     stompRadius: 200,
     stompDamage: 15,
     stompCooldownSec: 4,
@@ -169,6 +170,12 @@ export const CONFIG = {
     /** 燃える時間と、燃えている所のダメージ */
     barrageFireSec: 3,
     barrageFireDamage: 8,
+    /** 激昂のあとは、砲撃の着弾点にも炎が残る（時間とダメージは連続砲撃の炎と同じ） */
+    /** 突進で自分の岩壁を砕くと、破片が弾になって四方へ飛ぶ */
+    shardCount: 8,
+    shardSpeed: 210,
+    shardLifeSec: 2.2,
+    shardDamage: 10,
   },
 
   // 女王級（追補パッチ⑪ §3）。数値は初期値
@@ -178,9 +185,9 @@ export const CONFIG = {
     emergeSec: 1.5,
     /** 蔓の鞭か鱗粉を選ぶ間隔 */
     attackEverySec: 4.0,
-    weights: { whip: 3, pollen: 2, burrow: 2 } as Readonly<Record<string, number>>,
+    weights: { whip: 3, pollen: 2, burrow: 2, cage: 1 } as Readonly<Record<string, number>>,
     /** 開花のあとの重み（触手の突きが加わる） */
-    weightsBloom: { whip: 2, pollen: 2, burrow: 2, thrust: 3 } as Readonly<Record<string, number>>,
+    weightsBloom: { whip: 2, pollen: 2, burrow: 2, thrust: 3, cage: 2 } as Readonly<Record<string, number>>,
     /** 召喚の間隔（ほかの行動とは別に数える）。開花のあとは短くなる */
     summonEverySec: 9,
     summonEverySecBloom: 6,
@@ -222,6 +229,21 @@ export const CONFIG = {
     burrowSpread: 210,
     burrowWindupSec: 0.9,
     burrowDamage: 18,
+    /** 蔓の鞭が届かない距離に、この秒数いると、開花の前でも触手の突きを使う */
+    thrustFarSec: 6,
+    /** 開花のあとは、蕾のうちこの数が金色になる（孵ると司祭級。敵データの goldbud） */
+    goldBuds: 2,
+    /**
+     * 茨の檻：プレイヤーの周りに茨の輪。1か所だけ開いている。
+     * 予告 cageWindupSec → 輪がせり上がって通れなくなる → cageCloseSec のあと、輪の中が一斉に突き上がる
+     */
+    cageRadius: 190,
+    cageHalfWidth: 16,
+    /** 開いている所の幅（角度の半分） */
+    cageGapHalfRad: 0.62,
+    cageWindupSec: 0.7,
+    cageCloseSec: 2.6,
+    cageDamage: 22,
     /** 鱗粉：プレイヤーの周りに毒の粉。中では足が遅くなり、少しずつ削られる */
     pollenCount: [2, 3] as readonly [number, number],
     pollenRadius: 90,
