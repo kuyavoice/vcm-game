@@ -5,6 +5,7 @@ import { ENEMIES } from '../data/enemies';
 import { stageById, type StageDef } from '../data/stages';
 import { SCORE } from '../data/score';
 import { ENDLESS } from '../data/endless';
+import { isHeld } from '../utils/heldKeys';
 import { ITEMS, PICKUPS, type PickupKind } from '../data/items';
 import { Player } from '../entities/Player';
 import { Enemy, type Hazard } from '../entities/Enemy';
@@ -26,7 +27,7 @@ import { AudioBus } from '../utils/audio';
 import { makeButton } from '../ui/Button';
 import { getSafeInsets } from '../utils/safeArea';
 import { FONT_JP } from '../utils/fonts';
-import { loadSave, writeSave } from '../utils/storage';
+import { loadSave, writeSave, isStageUnlocked } from '../utils/storage';
 import { ensureBestiary, recordEnemySeen } from '../utils/bestiary';
 import { ensureColorVariant } from '../utils/recolor';
 import type { RunResult } from './ResultScene';
@@ -117,6 +118,8 @@ export class GameScene extends Phaser.Scene {
   private debugInvincible = false;
   private debugNoSpawn = false;
   private debugExIndex = 0;
+  /** 次にゲームへ戻ったとき、少しだけ無敵にする（レベルアップ・宝箱の画面を開いたとき立てる） */
+  private guardOnResume = false;
   private debugRookIndex = 0;
   private debugQueenIndex = 0;
   private fullMoon = false;
@@ -137,6 +140,7 @@ export class GameScene extends Phaser.Scene {
     this.soulUntil = 0;
     // デバッグ操作の状態は1プレイごとに戻す（シーンは使い回されるため）
     this.debugUsed = false;
+    this.guardOnResume = false;
     this.seenEnemies = new Set(ensureBestiary(loadSave()));
     this.debugInvincible = false;
     this.debugNoSpawn = false;
@@ -304,9 +308,20 @@ export class GameScene extends Phaser.Scene {
     readSetting();
     this.events.on(Phaser.Scenes.Events.RESUME, readSetting);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.RESUME, readSetting));
+    // レベルアップ・宝箱の画面を閉じた直後は、少しだけ無敵（ポーズからの復帰には付けない）
+    const guardResume = () => {
+      if (!this.guardOnResume) return;
+      this.guardOnResume = false;
+      const p = this.player;
+      p.invulnUntil = Math.max(p.invulnUntil, this.gameNow + CONFIG.resumeInvulnSec * 1000 * this.speed);
+    };
+    this.events.on(Phaser.Scenes.Events.RESUME, guardResume);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.RESUME, guardResume));
     if (this.debug) this.buildDebugPanel();
     // `?debug` の仮の解放で選んだキャラは、確認用のプレイとして扱う（記録・エールを保存しない）
     if (this.debug && !isCharacterOwned(this.characterId, loadSave())) this.debugUsed = true;
+    // `?debug` で、解放していないエンドレスに入ったときも同じ
+    if (this.debug && this.stage.endless && !isStageUnlocked(loadSave(), this.stage.unlockAfter)) this.debugUsed = true;
   }
 
   /**
@@ -481,9 +496,9 @@ export class GameScene extends Phaser.Scene {
     let dx = this.joystick.value.x;
     let dy = this.joystick.value.y;
     if (!this.joystick.active && this.keys.W) {
-      const k = this.keys;
-      dx = (k.D.isDown || k.RIGHT.isDown ? 1 : 0) - (k.A.isDown || k.LEFT.isDown ? 1 : 0);
-      dy = (k.S.isDown || k.DOWN.isDown ? 1 : 0) - (k.W.isDown || k.UP.isDown ? 1 : 0);
+      // キーは、ウィンドウで数えた「いま押されているか」を見る（選択画面の間に押したキーも、閉じた瞬間から効く）
+      dx = (isHeld('KeyD', 'ArrowRight') ? 1 : 0) - (isHeld('KeyA', 'ArrowLeft') ? 1 : 0);
+      dy = (isHeld('KeyS', 'ArrowDown') ? 1 : 0) - (isHeld('KeyW', 'ArrowUp') ? 1 : 0);
     }
 
     // ゲーム速度：倍率分だけ内部更新を分割し、1ステップの移動量を等速時と同程度に保つ
@@ -3444,6 +3459,7 @@ export class GameScene extends Phaser.Scene {
     this.vo('levelup', 4000);
     this.joystick.reset();
     this.haltFrame = true;
+    this.guardOnResume = true;
     this.scene.pause();
     this.scene.launch('LevelUp', data);
   }
@@ -3505,6 +3521,7 @@ export class GameScene extends Phaser.Scene {
     };
     this.joystick.reset();
     this.haltFrame = true;
+    this.guardOnResume = true;
     this.scene.pause();
     this.scene.launch('Chest', data);
   }

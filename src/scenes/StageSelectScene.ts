@@ -46,7 +46,9 @@ export class StageSelectScene extends Phaser.Scene {
     const cardW = Math.min(640, W - 40);
     const allStages = [...STAGES, SCORE_STAGE, ...(NIGHTMARE_AVAILABLE ? [NIGHTMARE_STAGE] : []), ...(isEndlessShown() ? [ENDLESS_STAGE] : [])];
     // 解放の条件：スコアアタックは全ステージのクリア。ほかは、決まったステージのクリア
-    const isOpen = (st: StageDef) => (st.scoreMode && !st.endless ? STAGES.every((x) => save.cleared.includes(x.id)) : isStageUnlocked(save, st.unlockAfter));
+    // `?debug` のときは、エンドレスを解放済みとして扱う（本当に解放していなければ、記録は保存しない。GameScene 側）
+    const debug = /[?&]debug(?:[&=]|$)/.test(location.search);
+    const isOpen = (st: StageDef) => (st.endless && debug) || (st.scoreMode && !st.endless ? STAGES.every((x) => save.cleared.includes(x.id)) : isStageUnlocked(save, st.unlockAfter));
     // 5枚のときは、見出しと下のボタンの間に収まる高さに詰める
     const compact = allStages.length > 4;
     const gap = compact ? 12 : 16;

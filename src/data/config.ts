@@ -49,6 +49,8 @@ export const CONFIG = {
 
   // 選択画面（レベルアップ等）：表示からこの時間は入力無効（ms）
   selectArmDelayMs: 300,
+  // レベルアップ・宝箱の画面を閉じた直後の無敵（実時間の秒。ゲーム速度に関係なく同じ長さ）。操作を取り戻すまでの間を守る
+  resumeInvulnSec: 0.5,
 
   // ゲーム速度（HUDのボタンで巡回切替。倍率分だけ内部更新を分割して当たり判定の精度を保つ）
   speedModes: [1, 1.5, 2, 3] as readonly number[],
