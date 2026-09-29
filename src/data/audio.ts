@@ -17,7 +17,11 @@ export const AUDIO_MANIFEST: AudioEntry[] = [
   { key: 'bgm_stage2', path: 'assets/audio/bgm/stage2.mp3', category: 'bgm', loop: true },
   { key: 'bgm_stage3', path: 'assets/audio/bgm/stage3.mp3', category: 'bgm', loop: true },
   { key: 'bgm_fullmoon', path: 'assets/audio/bgm/fullmoon.mp3', category: 'bgm', loop: true },
+  // 旧版のボス戦の曲。いまは、専用の曲が無いボスの代わりに流れる
   { key: 'bgm_boss', path: 'assets/audio/bgm/boss.mp3', category: 'bgm', loop: true },
+  // 城兵級『動く城塞』・女王級『茨の女王』（無ければ boss）
+  { key: 'bgm_boss_rook', path: 'assets/audio/bgm/boss_rook.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_boss_queen', path: 'assets/audio/bgm/boss_queen.mp3', category: 'bgm', loop: true },
   { key: 'bgm_boss_blackknight', path: 'assets/audio/bgm/boss_blackknight.mp3', category: 'bgm', loop: true },
   // 黒騎士の形態変化後（無ければ boss_blackknight のまま）
   { key: 'bgm_boss_blackknight2', path: 'assets/audio/bgm/boss_blackknight2.mp3', category: 'bgm', loop: true },

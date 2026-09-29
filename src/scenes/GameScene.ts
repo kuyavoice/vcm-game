@@ -3313,7 +3313,7 @@ export class GameScene extends Phaser.Scene {
     this.resumeBgm();
   }
 
-  /** いまの状況に合うBGMへ：ボス生存中はボス曲（王級／黒騎士で別）、満月中は満月曲、それ以外はキャラ曲 */
+  /** いまの状況に合うBGMへ：ボス生存中はボス曲（ボスごとに別）、満月中は満月曲、それ以外はキャラ曲 */
   private resumeBgm(): void {
     const boss = this.bosses.find((b) => b.active);
     if (boss) {
@@ -3325,6 +3325,8 @@ export class GameScene extends Phaser.Scene {
           AudioBus.preloadBgm('bgm_boss_blackknight2');
         }
       }
+      // 城兵級・女王級は専用の曲（無ければ旧版のボス戦の曲）
+      else if (boss.def.bossKind) AudioBus.playBgm(`bgm_boss_${boss.def.bossKind}`, 'bgm_boss', 'bgm_boss_blackknight');
       else AudioBus.playBgm('bgm_boss', 'bgm_boss_blackknight');
       return;
     }
