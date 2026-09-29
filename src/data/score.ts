@@ -7,7 +7,7 @@ import type { WaveBand } from './waves';
 export const SCORE = {
   /** 撃破点 */
   points: {
-    grunt: 1, hunter: 1, bishop: 4, knight: 5, cavalry: 5, king: 500, blackknight: 1000, redknight: 1500, speaker: 0,
+    grunt: 1, hunter: 1, bishop: 4, knight: 5, cavalry: 5, king: 500, rook: 500, queen: 1000, bud: 0, blackknight: 1000, redknight: 1500, speaker: 0,
   } as Record<EnemyId, number>,
   /** 連撃：この秒数以内に次の撃破で倍率上昇 */
   comboWindowSec: 1.0,
@@ -31,9 +31,10 @@ export const SCORE_WAVES: WaveBand[] = [
   { label: '雑音級＋狩人級', from: 120, to: 300, spawnPerSecStart: 3, spawnPerSecEnd: 4, weights: { grunt: 1, hunter: 0.4 }, hpMul: 1.1, ambush: { type: 'hunter', count: 14, everySec: 25 } },
   { label: '＋騎士級', from: 300, to: 480, spawnPerSecStart: 4, spawnPerSecEnd: 5, weights: { grunt: 1, hunter: 0.45, knight: 0.12 }, hpMul: 1.25, ambush: { type: 'hunter', count: 16, everySec: 30 } },
   { label: '＋司祭級', from: 480, to: 600, spawnPerSecStart: 5, spawnPerSecEnd: 6, weights: { grunt: 1, hunter: 0.45, knight: 0.14, bishop: 0.1 }, hpMul: 1.4 },
-  { label: '王級', from: 600, to: 900, spawnPerSecStart: 2, spawnPerSecEnd: 4, weights: { grunt: 1, hunter: 0.4, knight: 0.1 }, hpMul: 1.5, boss: 'king' },
+  { label: '城兵級', from: 600, to: 900, spawnPerSecStart: 2, spawnPerSecEnd: 4, weights: { grunt: 1, hunter: 0.4, knight: 0.1 }, hpMul: 1.5, boss: 'rook' },
   { label: '大群', from: 900, to: 1200, spawnPerSecStart: 6, spawnPerSecEnd: 8, weights: { grunt: 1, hunter: 0.5, knight: 0.18, bishop: 0.14 }, hpMul: 1.8, ambush: { type: 'hunter', count: 20, everySec: 25 } },
-  { label: '王級×2', from: 1200, to: 1500, spawnPerSecStart: 3, spawnPerSecEnd: 5, weights: { grunt: 1, hunter: 0.5, knight: 0.15 }, hpMul: 2.0, boss: 'king', bossCount: 2 },
+  // 20:00 は女王級1体（以前は旧ボス2体。HPは2体分に合わせる）
+  { label: '女王級', from: 1200, to: 1500, spawnPerSecStart: 3, spawnPerSecEnd: 5, weights: { grunt: 1, hunter: 0.5, knight: 0.15 }, hpMul: 2.0, boss: 'queen', bossHpMul: 2 },
   { label: '満月', from: 1500, to: 1620, spawnPerSecStart: 6, spawnPerSecEnd: 7, weights: { grunt: 1, hunter: 0.5, knight: 0.2, bishop: 0.15 }, hpMul: 2.2, fullMoon: true },
   { label: '大群 II', from: 1620, to: 1800, spawnPerSecStart: 8, spawnPerSecEnd: 10, weights: { grunt: 1, hunter: 0.6, knight: 0.22, bishop: 0.18 }, hpMul: 2.5, ambush: { type: 'hunter', count: 24, everySec: 20 } },
   { label: '黒騎士', from: 1800, to: 9999, spawnPerSecStart: 2, spawnPerSecEnd: 2, weights: { grunt: 1, hunter: 0.4 }, hpMul: 2.5, boss: 'blackknight', bossHpMul: 1.5 },

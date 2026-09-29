@@ -6,7 +6,7 @@ import { AudioBus } from '../utils/audio';
 import { FONT_EN } from '../utils/fonts';
 import { OPTIONAL_IMAGES, isLazyImage, hasOptionalImage } from '../utils/optionalAssets';
 import { PORTRAITS, PORTRAIT_DIR, portraitKey } from '../data/portraits';
-import { createCharAnims, ensureEnemyRecolor } from '../utils/recolor';
+import { createCharAnims, ensureEnemyRecolor, ensureEnemyOutline } from '../utils/recolor';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -29,7 +29,7 @@ export class BootScene extends Phaser.Scene {
       });
       if (c.standing) this.load.image(`standing_${c.id}`, c.standing);
     }
-    // 画像スプライトの敵（黒騎士・騎兵）
+    // 画像スプライトの敵
     for (const e of Object.values(ENEMIES)) {
       if (e.sheet && !e.recolorOf) this.load.spritesheet(`e_${e.id}`, e.sheet.file, { frameWidth: e.sheet.frameWidth, frameHeight: e.sheet.frameHeight });
     }
@@ -61,7 +61,16 @@ export class BootScene extends Phaser.Scene {
           this.anims.create({ key: `anim_e_${e.id}_summon`, frames: this.anims.generateFrameNumbers(key, { frames: [7] }), frameRate: 1, repeat: 0 });
           this.anims.create({ key: `anim_e_${e.id}_hit`, frames: this.anims.generateFrameNumbers(key, { frames: [8] }), frameRate: 1, repeat: 0 });
         } else {
-          this.anims.create({ key: `anim_e_${e.id}`, frames: this.anims.generateFrameNumbers(key, { start: 0, end: e.sheet.frames - 1 }), frameRate: 10, repeat: -1 });
+          // 歩き（待機）のループと、1コマの姿勢。縁取り版（_o）があれば、同じものを作る
+          const sh = e.sheet;
+          const loop = sh.loop ?? Array.from({ length: sh.frames }, (_, i) => i);
+          if (sh.outline) ensureEnemyOutline(this, key, `${key}_o`, sh.frameWidth, sh.frameHeight);
+          for (const sfx of sh.outline && this.textures.exists(`${key}_o`) ? ['', '_o'] : ['']) {
+            this.anims.create({ key: `anim_e_${e.id}${sfx}`, frames: this.anims.generateFrameNumbers(`${key}${sfx}`, { frames: loop }), frameRate: sh.fps ?? 10, repeat: -1 });
+            for (const [name, frame] of Object.entries(sh.poses ?? {})) {
+              this.anims.create({ key: `anim_e_${e.id}${sfx}_${name}`, frames: this.anims.generateFrameNumbers(`${key}${sfx}`, { frames: [frame] }), frameRate: 1, repeat: 0 });
+            }
+          }
         }
         continue;
       }

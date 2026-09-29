@@ -30,6 +30,20 @@ export class Spawner {
     return this.lastBand;
   }
 
+  /** その時間帯に出るボス（独自の時間帯を持たないステージは、ステージごとのボス） */
+  private bossOf(band: WaveBand): EnemyId | undefined {
+    if (!band.boss) return undefined;
+    return this.stage.bossId && !this.stage.waves ? this.stage.bossId : band.boss;
+  }
+
+  /** 画面に出す時間帯の名前（ボスの時間帯は、ボスの名前） */
+  get bandLabel(): string {
+    const b = this.lastBand;
+    if (!b) return '';
+    const boss = this.bossOf(b);
+    return boss && !this.stage.waves ? ENEMIES[boss].name : b.label;
+  }
+
   update(dt: number, t: number): void {
     const band = bandAt(t, this.stage.waves);
     const ramp = this.stage.ramp;
@@ -67,8 +81,9 @@ export class Spawner {
       this.bossBands.add(band);
       const n = band.bossCount ?? 1;
       for (let i = 0; i < n; i++) {
-        const pos = this.ringPoint();
-        const id = band.boss === 'king' && this.stage.bossId && !this.stage.waves ? this.stage.bossId : band.boss;
+        const id = this.bossOf(band) ?? band.boss;
+        // 動かないボスは、画面の中に出す（外に出すと、探しに行かないと戦えない）
+        const pos = ENEMIES[id].fixed ? this.nearPoint(CONFIG.queen.spawnDistance) : this.ringPoint();
         const boss = this.spawnBoss(id, pos.x, pos.y);
         if (boss) { this.bossActive = true; this.onBossSpawn?.(boss, band.bossHpMul ?? 1, i, n, !!band.bossEnraged); }
       }
@@ -124,6 +139,12 @@ export class Spawner {
     return { x: cx - w / 2, y: cy + h / 2 - d };
   }
 
+  /** プレイヤーから dist だけ離れた点（上か、左右の斜め上。縦長の画面の中に収まる向き） */
+  private nearPoint(dist: number): { x: number; y: number } {
+    const a = -Math.PI / 2 + (Math.random() - 0.5) * 0.8;
+    return { x: this.target.x + Math.cos(a) * dist, y: this.target.y + Math.sin(a) * dist };
+  }
+
   /** 片側から群れで奇襲 */
   private ambush(type: EnemyId, count: number, hpMul: number): void {
     const cam = this.scene.cameras.main;
@@ -174,7 +195,12 @@ export class Spawner {
     const e = this.enemies.get(x, y) as Enemy | null;
     if (!e) return null;
     e.spawn(ENEMIES[id], x, y, hpMul);
-    if (this.stage.enemyOutline && !ENEMIES[id].sheet && !ENEMIES[id].isObject) e.play(`anim_e_${id}_o`, true);
+    // 背景が暗いステージは、淡い縁取りの付いた絵を使う（縁取り版のある敵だけ）
+    if (this.stage.enemyOutline && !ENEMIES[id].isObject && this.scene.anims.exists(`anim_e_${id}_o`)) {
+      e.animSuffix = '_o';
+      e.playLoop();
+      e.anims.setProgress(Math.random());
+    }
     return e;
   }
 }

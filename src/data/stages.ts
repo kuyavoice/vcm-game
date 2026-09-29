@@ -26,7 +26,7 @@ export interface StageDef {
   bgm: string;
   /** 解放条件：このステージIDをクリア */
   unlockAfter?: number;
-  /** 10:00 のボス（既定 king） */
+  /** 10:00 のボス（独自の時間帯を持たないステージ。未指定なら時間帯のボス） */
   bossId?: EnemyId;
   /** 敵に淡い縁取り（背景が暗いステージの見やすさ対策） */
   enemyOutline?: boolean;
@@ -53,6 +53,7 @@ export const STAGES: StageDef[] = [
     enemyHpMul: 1, enemySpeedMul: 1, spawnMul: 1, bossHpMul: 1, xpMul: 1,
     extraWeights: {},
     tint: 0xffffff, color: 0x87ceeb, bgm: 'bgm_stage',
+    bossId: 'rook',
   },
   {
     id: 2, name: '真夜中', nameEn: 'STAGE 2',
@@ -60,7 +61,7 @@ export const STAGES: StageDef[] = [
     enemyHpMul: 1.6, enemySpeedMul: 1.1, spawnMul: 1.3, bossHpMul: 3, xpMul: 1.15,
     extraWeights: { knight: 0.08 },
     tint: 0xffffff, color: 0x9d4dff, bgm: 'bgm_stage2',
-    unlockAfter: 1, enemyOutline: true,
+    unlockAfter: 1, enemyOutline: true, bossId: 'queen',
   },
   {
     id: 3, name: '夜明け前', nameEn: 'STAGE 3',

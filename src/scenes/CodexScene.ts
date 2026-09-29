@@ -271,7 +271,8 @@ export class CodexScene extends Phaser.Scene {
       if (known && e.enemyId) {
         const size = ENEMIES[e.enemyId].size;
         const s = Math.max(1, Math.round(100 / size));
-        const bw = 150;
+        // ボスのドットは大きいので、枠を広げる
+        const bw = Math.max(150, size * s + 40);
         const bx = pic.x + pic.w - bw;
         const byy = pic.y + pic.h - bw;
         this.add.rectangle(bx, byy, bw, bw, 0x0b1026, 0.85).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.5);

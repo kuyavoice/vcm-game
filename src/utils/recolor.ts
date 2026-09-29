@@ -99,6 +99,45 @@ export function ensureEnemyRecolor(scene: Phaser.Scene, srcKey: string, dstKey: 
   scene.textures.addSpriteSheet(dstKey, cv as unknown as HTMLImageElement, { frameWidth, frameHeight });
 }
 
+/**
+ * 敵のスプライトシートに、淡い縁取りを付けた版を作る（STAGE 2 用。背景が暗くて、黒い敵が沈むため）。
+ * コマごとに、絵の外側1pxを淡い明色で囲む。コマの外へは、はみ出さない。
+ */
+export function ensureEnemyOutline(scene: Phaser.Scene, srcKey: string, dstKey: string, frameWidth: number, frameHeight: number, color = 0xb8c4ff, alpha = 0.6): void {
+  if (scene.textures.exists(dstKey) || !scene.textures.exists(srcKey)) return;
+  const src = scene.textures.get(srcKey).getSourceImage() as HTMLImageElement | HTMLCanvasElement;
+  const cv = document.createElement('canvas');
+  cv.width = src.width;
+  cv.height = src.height;
+  const g = cv.getContext('2d');
+  if (!g) return;
+  g.drawImage(src, 0, 0);
+  const img = g.getImageData(0, 0, cv.width, cv.height);
+  const d = img.data;
+  const solid = new Uint8Array(cv.width * cv.height);
+  for (let i = 0; i < solid.length; i++) solid[i] = d[i * 4 + 3] > 40 ? 1 : 0;
+  const r = (color >> 16) & 255;
+  const gg = (color >> 8) & 255;
+  const b = color & 255;
+  for (let y = 0; y < cv.height; y++) {
+    for (let x = 0; x < cv.width; x++) {
+      const i = y * cv.width + x;
+      if (solid[i]) continue;
+      // 同じコマの中の隣だけを見る
+      const fx = x % frameWidth;
+      const fy = y % frameHeight;
+      const near = (fx > 0 && solid[i - 1]) || (fx < frameWidth - 1 && solid[i + 1]) || (fy > 0 && solid[i - cv.width]) || (fy < frameHeight - 1 && solid[i + cv.width]);
+      if (!near) continue;
+      d[i * 4] = r;
+      d[i * 4 + 1] = gg;
+      d[i * 4 + 2] = b;
+      d[i * 4 + 3] = Math.round(alpha * 255);
+    }
+  }
+  g.putImageData(img, 0, 0);
+  scene.textures.addSpriteSheet(dstKey, cv as unknown as HTMLImageElement, { frameWidth, frameHeight });
+}
+
 function recolorPixels(d: Uint8ClampedArray, v: ColorVariantDef): void {
   for (let i = 0; i < d.length; i += 4) {
     if (d[i + 3] === 0) continue;

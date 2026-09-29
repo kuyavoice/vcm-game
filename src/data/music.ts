@@ -35,7 +35,7 @@ export const MUSIC: MusicDef[] = [
   ...song('yukihito', '狐森 雪人', '白銀の残響', 0xe8f4ff),
   ...song('ritsuka', '寿 律花', '声の魔女', 0xff4500),
   ...song('shion', '黒崎 詩音', 'Stardust Requiem', 0xc0c0ff, true),
-  { id: 'boss', key: 'bgm_boss', title: '王級のテーマ', sub: 'ボス戦', color: 0xff4d6d, price: PRICE },
+  { id: 'boss', key: 'bgm_boss', title: '立ちふさがる強敵', sub: 'ボス戦', color: 0xff4d6d, price: PRICE },
   { id: 'boss_blackknight', key: 'bgm_boss_blackknight', title: '漆黒の闇', sub: '黒騎士のテーマ ／ 前編', color: 0x9d4dff, price: PRICE },
   { id: 'boss_blackknight2', key: 'bgm_boss_blackknight2', title: '沈黙の世界', sub: '黒騎士のテーマ ／ 後編', color: 0x9d4dff, price: PRICE },
   { id: 'gameover', key: 'bgm_gameover', title: 'おやすみなさい', sub: 'ゲームオーバー', color: 0x8fa3d9, price: PRICE },

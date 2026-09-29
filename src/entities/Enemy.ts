@@ -68,6 +68,12 @@ export class Enemy extends Phaser.GameObjects.Sprite {
   bk = { phase: 1, invulnUntil: 0, cavalryTimer: 0, slashWindup: 0, slashCd: 0, animLock: 0, follow: '', followT: 0, followTick: 0, lastFollow: '', rush: 0, rushT: 0, rushH: true, rushCharge: false, rushCdUntil: 0, comboAngle: 0, forceCombo: false, slashSePlayed: false, cleaveAngle: 0, cleaveLen: 0, cleaveLeft: 0, cleaveFirst: true, enraged: false, ex: '', exT: 0, exStage: 0, exTimer: 0, lastEx: '', exForce: '', exX: 0, exY: 0, exAngle: 0 };
   /** 直線突撃（騎兵）の速度 */
   charge: { vx: number; vy: number } | null = null;
+  /** アニメのキーに付ける接尾辞（STAGE 2 の縁取り版は `_o`） */
+  animSuffix = '';
+  /** 城兵級・女王級の攻撃の狙い（着弾点・蔓の向きなど） */
+  aim: { x: number; y: number; a: number }[] = [];
+  /** 姿勢のコマを見せている残り時間（秒）。0 になったら歩きのアニメに戻す */
+  poseT = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'e_grunt_0');
@@ -103,6 +109,9 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     this.bossState = { chargeTimer: 2, ringTimer: 1.5, windup: 0, dashing: 0, dirX: 0, dirY: 0, phase: 1, act: '', actT: 0, actTick: 0, actLeft: 0, actTimer: 2.5, pattern: 0, ringSpin: 0, lastAct: '', actAngle: 0 };
     this.bk = { phase: 1, invulnUntil: 0, cavalryTimer: 3, slashWindup: 0, slashCd: 0, animLock: 0, follow: '', followT: 0, followTick: 0, lastFollow: '', rush: 0, rushT: 0, rushH: true, rushCharge: false, rushCdUntil: 0, comboAngle: 0, forceCombo: false, slashSePlayed: false, cleaveAngle: 0, cleaveLen: 0, cleaveLeft: 0, cleaveFirst: true, enraged: false, ex: '', exT: 0, exStage: 0, exTimer: 0, lastEx: '', exForce: '', exX: 0, exY: 0, exAngle: 0 };
     this.charge = null;
+    this.animSuffix = '';
+    this.aim = [];
+    this.poseT = 0;
     this.setOrigin(0.5, def.originY ?? 0.75);
     this.setPosition(x, y);
     this.setActive(true).setVisible(true);
@@ -166,6 +175,26 @@ export class Enemy extends Phaser.GameObjects.Sprite {
   speedMul(now: number): number {
     if (now < this.stunUntil) return 0;
     return now < this.slowUntil ? this.slowMul : 1;
+  }
+
+  /** 歩き（待機）のアニメ */
+  playLoop(): void {
+    this.play(`anim_e_${this.def.id}${this.animSuffix}`, true);
+  }
+
+  /** 1コマの姿勢を sec 秒見せる（EnemyDef.sheet.poses の名前） */
+  pose(name: string, sec: number): void {
+    const key = `anim_e_${this.def.id}${this.animSuffix}_${name}`;
+    if (!this.scene.anims.exists(key)) return;
+    this.play(key, true);
+    this.poseT = sec;
+  }
+
+  /** 姿勢の残り時間を進める。終わったら歩きに戻す */
+  tickPose(dt: number): void {
+    if (this.poseT <= 0) return;
+    this.poseT -= dt;
+    if (this.poseT <= 0) this.playLoop();
   }
 
   despawn(): void {

@@ -17,7 +17,7 @@ export interface CodexCharacter {
 export interface CodexEnemy {
   /** 図鑑の上でのID（設定画のファイル名にも使う） */
   id: string;
-  /** ゲーム内の敵ID。まだゲームに出ない敵は未指定（登録されない） */
+  /** ゲーム内の敵ID。未指定の敵は登録されない */
   enemyId?: EnemyId;
   name: string;
   /** 読み（無ければ出さない） */
@@ -65,9 +65,8 @@ export const CODEX_ENEMIES: CodexEnemy[] = [
   { id: 'kishi', enemyId: 'knight', name: '騎士級', reading: 'ナイト', rank: 'B', art: true, text: '黒曜石の鎧をまとった重装歩兵。前線を押し上げる動かぬ壁。上位の個体は、他のネミノクスを統率することもある。' },
   { id: 'bishop', enemyId: 'bishop', name: '司祭級', reading: 'ビショップ', rank: 'B+', art: true, text: 'ボロ布をまとった幽霊のような姿。フードの奥は空洞。離れた場所から術を放ち、周囲のネミノクスを支援する。' },
   { id: 'cavalry', enemyId: 'cavalry', name: '騎兵型', rank: '特殊個体', text: '騎士級の変異体。多脚の体で隊列を組み、一直線に戦場を駆け抜ける突撃特化の個体。' },
-  // 城兵級・女王級は、行動とドット絵が届いてからゲームに出す（パッチ⑩ §4）。それまでは登録されない
-  { id: 'rook', name: '城兵級', reading: 'ルーク', rank: 'A-', art: true, text: '「歩く要塞」。巨大な岩塊の体に城壁と砲台を背負い、ゆっくりと進軍する。その砲撃は、戦場ごと押し潰す。' },
-  { id: 'queen', name: '女王級', reading: 'クイーン', rank: 'A+', art: true, text: '「歪んだ女神」。茨と虫の羽を持つ異形の母体。D-Stageを維持し、無数のネミノクスを産み落とし続ける。' },
+  { id: 'rook', enemyId: 'rook', name: '城兵級', reading: 'ルーク', rank: 'A-', art: true, text: '「歩く要塞」。巨大な岩塊の体に城壁と砲台を背負い、ゆっくりと進軍する。その砲撃は、戦場ごと押し潰す。' },
+  { id: 'queen', enemyId: 'queen', name: '女王級', reading: 'クイーン', rank: 'A+', art: true, text: '「歪んだ女神」。茨と虫の羽を持つ異形の母体。D-Stageを維持し、無数のネミノクスを産み落とし続ける。' },
   // ゲーム内のIDは blackknight。図鑑のIDは knight
   { id: 'knight', enemyId: 'blackknight', name: '黒騎士', rank: 'S（王級）', text: '漆黒のローブをまとい、多脚の騎兵を従える騎士。指揮官型の王級ネミノクス。重い剣閃と闇の弾で、戦場を支配する。' },
   { id: 'redknight', enemyId: 'redknight', name: '悪夢の黒騎士', rank: '―', text: '悪夢の中で、さらに力を増した黒騎士。深紅の闇をまとい、ただ一人の挑戦者を待ち受ける。' },

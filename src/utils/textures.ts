@@ -181,12 +181,86 @@ export function ensureDamageFont(scene: Phaser.Scene): string {
   return key;
 }
 
+/** 女王級の蕾：黒い茨に包まれた蕾。芯が金色に光る */
+function makeBudTexture(scene: Phaser.Scene, key: string, size: number, glow: number, frame: number, outline: boolean) {
+  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+  const c = size / 2;
+  const V = (x: number, y: number) => new Phaser.Math.Vector2(x, y);
+  // 根元の茨
+  g.fillStyle(0x0a0c18, 1);
+  g.fillEllipse(c, size - 4, size * 0.8, 7);
+  // 蕾の外側（しずく形）
+  const body = [V(c, 2), V(c + size * 0.3, size * 0.4), V(c + size * 0.36, size * 0.66), V(c + size * 0.2, size - 4), V(c - size * 0.2, size - 4), V(c - size * 0.36, size * 0.66), V(c - size * 0.3, size * 0.4)];
+  g.fillStyle(0x141022, 1);
+  g.fillPoints(body, true);
+  g.lineStyle(outline ? 2 : 1, outline ? 0xb8c4ff : 0x3a2a55, outline ? 0.5 : 1);
+  g.strokePoints(body, true);
+  // 花びらの筋
+  g.lineStyle(1, 0x4a3570, 1);
+  g.lineBetween(c, 3, c - size * 0.14, size - 6);
+  g.lineBetween(c, 3, c + size * 0.14, size - 6);
+  // 芯の光
+  g.fillStyle(glow, frame === 0 ? 0.35 : 0.5);
+  g.fillCircle(c, size * 0.58, size * (frame === 0 ? 0.2 : 0.24));
+  g.fillStyle(glow, 1);
+  g.fillCircle(c, size * 0.58, size * 0.11);
+  g.fillStyle(0xffffff, 1);
+  g.fillCircle(c, size * 0.58, size * 0.05);
+  g.generateTexture(key, size, size);
+  g.destroy();
+}
+
+/** 城兵級の岩（岩壁の1個ぶん・砲弾）。シアンのひび割れ */
+function makeRockTextures(scene: Phaser.Scene) {
+  const V = (x: number, y: number) => new Phaser.Math.Vector2(x, y);
+  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+  // 岩壁の柱（48×64。足元中央が基準）
+  const rock = [V(8, 62), V(2, 40), V(8, 14), V(20, 2), V(34, 6), V(44, 22), V(46, 46), V(40, 62)];
+  g.fillStyle(0x1a1c26, 1);
+  g.fillPoints(rock, true);
+  g.fillStyle(0x2c303f, 1);
+  g.fillPoints([V(8, 14), V(20, 2), V(34, 6), V(26, 20), V(12, 24)], true);
+  g.fillStyle(0x3d4256, 1);
+  g.fillPoints([V(20, 2), V(34, 6), V(28, 12)], true);
+  g.fillStyle(0x10121a, 1);
+  g.fillPoints([V(34, 6), V(44, 22), V(46, 46), V(40, 62), V(30, 62), V(32, 30)], true);
+  g.lineStyle(1, 0x05060a, 1);
+  g.strokePoints(rock, true);
+  g.lineStyle(2, 0x40e0ff, 0.9);
+  g.lineBetween(14, 30, 20, 40);
+  g.lineBetween(20, 40, 16, 52);
+  g.lineBetween(20, 40, 28, 46);
+  g.lineStyle(1, 0xc8f8ff, 1);
+  g.lineBetween(15, 32, 20, 40);
+  g.generateTexture('fx_rock', 48, 64);
+  // 砲弾（24×24）
+  g.clear();
+  g.fillStyle(0x1a1c26, 1);
+  g.fillPoints([V(4, 8), V(12, 1), V(21, 6), V(23, 16), V(15, 23), V(5, 20), V(1, 13)], true);
+  g.fillStyle(0x3d4256, 1);
+  g.fillPoints([V(4, 8), V(12, 1), V(21, 6), V(12, 10)], true);
+  g.lineStyle(2, 0x40e0ff, 0.9);
+  g.lineBetween(8, 12, 13, 16);
+  g.lineBetween(13, 16, 18, 13);
+  g.generateTexture('fx_shell', 24, 24);
+  g.destroy();
+}
+
 export function generateTextures(scene: Phaser.Scene) {
+  makeRockTextures(scene);
   makeStageBackgrounds(scene);
   // 敵（2フレーム）
   let seed = 7;
   for (const def of Object.values(ENEMIES)) {
     if (def.isObject || def.sheet) continue; // スピーカーは別途生成、画像の敵はBootで読み込み
+    if (def.bud) {
+      // 女王級の蕾：専用の絵（1コマ目は、芯の光が強い）
+      makeBudTexture(scene, `e_${def.id}_0`, def.size, def.eyeColor, 0, false);
+      makeBudTexture(scene, `e_${def.id}_1`, def.size, def.eyeColor, 1, false);
+      makeBudTexture(scene, `e_${def.id}_0_o`, def.size, def.eyeColor, 0, true);
+      makeBudTexture(scene, `e_${def.id}_1_o`, def.size, def.eyeColor, 1, true);
+      continue;
+    }
     makeEnemyTexture(scene, `e_${def.id}_0`, def.size, def.eyeColor, seed, false);
     makeEnemyTexture(scene, `e_${def.id}_1`, def.size, def.eyeColor, seed + 1, false);
     makeEnemyTexture(scene, `e_${def.id}_0_o`, def.size, def.eyeColor, seed, true);

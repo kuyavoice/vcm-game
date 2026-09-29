@@ -147,6 +147,12 @@ export class GameScene extends Phaser.Scene {
     this.bosses = [];
     this.cavalryWarnings = [];
     this.hazards = [];
+    this.walls = [];
+    this.pollens = [];
+    this.pkx = 0;
+    this.pky = 0;
+    this.inPollen = false;
+    this.fixedArrow = false;
     this.score = 0;
     this.combo = 0;
     this.comboMul = 1;
@@ -303,7 +309,7 @@ export class GameScene extends Phaser.Scene {
    */
   private buildDebugPanel(): void {
     const used = () => { this.debugUsed = true; };
-    const spawnBoss = (id: 'king' | 'blackknight' | 'redknight') => {
+    const spawnBoss = (id: 'rook' | 'queen' | 'blackknight' | 'redknight') => {
       used();
       const boss = this.spawner.spawnOne(id, this.player.x, this.player.y - 420, 1);
       if (!boss) return;
@@ -311,9 +317,10 @@ export class GameScene extends Phaser.Scene {
       this.onBossSpawn(boss, 1);
     };
     const items: { label: string; run: (setLabel: (s: string) => void) => void }[] = [
-      { label: '王級', run: () => spawnBoss('king') },
+      { label: '城兵級', run: () => spawnBoss('rook') },
+      { label: '女王級', run: () => spawnBoss('queen') },
       { label: '黒騎士', run: () => spawnBoss('blackknight') },
-      { label: '赤騎士', run: () => spawnBoss('redknight') },
+      { label: '悪夢黒騎士', run: () => spawnBoss('redknight') },
       {
         label: '騎兵必殺',
         run: () => {
@@ -333,7 +340,7 @@ export class GameScene extends Phaser.Scene {
         },
       },
       {
-        label: '赤騎士の技',
+        label: '悪夢の技',
         run: (set) => {
           used();
           // 押すたびに 新月 → 半月 → 漆黒の牙 → 漆黒の檻 → 闇の炎 の順で、次の技として予約する
@@ -481,7 +488,7 @@ export class GameScene extends Phaser.Scene {
     this.hud.update({
       hp: p.hp, maxHp: p.maxHp, xp: this.xp.xp, xpToNext: this.xp.xpToNext, level: this.xp.level,
       time: this.elapsed, kills: this.kills, yell: this.xp.yell,
-      band: `${this.spawner.band?.label ?? ''}　${this.stage.nameEn}`,
+      band: `${this.spawner.bandLabel}　${this.stage.nameEn}`,
       soul: this.soulGauge, soulActive,
       boss: (() => { const b = this.bosses.find((x) => x.active) ?? null; return b ? { name: this.bosses.filter((x) => x.active).length > 1 ? `${b.def.name} ×${this.bosses.filter((x) => x.active).length}` : b.def.name, hp: b.hp, maxHp: b.maxHp } : null; })(),
       score: this.stage.scoreMode ? { score: Math.round(this.score), combo: this.comboMul } : null,
@@ -501,6 +508,12 @@ export class GameScene extends Phaser.Scene {
         if (e.active && e.def.tier >= CONFIG.infoControlMinTier) this.arrowTargets.push({ x: e.x, y: e.y, color: e.def.eyeColor });
       }
       this.hud.drawArrows(this.arrowTargets);
+    } else if (this.fixedArrow || this.bosses.some((b) => b.active && b.def.fixed)) {
+      // 動かないボスは、画面の外にいるとき方向を矢印で示す（どのキャラでも）
+      this.arrowTargets.length = 0;
+      for (const b of this.bosses) if (b.active && b.def.fixed) this.arrowTargets.push({ x: b.x, y: b.y - 60, color: b.def.eyeColor });
+      this.hud.drawArrows(this.arrowTargets);
+      this.fixedArrow = this.arrowTargets.length > 0;
     }
 
     // 終了判定
@@ -525,7 +538,17 @@ export class GameScene extends Phaser.Scene {
     const stats = this.up.stats;
     const p = this.player;
 
-    p.move(dx, dy, dt, stats.speedMul, now);
+    p.move(dx, dy, dt, stats.speedMul * (this.inPollen ? CONFIG.queen.pollenSlowMul : 1), now);
+    if (this.pkx !== 0 || this.pky !== 0) {
+      // 吹き飛び（城兵級の踏み鳴らし）：すぐ弱まる
+      p.x += this.pkx * dt;
+      p.y += this.pky * dt;
+      const f = Math.exp(-8 * dt);
+      this.pkx *= f;
+      this.pky *= f;
+      if (Math.abs(this.pkx) + Math.abs(this.pky) < 6) this.pkx = this.pky = 0;
+    }
+    if (this.walls.length) this.pushOutOfWalls(p, 12);
 
     // 『流麗なる水衣』発動中は Midnight Patisserie Lv2相当（+1.0/秒）の回復を上乗せ（v2）
     if (specialActive && def.special.id === 'aqua_lament') p.heal(1.0 * dt);
@@ -626,6 +649,8 @@ export class GameScene extends Phaser.Scene {
     const sep = CONFIG.separationForce;
     this.bossGfx.clear();
     this.updateHazards(now);
+    if (this.walls.length) this.updateWalls(now);
+    this.updatePollens(dt, now);
 
     for (let i = 0; i < enemies.length; i++) {
       const e = enemies[i];
@@ -654,6 +679,14 @@ export class GameScene extends Phaser.Scene {
         this.hitSpark(e.x, e.y - 10, 0xbfefff, 4);
       }
       if (def.isObject) continue;
+
+      // 女王級の蕾：ふくらんで、時間が来たら孵る
+      if (def.bud) {
+        e.shootTimer -= dt;
+        const k = 1 - Math.max(0, e.shootTimer) / CONFIG.queen.budHatchSec;
+        e.setScale(CONFIG.spriteScale * (1 + k * 0.4 + Math.sin(now / 60) * 0.05 * k));
+        if (e.shootTimer <= 0) { this.hatchBud(e); continue; }
+      } else if (!def.boss && e.poseT > 0) e.tickPose(dt);
 
       // 炎上（0.25秒ごとに刻む）
       if (now < e.burnUntil) {
@@ -732,6 +765,11 @@ export class GameScene extends Phaser.Scene {
         mx = r.mx;
         my = r.my;
         spd = walking ? r.spd * e.chillFactor(now) : r.spd;
+      } else if (def.bossKind === 'rook') {
+        spd = this.updateRook(e, dt, now, dist) * e.chillFactor(now);
+      } else if (def.bossKind === 'queen') {
+        this.updateQueen(e, dt, now, dist, nx, ny);
+        spd = 0;
       } else if (def.boss) {
         spd = this.updateBoss(e, dt, now, dist, nx, ny);
         if (walking) spd *= e.chillFactor(now);
@@ -746,6 +784,7 @@ export class GameScene extends Phaser.Scene {
         if (e.shootTimer <= 0 && dist < 560) {
           e.shootTimer = def.ranged.intervalSec;
           this.fireEnemyBullet(e.x, e.y, Math.atan2(dy, dx), def.ranged.bulletSpeed, def.ranged.bulletLifeSec, def.ranged.bulletDamage);
+          e.pose('cast', 0.4);
         }
       }
       e.x += mx * spd * dt + e.kbx * dt;
@@ -771,8 +810,11 @@ export class GameScene extends Phaser.Scene {
         }
       }
 
-      // 接触ダメージ
-      if (dist < e.radius + p.def.hitRadius) this.hurt(def.contactDamage, now, true);
+      // 岩壁は、敵も通れない（壁を作る城兵級と、動かないものは除く）
+      if (this.walls.length && !def.boss && def.speed > 0) this.pushOutOfWalls(e, Math.min(e.radius, 26) * 0.6, 12);
+
+      // 接触ダメージ（蕾と、姿を現している途中の女王級には無い）
+      if (def.contactDamage > 0 && dist < e.radius + p.def.hitRadius && e.bossState.act !== 'emerge') this.hurt(def.contactDamage, now, true);
     }
   }
 
@@ -1448,6 +1490,511 @@ export class GameScene extends Phaser.Scene {
   private cavalryWarnings: { at: number; x1: number; y1: number; x2: number; y2: number }[] = [];
   private hazards: Hazard[] = [];
 
+  // ─────────────────────────── 城兵級・女王級（追補パッチ⑪） ───────────────────────────
+
+  /** 岩壁（城兵級）。線分＋半幅。敵もプレイヤーも通れない。攻撃は通る */
+  private walls: { x1: number; y1: number; x2: number; y2: number; half: number; until: number; imgs: Phaser.GameObjects.Image[] }[] = [];
+  /** 毒の粉（女王級の鱗粉）。from から効き始める */
+  private pollens: { x: number; y: number; r: number; from: number; until: number }[] = [];
+  /** 吹き飛ばされている速さ（城兵級の踏み鳴らし） */
+  private pkx = 0;
+  private pky = 0;
+  /** 毒の粉の中にいる（足が遅くなる） */
+  private inPollen = false;
+  private pollenTick = 0;
+  /** 動かないボスの方向の矢印を出している */
+  private fixedArrow = false;
+
+  /** 重み付きの乱数で行動を選ぶ（last と skip の行動は選ばない）。選べなければ空 */
+  private pickAct(table: Readonly<Record<string, number>>, last: string, skip: string[] = []): string {
+    let total = 0;
+    for (const k in table) if (k !== last && !skip.includes(k)) total += table[k];
+    if (total <= 0) return '';
+    let r = Math.random() * total;
+    for (const k in table) {
+      if (k === last || skip.includes(k)) continue;
+      r -= table[k];
+      if (r <= 0) return k;
+    }
+    return '';
+  }
+
+  /** プレイヤーを (cx, cy) から遠ざかる向きに吹き飛ばす（ノックバック無効のキャラには効かない） */
+  private knockPlayer(cx: number, cy: number, speed: number): void {
+    const p = this.player;
+    if (p.def.knockbackImmune) return;
+    const a = Math.atan2(p.y - 12 - cy, p.x - cx);
+    this.pkx = Math.cos(a) * speed;
+    this.pky = Math.sin(a) * speed;
+  }
+
+  /** 岩壁にめり込んだものを、壁の外へ押し出す */
+  private pushOutOfWalls(o: { x: number; y: number }, r: number, oy = 0): void {
+    for (const w of this.walls) {
+      const px = o.x;
+      const py = o.y + oy;
+      const dx = w.x2 - w.x1;
+      const dy = w.y2 - w.y1;
+      const len2 = dx * dx + dy * dy || 1;
+      const t = Phaser.Math.Clamp(((px - w.x1) * dx + (py - w.y1) * dy) / len2, 0, 1);
+      let nx = px - (w.x1 + dx * t);
+      let ny = py - (w.y1 + dy * t);
+      const d = Math.hypot(nx, ny);
+      const min = w.half + r;
+      if (d >= min) continue;
+      if (d < 0.01) {
+        const l = Math.sqrt(len2);
+        nx = -dy / l;
+        ny = dx / l;
+      } else {
+        nx /= d;
+        ny /= d;
+      }
+      o.x += nx * (min - d);
+      o.y += ny * (min - d);
+    }
+  }
+
+  /** 岩壁を1枚せり上げる。(x, y) が中心、a が壁の向き */
+  private raiseWall(x: number, y: number, a: number, now: number): void {
+    const R = CONFIG.rook;
+    const ux = (Math.cos(a) * R.wallLength) / 2;
+    const uy = (Math.sin(a) * R.wallLength) / 2;
+    const n = 5;
+    const imgs: Phaser.GameObjects.Image[] = [];
+    for (let i = 0; i < n; i++) {
+      const t = ((i + 0.5) / n) * 2 - 1;
+      const img = this.add.image(x + ux * t, y + uy * t + 10, 'fx_rock').setOrigin(0.5, 0.95).setDepth(12).setScale(1.15, 0).setFlipX(i % 2 === 1);
+      this.tweens.add({ targets: img, scaleY: 1.15 + (i % 3) * 0.08, duration: 220, delay: i * 30, ease: 'Back.easeOut' });
+      this.hitSpark(img.x, img.y - 10, 0x40e0ff, 3);
+      imgs.push(img);
+    }
+    this.walls.push({ x1: x - ux, y1: y - uy, x2: x + ux, y2: y + uy, half: R.wallHalfWidth, until: now + R.wallSec * 1000, imgs });
+  }
+
+  /** 岩壁を崩す（all：残っている壁を全部） */
+  private updateWalls(now: number, all = false): void {
+    for (let i = this.walls.length - 1; i >= 0; i--) {
+      const w = this.walls[i];
+      const left = w.until - now;
+      if (!all && left > 0) {
+        // 崩れる前は、点滅して知らせる
+        if (left < 1000) for (const img of w.imgs) img.setAlpha(Math.floor(now / 90) % 2 === 0 ? 0.55 : 1);
+        continue;
+      }
+      for (const img of w.imgs) {
+        this.particles.setParticleTint(0x3d4256);
+        this.particles.explode(5, img.x, img.y - 24);
+        this.tweens.add({ targets: img, alpha: 0, scaleY: 0.3, duration: 220, onComplete: () => img.destroy() });
+      }
+      this.walls.splice(i, 1);
+    }
+  }
+
+  /** 毒の粉：描画と、中にいるときの効果（足が遅くなり、少しずつ削られる） */
+  private updatePollens(dt: number, now: number): void {
+    this.inPollen = false;
+    if (this.pollens.length === 0) return;
+    const Q = CONFIG.queen;
+    const g = this.bossGfx;
+    const p = this.player;
+    for (let i = this.pollens.length - 1; i >= 0; i--) {
+      const z = this.pollens[i];
+      if (now >= z.until) { this.pollens.splice(i, 1); continue; }
+      if (now < z.from) {
+        // 予告：輪が広がる
+        const k = 1 - (z.from - now) / (Q.pollenWindupSec * 1000);
+        g.lineStyle(2, 0xc77dff, 0.7);
+        g.strokeCircle(z.x, z.y, z.r);
+        g.fillStyle(0xc77dff, 0.06 + k * 0.08);
+        g.fillCircle(z.x, z.y, z.r * k);
+        continue;
+      }
+      const fade = Math.min(1, (z.until - now) / 600);
+      g.fillStyle(0x6a2c91, (0.26 + Math.sin(now / 160 + i) * 0.05) * fade);
+      g.fillCircle(z.x, z.y, z.r);
+      g.lineStyle(2, 0xc77dff, 0.55 * fade);
+      g.strokeCircle(z.x, z.y, z.r);
+      if (Math.random() < 0.25) {
+        const a = Math.random() * Math.PI * 2;
+        const d = Math.random() * z.r;
+        this.hitSpark(z.x + Math.cos(a) * d, z.y + Math.sin(a) * d, 0xffc83d, 1);
+      }
+      if (Math.hypot(p.x - z.x, p.y - 12 - z.y) < z.r) this.inPollen = true;
+    }
+    if (!this.inPollen) return;
+    // 盾が張られている間と無敵の設定中は、削られない。被弾の無敵時間は関係なく削る
+    const shielded = now < p.shieldUntil || p.hitShield > 0;
+    if (!this.debugInvincible && !shielded) {
+      let mul = (this.stage.enemyDamageMul ?? 1) * this.up.stats.damageTakenMul;
+      if (now < this.soulUntil && p.def.special.id === 'aqua_lament') mul *= 0.3;
+      p.hp = Math.max(0, p.hp - Q.pollenDps * mul * dt);
+    }
+    this.pollenTick -= dt;
+    if (this.pollenTick <= 0) {
+      this.pollenTick = 0.5;
+      this.hitSpark(p.x, p.y - 40, 0xc77dff, 3);
+      if (this.stage.scoreMode && !shielded) { this.combo = 0; this.comboMul = 1; this.scoreNoDamageBreak(); }
+    }
+  }
+
+  /** 女王級の蕾が孵る：雑音級の群れか、狩人級1体 */
+  private hatchBud(e: Enemy): void {
+    const Q = CONFIG.queen;
+    const x = e.x;
+    const y = e.y;
+    e.despawn();
+    this.hitSpark(x, y - 10, 0xffc83d, 6);
+    if (Math.random() < Q.budHunterChance) {
+      this.spawner.spawnOne('hunter', x, y, this.stage.enemyHpMul);
+      return;
+    }
+    for (let i = 0; i < Q.budGrunts; i++) {
+      const a = (i / Q.budGrunts) * Math.PI * 2 + Math.random();
+      this.spawner.spawnOne('grunt', x + Math.cos(a) * 22, y + Math.sin(a) * 22, this.stage.enemyHpMul);
+    }
+  }
+
+  /** ボスが倒れたあとの片付け：岩壁・毒の粉・蕾 */
+  private clearBossField(kind?: 'rook' | 'queen'): void {
+    if (kind === 'rook') this.updateWalls(this.gameNow, true);
+    if (kind === 'queen') {
+      this.pollens.length = 0;
+      for (const o of this.enemies.getChildren() as Enemy[]) {
+        if (!o.active || !o.def.bud) continue;
+        this.hitSpark(o.x, o.y - 10, 0xffc83d, 4);
+        o.despawn();
+      }
+    }
+  }
+
+  /**
+   * 城兵級：とても遅く歩きながら、砲撃か岩壁を繰り出す。プレイヤーが近いと踏み鳴らし。
+   * HP50%を切ると、砲撃の着弾点が増える。範囲攻撃はすべて予告を出してから当てる。
+   * 返り値: このフレームの移動速度
+   */
+  private updateRook(e: Enemy, dt: number, now: number, dist: number): number {
+    const b = e.bossState;
+    const R = CONFIG.rook;
+    const g = this.bossGfx;
+    const p = this.player;
+    e.tickPose(dt);
+    if (b.phase === 1 && e.hp <= e.maxHp * R.phase2At) {
+      b.phase = 2;
+      if (!b.act) e.pose('hit', 0.7);
+      this.hud.banner(`${e.def.name} —— 激昂`, '#FF4D6D', 34);
+      this.cameras.main.shake(400, 0.007);
+      this.fxRing(e.x, e.y - 60, 240, 0x40e0ff, 10);
+    }
+    const p2 = b.phase === 2;
+    b.chargeTimer -= dt; // 踏み鳴らしの待ち時間
+
+    // 攻撃の前は、体のひび割れが強く光る
+    const glow = (k: number) => {
+      g.fillStyle(0x40e0ff, 0.1 + k * 0.16 + Math.sin(now / 70) * 0.04);
+      g.fillCircle(e.x, e.y - 70, 125);
+      if (!e.flashUntil) e.setTint(Math.floor(now / 90) % 2 === 0 ? 0xa8f4ff : 0xffffff);
+    };
+    const endAct = () => {
+      b.act = '';
+      if (!e.flashUntil) e.clearTint();
+    };
+
+    // 砲撃：着弾点を赤い円で予告 → 発射 → 岩の砲弾が降る
+    if (b.act === 'cannon') {
+      b.actT -= dt;
+      const k = 1 - Math.max(0, b.actT) / R.cannonWindupSec;
+      for (const t of e.aim) {
+        g.fillStyle(0xff2244, 0.1 + k * 0.2);
+        g.fillCircle(t.x, t.y, R.cannonRadius);
+        g.lineStyle(2, 0xff2244, 0.85);
+        g.strokeCircle(t.x, t.y, R.cannonRadius);
+        g.lineStyle(3, 0xff2244, 0.5 + k * 0.4);
+        g.strokeCircle(t.x, t.y, R.cannonRadius * k);
+      }
+      if (b.actLeft > 0) {
+        glow(k);
+        if (b.actT <= R.cannonWindupSec - R.cannonFireAtSec) {
+          // 発射：反動でのけぞる。砲弾は着弾点の真上から降る
+          b.actLeft = 0;
+          if (!e.flashUntil) e.clearTint();
+          e.pose('fire', 0.5);
+          AudioBus.play('se_break', 120);
+          this.cameras.main.shake(120, 0.005);
+          const ms = Math.max(60, b.actT * 1000);
+          for (const t of e.aim) {
+            const shell = this.add.image(t.x, t.y - 700, 'fx_shell').setDepth(27).setScale(2.4);
+            this.tweens.add({ targets: shell, y: t.y - 10, angle: 360, duration: ms, ease: 'Quad.easeIn', onComplete: () => shell.destroy() });
+          }
+        }
+      }
+      if (b.actT <= 0) {
+        endAct();
+        let hit = false;
+        for (const t of e.aim) {
+          this.fxRing(t.x, t.y, R.cannonRadius, 0xff4d6d, 6);
+          this.particles.setParticleTint(0x3d4256);
+          this.particles.explode(8, t.x, t.y - 6);
+          if (Math.hypot(p.x - t.x, p.y - 12 - t.y) < R.cannonRadius) hit = true;
+        }
+        AudioBus.play('se_kill', 60);
+        this.cameras.main.shake(200, 0.008);
+        if (hit) this.hurt(R.cannonDamage, now);
+      }
+      return 0;
+    }
+
+    // 岩壁：壁の位置を予告 → せり上がる
+    if (b.act === 'wall') {
+      b.actT -= dt;
+      const k = 1 - Math.max(0, b.actT) / R.wallWindupSec;
+      for (const w of e.aim) {
+        const ux = (Math.cos(w.a) * R.wallLength) / 2;
+        const uy = (Math.sin(w.a) * R.wallLength) / 2;
+        g.lineStyle(R.wallHalfWidth * 2, 0x40e0ff, 0.12 + k * 0.22);
+        g.lineBetween(w.x - ux, w.y - uy, w.x + ux, w.y + uy);
+        g.lineStyle(2, 0x40e0ff, 0.85);
+        g.lineBetween(w.x - ux, w.y - uy, w.x + ux, w.y + uy);
+      }
+      glow(k);
+      if (b.actT <= 0) {
+        endAct();
+        for (const w of e.aim) this.raiseWall(w.x, w.y, w.a, now);
+        AudioBus.play('se_break', 120);
+        this.cameras.main.shake(160, 0.006);
+      }
+      return 0;
+    }
+
+    // 踏み鳴らし：予告の円 → 衝撃の輪。当たると大きく吹き飛ぶ
+    if (b.act === 'stomp') {
+      b.actT -= dt;
+      const cx = e.x;
+      const cy = e.y - 30;
+      if (b.actT > 0) {
+        const k = 1 - b.actT / R.stompWindupSec;
+        g.fillStyle(0xff2244, 0.12 + k * 0.18);
+        g.fillCircle(cx, cy, R.stompRadius);
+        g.lineStyle(4, 0xff2244, 0.5 + k * 0.4);
+        g.strokeCircle(cx, cy, R.stompRadius * k);
+        glow(k);
+        return 0;
+      }
+      endAct();
+      b.chargeTimer = R.stompCooldownSec;
+      e.pose('stomp', 0.5);
+      AudioBus.play('se_break', 120);
+      this.cameras.main.shake(220, 0.009);
+      this.fxRing(cx, cy, R.stompRadius, 0x40e0ff, 8);
+      this.fxRing(cx, cy, R.stompRadius * 0.6, 0xffffff, 4);
+      if (Math.hypot(p.x - cx, p.y - 12 - cy) < R.stompRadius) {
+        this.hurt(R.stompDamage, now);
+        this.knockPlayer(cx, cy, R.stompKnockback);
+      }
+      return 0;
+    }
+
+    // プレイヤーが近い：踏み鳴らし
+    if (dist < R.stompTriggerDist && b.chargeTimer <= 0) {
+      b.act = 'stomp';
+      b.actT = R.stompWindupSec;
+      e.pose('wall', R.stompWindupSec);
+      return 0;
+    }
+
+    b.actTimer -= dt;
+    if (b.actTimer <= 0) {
+      // 岩壁は続けて出さない（砲撃は続いてよい）
+      const act = this.pickAct(R.weights, b.lastAct === 'wall' ? 'wall' : '') || 'cannon';
+      b.lastAct = act;
+      b.actTimer = R.attackEverySec;
+      e.aim.length = 0;
+      if (act === 'cannon') {
+        const range = p2 ? R.cannonPointsPhase2 : R.cannonPoints;
+        const n = Phaser.Math.Between(range[0], range[1]);
+        // 1発目はプレイヤーの位置。残りは周りに散らす（近すぎる点は選び直す）
+        e.aim.push({ x: p.x, y: p.y - 12, a: 0 });
+        for (let i = 1; i < n; i++) {
+          let x = p.x;
+          let y = p.y;
+          for (let tries = 0; tries < 8; tries++) {
+            const a = Math.random() * Math.PI * 2;
+            const d = Phaser.Math.Between(R.cannonSpreadMin, R.cannonSpreadMax);
+            x = p.x + Math.cos(a) * d;
+            y = p.y - 12 + Math.sin(a) * d;
+            if (e.aim.every((t) => Math.hypot(t.x - x, t.y - y) > R.cannonRadius * 1.3)) break;
+          }
+          e.aim.push({ x, y, a: 0 });
+        }
+        b.act = 'cannon';
+        b.actT = R.cannonWindupSec;
+        b.actLeft = 1;
+        e.pose('aim', R.cannonFireAtSec);
+      } else {
+        // プレイヤーの背中側（城兵級から見て奥）を塞ぐ。壁どうしの間は通れる
+        const n = Phaser.Math.Between(R.wallCount[0], R.wallCount[1]);
+        const away = Math.atan2(p.y - 12 - e.y, p.x - e.x);
+        const offs = n >= 3 ? [0, 1.75, -1.75] : [0.87, -0.87];
+        for (const off of offs) {
+          const a = away + off + (Math.random() - 0.5) * 0.2;
+          e.aim.push({ x: p.x + Math.cos(a) * R.wallDistance, y: p.y - 12 + Math.sin(a) * R.wallDistance, a: a + Math.PI / 2 });
+        }
+        b.act = 'wall';
+        b.actT = R.wallWindupSec;
+        e.pose('wall', R.wallWindupSec + 0.5);
+      }
+      return 0;
+    }
+    return e.def.speed;
+  }
+
+  /**
+   * 女王級：出た場所から動かない。蕾を産み（召喚）、蔓の鞭と鱗粉で攻める。
+   * HP50%で「開花」：しばらく無敵。以降は蕾が増え、召喚の間隔が短くなる。
+   */
+  private updateQueen(e: Enemy, dt: number, now: number, dist: number, nx: number, ny: number): void {
+    const b = e.bossState;
+    const Q = CONFIG.queen;
+    const g = this.bossGfx;
+    const p = this.player;
+    e.tickPose(dt);
+
+    // 姿を現す（この間は当たらない・攻撃しない）
+    if (b.act === 'emerge') {
+      b.actT -= dt;
+      const k = 1 - Math.max(0, b.actT) / Q.emergeSec;
+      e.setAlpha(0.15 + k * 0.85);
+      g.fillStyle(0xffc83d, 0.08);
+      g.fillCircle(e.x, e.y - 20, 140);
+      g.lineStyle(3, 0xffc83d, 0.7);
+      g.strokeCircle(e.x, e.y - 20, 140 * k);
+      if (b.actT <= 0) {
+        b.act = '';
+        e.setAlpha(1);
+        this.fxRing(e.x, e.y - 20, 160, 0xffc83d, 6);
+      }
+      return;
+    }
+
+    // 開花（50%を切った瞬間）
+    if (b.phase === 1 && e.hp <= e.maxHp * Q.bloomAt) {
+      b.phase = 2;
+      b.act = 'bloom';
+      b.actT = Q.bloomInvulnSec;
+      e.bk.invulnUntil = now + Q.bloomInvulnSec * 1000;
+      e.aim.length = 0;
+      e.pose('bloom', Q.bloomInvulnSec);
+      b.ringTimer = Math.min(b.ringTimer, 1);
+      this.hud.banner(`${e.def.name} —— 開花`, '#FFC83D', 34);
+      this.cameras.main.shake(400, 0.007);
+      this.fxRing(e.x, e.y - 60, 240, 0xffc83d, 10);
+    }
+    const p2 = b.phase === 2;
+    if (p2) {
+      g.fillStyle(0xffc83d, 0.1 + Math.sin(now / 120) * 0.04);
+      g.fillCircle(e.x, e.y - 50, 125 + Math.sin(now / 95) * 8);
+    }
+    if (b.act === 'bloom' || b.act === 'cast') {
+      b.actT -= dt;
+      if (b.actT <= 0) b.act = '';
+      return;
+    }
+
+    // 蔓の鞭：予告線 → 黒い茨が一直線に地面を薙ぐ
+    if (b.act === 'whip') {
+      b.actT -= dt;
+      const ox = e.x;
+      const oy = e.y - 40;
+      if (b.actT > 0) {
+        const k = 1 - b.actT / Q.whipWindupSec;
+        for (const w of e.aim) {
+          const tx = ox + Math.cos(w.a) * Q.whipLength;
+          const ty = oy + Math.sin(w.a) * Q.whipLength;
+          g.lineStyle(Q.whipHalfWidth * 2, 0xff2244, 0.14 + k * 0.22);
+          g.lineBetween(ox, oy, tx, ty);
+          g.lineStyle(3, 0xff2244, 0.8);
+          g.lineBetween(ox, oy, tx, ty);
+        }
+        return;
+      }
+      b.act = '';
+      e.pose('whip', 0.5);
+      AudioBus.play('se_slash_heavy', 80, 'se_slash');
+      let hit = false;
+      for (const w of e.aim) {
+        const tx = ox + Math.cos(w.a) * Q.whipLength;
+        const ty = oy + Math.sin(w.a) * Q.whipLength;
+        this.fxBand(ox, oy, tx, ty, Q.whipHalfWidth * 2, 0x9d4dff);
+        const vine = this.add.graphics().setDepth(26);
+        vine.lineStyle(10, 0x0a0612, 1);
+        vine.lineBetween(ox, oy, tx, ty);
+        vine.lineStyle(3, 0x4a2a6a, 1);
+        vine.lineBetween(ox, oy, tx, ty);
+        this.fadeOut(vine, 260);
+        if (this.distToSegment(p.x, p.y - 12, ox, oy, tx, ty) < Q.whipHalfWidth) hit = true;
+      }
+      this.cameras.main.shake(140, 0.006);
+      if (hit) this.hurt(Q.whipDamage, now);
+      return;
+    }
+
+    // 召喚：体の周りに蕾を産み落とす（ほかの行動とは別の間隔）
+    b.ringTimer -= dt;
+    if (b.ringTimer <= 0) {
+      b.ringTimer = p2 ? Q.summonEverySecBloom : Q.summonEverySec;
+      let alive = 0;
+      for (const o of this.enemies.getChildren() as Enemy[]) if (o.active && o.def.bud) alive++;
+      const n = Math.min(p2 ? Q.budsBloom : Q.buds, Q.maxBuds - alive);
+      if (n > 0) {
+        const spin = Math.random() * Math.PI * 2;
+        for (let i = 0; i < n; i++) {
+          const a = spin + (i / n) * Math.PI * 2;
+          const d = Phaser.Math.Between(Q.budRingMin, Q.budRingMax);
+          const bud = this.spawner.spawnOne('bud', e.x + Math.cos(a) * d, e.y - 10 + Math.sin(a) * d * 0.85, this.stage.enemyHpMul);
+          if (!bud) continue;
+          bud.shootTimer = Q.budHatchSec;
+          this.hitSpark(bud.x, bud.y - 10, 0xffc83d, 4);
+        }
+        e.pose('summon', 0.8);
+        this.fxRing(e.x, e.y - 40, 190, 0xffc83d, 5);
+        b.act = 'cast';
+        b.actT = 0.8;
+        return;
+      }
+    }
+
+    // 蔓の鞭か鱗粉（直前と同じ行動は選ばない。届かない距離なら鞭は使わない）
+    b.actTimer -= dt;
+    if (b.actTimer <= 0) {
+      const skip = dist > Q.whipMaxDist ? ['whip'] : [];
+      const act = this.pickAct(Q.weights, b.lastAct, skip) || this.pickAct(Q.weights, '', skip);
+      b.lastAct = act;
+      b.actTimer = Q.attackEverySec;
+      e.aim.length = 0;
+      if (act === 'whip') {
+        const n = Phaser.Math.Between(1, 3);
+        const base = Math.atan2(ny, nx);
+        const offs = n === 1 ? [0] : n === 2 ? [-0.5, 0.5] : [-1, 0, 1];
+        for (const off of offs) e.aim.push({ x: 0, y: 0, a: base + off * Q.whipSpreadRad });
+        b.act = 'whip';
+        b.actT = Q.whipWindupSec;
+        e.pose('summon', Q.whipWindupSec);
+      } else if (act === 'pollen') {
+        const n = Phaser.Math.Between(Q.pollenCount[0], Q.pollenCount[1]);
+        const spin = Math.random() * Math.PI * 2;
+        for (let i = 0; i < n; i++) {
+          const a = spin + (i / n) * Math.PI * 2;
+          const d = Phaser.Math.Between(30, Q.pollenSpread);
+          const from = now + Q.pollenWindupSec * 1000;
+          this.pollens.push({ x: p.x + Math.cos(a) * d, y: p.y - 12 + Math.sin(a) * d, r: Q.pollenRadius, from, until: from + Q.pollenSec * 1000 });
+        }
+        e.pose('pollen', 0.9);
+        b.act = 'cast';
+        b.actT = 0.9;
+      }
+    }
+  }
+
   /**
    * 王級：周囲弾を撃ちながら、突進／狙い撃ち／踏み鳴らし／回転弾／十字斬りを重み付き乱数で繰り出す（直前と同じ行動は出さない）。
    * HP50%で「激昂」：1.2秒の咆哮のあと攻撃間隔が短くなり、弾数増・2連突進（低確率）・召集が加わる。
@@ -1989,7 +2536,7 @@ export class GameScene extends Phaser.Scene {
 
   private damageEnemy(e: Enemy, dmg: number, kx: number, ky: number): void {
     if (!e.active) return;
-    if (e.def.knight && this.gameNow < e.bk.invulnUntil) return;
+    if ((e.def.knight || e.def.bossKind) && this.gameNow < e.bk.invulnUntil) return;
     // スパイスの帯（『貫通チャーハン』）の中の敵は、全ての攻撃で受けるダメージが増える
     if (this.gameNow < e.vulnUntil) dmg *= 1 + e.vuln;
     if (this.debug) this.dmgLog.push({ t: this.gameNow, d: Math.min(dmg, e.hp) });
@@ -2053,6 +2600,11 @@ export class GameScene extends Phaser.Scene {
       this.breakSpeaker(e.x, e.y);
       return;
     }
+    // 女王級の蕾は、撃破数・必殺ゲージ・落とし物に数えない（産まれ続けるので、稼げてしまう）
+    if (def.bud) {
+      AudioBus.play('se_kill', 40);
+      return;
+    }
     this.kills++;
     // 必殺技（その炎上も含む）で倒した分はゲージに数えない
     if (!this.specialDamage) this.soulGauge = Math.min(1, this.soulGauge + (this.up.stats.soulGainMul * (this.player.def.traits.soulGainMul ?? 1)) / CONFIG.soul.killsToFull);
@@ -2078,6 +2630,7 @@ export class GameScene extends Phaser.Scene {
         this.fxText(this.player.x, this.player.y - 140, `+${def.defeatYell} ★`, '#FFD700');
       }
       this.bosses = this.bosses.filter((b) => b !== e);
+      this.clearBossField(def.bossKind);
       if (this.bosses.every((b) => !b.active)) this.spawner.bossActive = false;
       // 最後のボスが決まっているステージ（スコアアタック・悪夢）は、それ以外のボスを倒しても続く
       const finalBoss = this.stage.finalBoss ?? (this.stage.scoreMode ? 'blackknight' : undefined);
@@ -2362,11 +2915,19 @@ export class GameScene extends Phaser.Scene {
     // 最初から後半の行動で出る（赤騎士は常に）。王級は咆哮してから動き出す
     if (enraged || boss.def.id === 'redknight') {
       if (boss.def.knight) boss.bk.phase = 2;
+      else if (boss.def.bossKind) boss.bossState.phase = 2;
       else {
         boss.bossState.phase = 2;
         boss.bossState.act = 'roar';
         boss.bossState.actT = 1.2;
       }
+    }
+    // 動かないボスは画面の中に出るので、姿を現すまでは当たらない・攻撃しない
+    if (boss.def.fixed) {
+      boss.bossState.act = 'emerge';
+      boss.bossState.actT = CONFIG.queen.emergeSec;
+      boss.bk.invulnUntil = this.gameNow + CONFIG.queen.emergeSec * 1000;
+      boss.setAlpha(0.15);
     }
     // プレイヤーの成長に合わせてHPを底上げ（固定HPだと10:00の火力で即落ちする）
     boss.maxHp = Math.round((boss.def.hp + this.xp.level * CONFIG.boss.hpPerPlayerLevel) * this.stage.bossHpMul * bandHpMul);

@@ -29,7 +29,7 @@ export interface WaveBand {
   bossCount?: number;
   /** この帯のボスHP倍率（既定1） */
   bossHpMul?: number;
-  /** ボスが最初から後半の行動（王級は激昂、黒騎士は形態変化後）で出る */
+  /** ボスが最初から後半の行動（城兵級は激昂、女王級は開花後、黒騎士は形態変化後）で出る */
   bossEnraged?: boolean;
 }
 
@@ -82,12 +82,13 @@ export const WAVES: WaveBand[] = [
     ambush: { type: 'hunter', count: 20, everySec: 25 },
   },
   {
-    label: '王級',
+    // ボスはステージごとに決まる（StageDef.bossId）。字幕と時間帯の名前には、そのボスの名前が出る
+    label: 'ボス',
     from: 600, to: 9999,
     spawnPerSecStart: 1.5, spawnPerSecEnd: 1.5,
     weights: { grunt: 1, hunter: 0.3 },
     hpMul: 2.0,
-    boss: 'king',
+    boss: 'rook',
   },
 ];
 

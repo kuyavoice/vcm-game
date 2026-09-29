@@ -15,11 +15,14 @@ function seenInStage(stage: StageDef, timeSec: number, cleared: boolean): string
     for (const [id, w] of Object.entries(b.weights)) if ((w ?? 0) > 0) out.add(id);
     if (b.ambush) out.add(b.ambush.type);
     // ボスの差し替えは Spawner と同じ決まり
-    if (b.boss) out.add(b.boss === 'king' && stage.bossId && !stage.waves ? stage.bossId : b.boss);
+    if (b.boss) out.add(stage.bossId && !stage.waves ? stage.bossId : b.boss);
   }
   if (cleared || timeSec >= 120) for (const id of Object.keys(stage.extraWeights)) out.add(id);
   // 騎兵は黒騎士が呼ぶ。倒したのなら、出会っている
   if (cleared && (out.has('blackknight') || out.has('redknight'))) out.add('cavalry');
+  // 城兵級・女王級は、あとから入ったボス（2026-09-30）。それより前の記録では出会っていないので、数えない
+  out.delete('rook');
+  out.delete('queen');
   return [...out];
 }
 

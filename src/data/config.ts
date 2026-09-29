@@ -116,6 +116,81 @@ export const CONFIG = {
     spiralBulletSpeed: 170,
   },
 
+  // 城兵級（追補パッチ⑪ §2）。数値は初期値
+  rook: {
+    /** 行動の間隔（砲撃か岩壁を選ぶ） */
+    attackEverySec: 4.5,
+    weights: { cannon: 3, wall: 2 } as Readonly<Record<string, number>>,
+    /** HPがこの割合を切ると、砲撃の着弾点が増える */
+    phase2At: 0.5,
+    /** 砲撃：構え → 発射 → 着弾。予告の円は構えの最初から出る */
+    cannonWindupSec: 1.2,
+    cannonFireAtSec: 0.75,
+    cannonPoints: [3, 5] as readonly [number, number],
+    cannonPointsPhase2: [5, 7] as readonly [number, number],
+    cannonRadius: 70,
+    cannonDamage: 18,
+    /** 着弾点を散らす範囲（プレイヤーからの距離） */
+    cannonSpreadMin: 110,
+    cannonSpreadMax: 260,
+    /** 岩壁：予告 → せり上がる → 崩れる。壁は敵もプレイヤーも通れない（攻撃は通る） */
+    wallCount: [2, 3] as readonly [number, number],
+    wallLength: 200,
+    wallHalfWidth: 22,
+    wallWindupSec: 0.8,
+    wallSec: 8,
+    /** 壁を置く距離（プレイヤーから）。壁どうしの間は通れる幅を残す */
+    wallDistance: 170,
+    /** 踏み鳴らし：プレイヤーが近いときだけ */
+    stompTriggerDist: 180,
+    stompWindupSec: 0.6,
+    stompRadius: 200,
+    stompDamage: 15,
+    stompCooldownSec: 4,
+    /** 踏み鳴らしで吹き飛ぶ速さ（すぐ弱まる。動く距離はおよそ 速さ÷8） */
+    stompKnockback: 900,
+  },
+
+  // 女王級（追補パッチ⑪ §3）。数値は初期値
+  queen: {
+    /** 画面の中に出す：プレイヤーからの距離と、姿を現すまでの時間（この間は当たらない・攻撃しない） */
+    spawnDistance: 300,
+    emergeSec: 1.5,
+    /** 蔓の鞭か鱗粉を選ぶ間隔 */
+    attackEverySec: 4.0,
+    weights: { whip: 3, pollen: 2 } as Readonly<Record<string, number>>,
+    /** 召喚の間隔（ほかの行動とは別に数える）。開花のあとは短くなる */
+    summonEverySec: 9,
+    summonEverySecBloom: 6,
+    /** 開花（HPがこの割合を切った瞬間）：しばらく無敵。以降は蕾が増え、行動の間隔が短くなる */
+    bloomAt: 0.5,
+    bloomInvulnSec: 1.5,
+    /** 召喚：蕾の数・孵るまでの時間・孵る中身・同時に置ける数 */
+    buds: 4,
+    budsBloom: 6,
+    budHatchSec: 3,
+    budGrunts: 3,
+    budHunterChance: 0.35,
+    budRingMin: 170,
+    budRingMax: 250,
+    maxBuds: 12,
+    /** 蔓の鞭：予告線 → 一直線に薙ぐ。届かない距離なら使わない */
+    whipWindupSec: 0.8,
+    whipLength: 400,
+    whipHalfWidth: 20,
+    whipDamage: 20,
+    whipSpreadRad: 0.38,
+    whipMaxDist: 480,
+    /** 鱗粉：プレイヤーの周りに毒の粉。中では足が遅くなり、少しずつ削られる */
+    pollenCount: [2, 3] as readonly [number, number],
+    pollenRadius: 90,
+    pollenSec: 6,
+    pollenWindupSec: 0.7,
+    pollenSlowMul: 0.6,
+    pollenDps: 3,
+    pollenSpread: 150,
+  },
+
   // 赤騎士（EXステージ「悪夢」）：黒騎士との違い。予兆の長さは変えない（見て避けられることは保つ）
   redKnight: {
     /** 行動の間隔を短くし、突進を速くする倍率（移動の速さは enemies.ts の speed） */
