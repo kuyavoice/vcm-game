@@ -807,15 +807,7 @@ export class GameScene extends Phaser.Scene {
     const B = CONFIG.boss;
     if (bs.dashing > 0) {
       bs.dashing -= dt;
-      // 『闇の炎』：通り道を燃やしながら走る
-      if (b.trailHaz) {
-        b.trailHaz.x2 = e.x;
-        b.trailHaz.y2 = e.y;
-        b.trailHaz.until = now + CONFIG.redKnight.flameSec * 1000;
-      }
       if (bs.dashing <= 0) {
-        b.trail = false;
-        b.trailHaz = null;
         bs.chargeTimer = (b.phase === 1 ? 7 : 6) / tempo;
         if (b.phase === 2 || b.forceCombo) this.startKnightFollow(e, now);
       }
@@ -832,10 +824,6 @@ export class GameScene extends Phaser.Scene {
         bs.dashing = B.chargeDurationSec / tempo; // 速くても届く距離は同じ
         bs.dirX = nx;
         bs.dirY = ny;
-        if (b.trail) {
-          b.trailHaz = { x1: e.x, y1: e.y, x2: e.x, y2: e.y, halfWidth: CONFIG.redKnight.flameHalfWidth, until: now + CONFIG.redKnight.flameSec * 1000, damage: CONFIG.redKnight.flameDamage };
-          this.hazards.push(b.trailHaz);
-        }
         e.play(`anim_e_${e.def.id}`, true);
         this.cameras.main.shake(120, 0.005);
       }
@@ -980,17 +968,13 @@ export class GameScene extends Phaser.Scene {
     const names: Record<string, string> = { shingetsu: '新月', kiba: '漆黒の牙', ori: '漆黒の檻', honoo: '闇の炎' };
     this.hud.banner(`『${names[pick]}』`, '#FF4D6D', 34);
     e.play(`anim_e_${e.def.id}_windup`, true);
-    if (pick === 'honoo') {
-      // 突進そのものは通常と同じ（予兆も同じ）。通り道だけが燃える
-      b.trail = true;
-      e.bossState.windup = CONFIG.boss.chargeWindupSec;
-      b.animLock = now + 800;
-      this.fxText(e.x, e.y - 150, '!!', '#FF4D6D');
-      AudioBus.play('se_knight_charge', 300);
-      return;
-    }
     b.ex = pick;
-    if (pick === 'shingetsu') {
+    if (pick === 'honoo') {
+      // 1本目の向きは、技を始めた瞬間のプレイヤーの位置で固定する
+      b.exT = R.flameWindupSec;
+      b.exAngle = Math.atan2(p.y - 12 - (e.y - 40), p.x - e.x);
+      b.animLock = now + R.flameWindupSec * 1000;
+    } else if (pick === 'shingetsu') {
       b.exT = R.moonWindupSec;
       b.animLock = now + R.moonWindupSec * 1000;
     } else if (pick === 'kiba') {
@@ -1003,7 +987,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** 赤騎士の専用技の進行。『新月』：外側 → 内側／『漆黒の牙』：飛び込み／『漆黒の檻』：騎兵の格子 */
+  /** 赤騎士の専用技の進行。『新月』：外側 → 内側／『漆黒の牙』：飛び込み／『闇の炎』：3方向の直線／『漆黒の檻』：騎兵の格子 */
   private updateKnightEx(e: Enemy, dt: number, now: number): { mx: number; my: number; spd: number } {
     const b = e.bk;
     const R = CONFIG.redKnight;
@@ -1086,6 +1070,44 @@ export class GameScene extends Phaser.Scene {
         b.animLock = now + 400;
         finish();
       }
+      return still;
+    }
+
+    if (b.ex === 'honoo') {
+      // 赤騎士を中心に、3方向へ直線の予兆 → 一斉に走る → 通り道に炎が残る
+      const k = 1 - Math.max(0, b.exT) / R.flameWindupSec;
+      const spread = Phaser.Math.DegToRad(R.flameSpreadDeg);
+      const lines: { x2: number; y2: number }[] = [];
+      for (let i = 0; i < R.flameLines; i++) {
+        const a = b.exAngle + i * spread;
+        lines.push({ x2: cx + Math.cos(a) * R.flameLength, y2: cy + Math.sin(a) * R.flameLength });
+      }
+      if (b.exT > 0) {
+        for (const l of lines) {
+          g.lineStyle(R.flameHalfWidth * 2, 0xff2244, 0.12 + k * 0.24);
+          g.lineBetween(cx, cy, l.x2, l.y2);
+          g.lineStyle(3, 0xffffff, 0.75);
+          g.lineBetween(cx, cy, l.x2, l.y2);
+        }
+        return still;
+      }
+      let hit = false;
+      for (const l of lines) {
+        if (this.distToSegment(p.x, p.y - 12, cx, cy, l.x2, l.y2) < R.flameHalfWidth + p.def.hitRadius) hit = true;
+        this.hazards.push({ x1: cx, y1: cy, x2: l.x2, y2: l.y2, halfWidth: R.flameHalfWidth, until: now + R.flameSec * 1000, damage: R.flameDamage });
+        const flash = this.add.graphics().setDepth(26);
+        flash.lineStyle(R.flameHalfWidth * 2, 0xff2244, 0.6);
+        flash.lineBetween(cx, cy, l.x2, l.y2);
+        flash.lineStyle(6, 0xffffff, 0.9);
+        flash.lineBetween(cx, cy, l.x2, l.y2);
+        this.fadeOut(flash, 240);
+      }
+      if (hit) this.hurt(R.flameStrikeDamage, now);
+      this.cameras.main.shake(180, 0.007);
+      AudioBus.play('se_slash_heavy', 0, 'se_slash');
+      e.play(`anim_e_${e.def.id}_slash`, true);
+      b.animLock = now + 400;
+      finish();
       return still;
     }
 

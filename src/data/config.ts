@@ -148,9 +148,18 @@ export const CONFIG = {
     cageWaves: [[3, 2], [2, 1]] as readonly (readonly number[])[],
     cageLeadSec: 1.2,
     cageWaveGapSec: 1.8,
-    /** 『闇の炎』：突進の通り道が燃える */
-    flameHalfWidth: 60,
-    flameSec: 3,
+    /**
+     * 『闇の炎』：赤騎士を中心に、3方向へ直線の攻撃。1本目はプレイヤーを狙い、残りは flameSpreadDeg ずつ開く。
+     * 通り道には炎が flameSec 秒残る（触れると flameDamage）。
+     * 2026-09-30 作り直し：前は「突進の通り道が燃える」だったが、突進を避けた時点で炎からも離れているので、意味が無かった
+     */
+    flameLines: 3,
+    flameSpreadDeg: 120,
+    flameLength: 900,
+    flameHalfWidth: 45,
+    flameWindupSec: 1.0,
+    flameStrikeDamage: 25,
+    flameSec: 4,
     flameDamage: 10,
   },
 

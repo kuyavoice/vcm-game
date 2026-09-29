@@ -62,7 +62,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
   /** ボス用の行動タイマー */
   bossState = { chargeTimer: 0, ringTimer: 0, windup: 0, dashing: 0, dirX: 0, dirY: 0, phase: 1, act: '', actT: 0, actTick: 0, actLeft: 0, actTimer: 0, pattern: 0, ringSpin: 0, lastAct: '', actAngle: 0 };
   /** 黒騎士の状態 */
-  bk = { phase: 1, invulnUntil: 0, cavalryTimer: 0, slashWindup: 0, slashCd: 0, animLock: 0, follow: '', followT: 0, followTick: 0, lastFollow: '', rush: 0, rushT: 0, rushH: true, rushCharge: false, rushCdUntil: 0, comboAngle: 0, forceCombo: false, slashSePlayed: false, cleaveAngle: 0, cleaveLen: 0, cleaveLeft: 0, cleaveFirst: true, enraged: false, ex: '', exT: 0, exStage: 0, exTimer: 0, lastEx: '', exForce: '', exX: 0, exY: 0, trail: false, trailHaz: null as Hazard | null };
+  bk = { phase: 1, invulnUntil: 0, cavalryTimer: 0, slashWindup: 0, slashCd: 0, animLock: 0, follow: '', followT: 0, followTick: 0, lastFollow: '', rush: 0, rushT: 0, rushH: true, rushCharge: false, rushCdUntil: 0, comboAngle: 0, forceCombo: false, slashSePlayed: false, cleaveAngle: 0, cleaveLen: 0, cleaveLeft: 0, cleaveFirst: true, enraged: false, ex: '', exT: 0, exStage: 0, exTimer: 0, lastEx: '', exForce: '', exX: 0, exY: 0, exAngle: 0 };
   /** 直線突撃（騎兵）の速度 */
   charge: { vx: number; vy: number } | null = null;
 
@@ -96,7 +96,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     this.chillUntil = 0;
     this.chillMul = 1;
     this.bossState = { chargeTimer: 2, ringTimer: 1.5, windup: 0, dashing: 0, dirX: 0, dirY: 0, phase: 1, act: '', actT: 0, actTick: 0, actLeft: 0, actTimer: 2.5, pattern: 0, ringSpin: 0, lastAct: '', actAngle: 0 };
-    this.bk = { phase: 1, invulnUntil: 0, cavalryTimer: 3, slashWindup: 0, slashCd: 0, animLock: 0, follow: '', followT: 0, followTick: 0, lastFollow: '', rush: 0, rushT: 0, rushH: true, rushCharge: false, rushCdUntil: 0, comboAngle: 0, forceCombo: false, slashSePlayed: false, cleaveAngle: 0, cleaveLen: 0, cleaveLeft: 0, cleaveFirst: true, enraged: false, ex: '', exT: 0, exStage: 0, exTimer: 0, lastEx: '', exForce: '', exX: 0, exY: 0, trail: false, trailHaz: null as Hazard | null };
+    this.bk = { phase: 1, invulnUntil: 0, cavalryTimer: 3, slashWindup: 0, slashCd: 0, animLock: 0, follow: '', followT: 0, followTick: 0, lastFollow: '', rush: 0, rushT: 0, rushH: true, rushCharge: false, rushCdUntil: 0, comboAngle: 0, forceCombo: false, slashSePlayed: false, cleaveAngle: 0, cleaveLen: 0, cleaveLeft: 0, cleaveFirst: true, enraged: false, ex: '', exT: 0, exStage: 0, exTimer: 0, lastEx: '', exForce: '', exX: 0, exY: 0, exAngle: 0 };
     this.charge = null;
     this.setOrigin(0.5, def.originY ?? 0.75);
     this.setPosition(x, y);
