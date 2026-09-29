@@ -6,8 +6,8 @@ import type { WaveBand } from './waves';
 // 永続強化は効かない。1周するたびに、ボスのHPと敵の攻撃力が上がる。雑魚は1分ごとに少しずつ強くなる。
 // 数値は初期値。
 
-/** 公開前は false。URL に `?endless` か `?debug` を付けたときだけ、ステージ選択に出る */
-export const ENDLESS_AVAILABLE = false;
+/** 公開済み（2026-09-30）。false にすると、URL に `?endless` か `?debug` を付けたときだけ、ステージ選択に出る */
+export const ENDLESS_AVAILABLE = true;
 
 /** いま、ステージ選択に出してよいか */
 export function isEndlessShown(): boolean {
@@ -76,7 +76,7 @@ export const ENDLESS_STAGE: StageDef = {
 
 /**
  * 称号：生存時間で決まる。リザルトと共有画像に出す。
- * 名前は仮（2026-09-30。ユーザーの監修待ち）。キャラを問わず使える言葉にする。
+ * 名前はユーザー確認済み（2026-09-30。120:00 はユーザー指定）。キャラを問わず使える言葉にする。
  * 隠しキャラでも出るので、追補パッチ⑤ §1 の言葉（生存・帰還を示す言葉、『沈黙』など）と、「終」「最後」は使わない。
  */
 export const ENDLESS_TITLES: { fromSec: number; name: string }[] = [
@@ -91,7 +91,8 @@ export const ENDLESS_TITLES: { fromSec: number; name: string }[] = [
   { fromSec: 3600, name: '明けない夜の覇者' },
   { fromSec: 4500, name: '夜を統べる者' },
   { fromSec: 5400, name: '伝説の一等星' },
-  { fromSec: 7200, name: '銀河を渡る者' },
+  // 120:00 は、少し遊び心を入れる（ユーザー指定）
+  { fromSec: 7200, name: 'すべてを超えし者' },
 ];
 
 /** その時間の称号と、次の称号（無ければ null） */
