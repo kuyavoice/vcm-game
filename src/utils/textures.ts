@@ -150,6 +150,37 @@ function makeStageBackgrounds(scene: Phaser.Scene) {
   s.destroy();
 }
 
+/** ダメージの数字に使うフォント（数字だけ）。キャンバスに描いた数字を、ビットマップフォントとして登録する */
+export function ensureDamageFont(scene: Phaser.Scene): string {
+  const key = 'dmgfont';
+  if (scene.cache.bitmapFont.exists(key)) return key;
+  const cw = 22;
+  const ch = 32;
+  const chars = '0123456789';
+  const tex = scene.textures.createCanvas('dmgfont_tex', cw * chars.length, ch);
+  if (!tex) return key;
+  const c = tex.getContext();
+  c.font = '700 27px "Oswald", sans-serif';
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.lineJoin = 'round';
+  for (let i = 0; i < chars.length; i++) {
+    const x = i * cw + cw / 2;
+    c.lineWidth = 5;
+    c.strokeStyle = '#060913';
+    c.strokeText(chars[i], x, ch / 2 + 1);
+    c.fillStyle = '#ffffff';
+    c.fillText(chars[i], x, ch / 2 + 1);
+  }
+  tex.refresh();
+  tex.setFilter(Phaser.Textures.FilterMode.LINEAR);
+  scene.cache.bitmapFont.add(key, Phaser.GameObjects.RetroFont.Parse(scene, {
+    image: 'dmgfont_tex', width: cw, height: ch, chars, charsPerRow: chars.length,
+    'offset.x': 0, 'offset.y': 0, 'spacing.x': 0, 'spacing.y': 0, lineSpacing: 0,
+  }));
+  return key;
+}
+
 export function generateTextures(scene: Phaser.Scene) {
   makeStageBackgrounds(scene);
   // 敵（2フレーム）

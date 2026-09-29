@@ -10,7 +10,7 @@ import { SCORE } from '../data/score';
 import { OPTIONAL_IMAGES, hasOptionalImage } from '../utils/optionalAssets';
 import { unlockSecret } from '../utils/unlock';
 import { NIGHTMARE_STAGE, NIGHTMARE_AVAILABLE } from '../data/nightmare';
-import { GALLERY } from '../data/gallery';
+import { GALLERY, galleryKey } from '../data/gallery';
 
 export interface RunResult {
   characterId: string;
@@ -39,12 +39,18 @@ export class ResultScene extends Phaser.Scene {
   /** リザルト専用の立ち絵のテクスチャキー（クリア＝勝利立ち絵／それ以外＝ゲームオーバーの立ち絵。無ければ空） */
   private victoryKey = '';
 
+  /** 悪夢をクリアしたときに大きく見せる絵（無ければ空） */
+  private congratsKey = '';
+
   init(r: RunResult): void {
+    const ck = galleryKey('sp_congratulation');
+    this.congratsKey = r.cleared && r.stageId === NIGHTMARE_STAGE.id && hasOptionalImage(ck) ? ck : '';
     const key = r.cleared ? `victory_${r.characterId}` : `gameover_${r.characterId}`;
     this.victoryKey = hasOptionalImage(key) ? key : '';
   }
 
   preload(): void {
+    if (this.congratsKey && !this.textures.exists(this.congratsKey)) this.load.image(this.congratsKey, OPTIONAL_IMAGES[this.congratsKey]);
     if (this.victoryKey && !this.textures.exists(this.victoryKey)) this.load.image(this.victoryKey, OPTIONAL_IMAGES[this.victoryKey]);
   }
 
@@ -208,5 +214,31 @@ export class ResultScene extends Phaser.Scene {
       this.scene.start('Game', { characterId: r.characterId, stageId: stage.id });
     }, { primary: true });
     makeButton(this, W / 2, H * 0.80 + 222, 'STAGE SELECT', () => this.scene.start('StageSelect'));
+
+    // 悪夢をクリアしたとき：結果の前に、祝いの絵を大きく見せる（タップで閉じる）
+    if (this.congratsKey && this.textures.exists(this.congratsKey)) {
+      this.textures.get(this.congratsKey).setFilter(Phaser.Textures.FilterMode.LINEAR);
+      const shade = this.add.rectangle(0, 0, W, H, 0x020308, 0.94).setOrigin(0).setDepth(100).setInteractive();
+      const img = this.add.image(W / 2, H * 0.44, this.congratsKey).setDepth(101);
+      const fit = Math.min((W - 24) / img.width, (H * 0.6) / img.height);
+      img.setScale(fit * 0.9).setAlpha(0);
+      const frame = this.add.rectangle(W / 2, H * 0.44, img.width * fit + 8, img.height * fit + 8).setStrokeStyle(3, 0xffd700, 0.9).setDepth(101).setAlpha(0);
+      const head = this.add.text(W / 2, H * 0.44 - (img.height * fit) / 2 - 56, 'EX STAGE CLEAR', {
+        fontFamily: FONT_EN, fontSize: '44px', color: COLOR_HEX.gold, fontStyle: '700', letterSpacing: 5, stroke: '#060913', strokeThickness: 6,
+      }).setOrigin(0.5).setDepth(101).setAlpha(0);
+      const hint = this.add.text(W / 2, H * 0.44 + (img.height * fit) / 2 + 60, 'TAP TO CONTINUE', {
+        fontFamily: FONT_EN, fontSize: '24px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 4,
+      }).setOrigin(0.5).setDepth(101).setAlpha(0);
+      this.tweens.add({ targets: img, alpha: 1, scale: fit, duration: 500, ease: 'Cubic.out' });
+      this.tweens.add({ targets: [frame, head], alpha: 1, duration: 500, delay: 200 });
+      this.tweens.add({ targets: hint, alpha: 1, duration: 300, delay: 900 });
+      let ready = false;
+      this.time.delayedCall(900, () => { ready = true; });
+      shade.on('pointerup', () => {
+        if (!ready) return;
+        ready = false;
+        this.tweens.add({ targets: [shade, img, frame, head, hint], alpha: 0, duration: 260, onComplete: () => { for (const o of [shade, img, frame, head, hint]) o.destroy(); } });
+      });
+    }
   }
 }

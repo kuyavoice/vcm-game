@@ -7,6 +7,7 @@ import { SCORE } from '../data/score';
 import { ITEMS, PICKUPS, type PickupKind } from '../data/items';
 import { Player } from '../entities/Player';
 import { Enemy, type Hazard } from '../entities/Enemy';
+import { ensureDamageFont } from '../utils/textures';
 import { isCharacterOwned } from '../utils/unlock';
 import { Bullet, EnemyBullet, type BulletOpts } from '../entities/Bullet';
 import { Pickup } from '../entities/Pickup';
@@ -100,6 +101,11 @@ export class GameScene extends Phaser.Scene {
   private gameNow = 0;
   /** このフレーム内で重ね画面を開いた（残りの分割ステップを止める） */
   private haltFrame = false;
+  /** ヒットストップ（ボス撃破の瞬間に、一瞬だけ時間を止める）。残り時間（ms） */
+  private hitStopMs = 0;
+  /** ダメージの数字（使い回す） */
+  private dmgNums: { t: Phaser.GameObjects.BitmapText; life: number }[] = [];
+  private showDamage = true;
   /** `?debug` でボスHP・DPS などを表示 */
   private debug = typeof location !== 'undefined' && /debug/.test(location.search);
   /** デバッグ操作を使ったプレイは記録・エールを保存しない */
@@ -133,6 +139,7 @@ export class GameScene extends Phaser.Scene {
     this.cureTimer = 0;
     this.boss = null;
     this.bossDefeated = false;
+    this.hitStopMs = 0;
     this.bosses = [];
     this.cavalryWarnings = [];
     this.hazards = [];
@@ -273,6 +280,14 @@ export class GameScene extends Phaser.Scene {
     AudioBus.playBgm(`bgm_chara_${def.id}`, this.stage.bgm, 'bgm_stage');
     this.vo('start');
     this.hud.banner(`${this.stage.nameEn} —— ${this.stage.name}`, Phaser.Display.Color.IntegerToColor(this.stage.color).rgba, 32);
+    // ダメージの数字（オプションで出す／出さないを切り替え。ポーズからオプションを開いて戻ったときも読み直す）
+    const font = ensureDamageFont(this);
+    this.dmgNums = [];
+    for (let i = 0; i < 48; i++) this.dmgNums.push({ t: this.add.bitmapText(0, 0, font, '', 32).setOrigin(0.5).setDepth(41).setLetterSpacing(-7).setVisible(false), life: 0 });
+    const readSetting = () => { this.showDamage = loadSave().settings.damageNumbers !== false; };
+    readSetting();
+    this.events.on(Phaser.Scenes.Events.RESUME, readSetting);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.RESUME, readSetting));
     if (this.debug) this.buildDebugPanel();
     // `?debug` の仮の解放で選んだキャラは、確認用のプレイとして扱う（記録・エールを保存しない）
     if (this.debug && !isCharacterOwned(this.characterId, loadSave())) this.debugUsed = true;
@@ -425,10 +440,16 @@ export class GameScene extends Phaser.Scene {
     // ゲーム速度：倍率分だけ内部更新を分割し、1ステップの移動量を等速時と同程度に保つ
     const steps = Math.max(1, Math.ceil(this.speed));
     const dtStep = ((Math.min(deltaMs, 50) / 1000) * this.speed) / steps;
-    for (let i = 0; i < steps; i++) {
-      if (this.over || this.haltFrame) break;
-      this.simulate(dtStep, dx, dy);
+    if (this.hitStopMs > 0) {
+      // ヒットストップ中は、戦場の時間を進めない（描画と演出は続く）
+      this.hitStopMs -= deltaMs;
+    } else {
+      for (let i = 0; i < steps; i++) {
+        if (this.over || this.haltFrame) break;
+        this.simulate(dtStep, dx, dy);
+      }
     }
+    this.updateDamageNumbers(deltaMs / 1000);
 
     const now = this.gameNow;
     const p = this.player;
@@ -1959,7 +1980,52 @@ export class GameScene extends Phaser.Scene {
     // スパイスの帯（『貫通チャーハン』）の中の敵は、全ての攻撃で受けるダメージが増える
     if (this.gameNow < e.vulnUntil) dmg *= 1 + e.vuln;
     if (this.debug) this.dmgLog.push({ t: this.gameNow, d: Math.min(dmg, e.hp) });
-    if (e.hit(dmg, this.ctx.now, kx, ky)) this.killEnemy(e);
+    const dead = e.hit(dmg, this.ctx.now, kx, ky);
+    if (this.showDamage && !e.def.isObject) {
+      // 数が多いので、1体につき約0.3秒に1回、合計をまとめて出す。倒した瞬間は、残りをすぐ出す
+      e.dmgShown += dmg;
+      if (dead || this.gameNow >= e.dmgNextAt) {
+        this.popDamage(e.x, e.y - (e.def.boss ? 150 : e.def.size * 0.9), e.dmgShown);
+        e.dmgShown = 0;
+        e.dmgNextAt = this.gameNow + 280;
+      }
+    }
+    if (dead) this.killEnemy(e);
+  }
+
+  /** ダメージの数字を1つ出す（空きが無ければ出さない） */
+  private popDamage(x: number, y: number, value: number): void {
+    const v = Math.round(value);
+    if (v < 1) return;
+    const n = this.dmgNums.find((d) => d.life <= 0);
+    if (!n) return;
+    n.life = 0.55;
+    const big = v >= 150;
+    n.t.setText(String(v)).setPosition(x + (Math.random() - 0.5) * 24, y).setAlpha(1).setVisible(true)
+      .setScale(big ? 1.25 : v >= 50 ? 1 : 0.85).setTint(big ? 0xffd700 : v >= 50 ? 0xffe680 : 0xffffff);
+  }
+
+  private updateDamageNumbers(dt: number): void {
+    for (const n of this.dmgNums) {
+      if (n.life <= 0) continue;
+      n.life -= dt;
+      if (n.life <= 0) { n.t.setVisible(false); continue; }
+      n.t.y -= 60 * dt;
+      n.t.setAlpha(Math.min(1, n.life / 0.25));
+    }
+  }
+
+  /** ボスを倒した瞬間の演出：何度か続けて弾ける */
+  private bossBurst(x: number, y: number, color: number, times: number): void {
+    for (let i = 0; i < times; i++) {
+      this.time.delayedCall(i * 110, () => {
+        const bx = x + (Math.random() - 0.5) * 160;
+        const by = y + (Math.random() - 0.5) * 160;
+        this.particles.setParticleTint(i % 2 === 0 ? color : 0xffffff);
+        this.particles.explode(22, bx, by);
+        this.fxRing(bx, by, 90 + i * 22, i % 2 === 0 ? color : 0xffffff, 6);
+      });
+    }
   }
 
   private killEnemy(e: Enemy): void {
@@ -2003,6 +2069,10 @@ export class GameScene extends Phaser.Scene {
       // 最後のボスが決まっているステージ（スコアアタック・悪夢）は、それ以外のボスを倒しても続く
       const finalBoss = this.stage.finalBoss ?? (this.stage.scoreMode ? 'blackknight' : undefined);
       if (finalBoss && def.id !== finalBoss) {
+        // 一瞬止めてから弾ける
+        this.hitStopMs = 140;
+        this.bossBurst(e.x, e.y - 60, def.eyeColor, 3);
+        this.cameras.main.shake(260, 0.008);
         this.hud.banner(this.stage.scoreMode ? `${def.name} 撃破　+${SCORE.points[def.id]}` : `${def.name} 撃破`, '#FFD700', 34);
         this.cameras.main.flash(300, 255, 255, 255);
         // 撃破後も続くので、ボスが居なくなったら道中の曲に戻す
@@ -2013,6 +2083,7 @@ export class GameScene extends Phaser.Scene {
       this.cavalryWarnings.length = 0;
       this.hazards.length = 0;
       this.bossDefeated = true;
+      this.bossBurst(e.x, e.y - 60, def.eyeColor, 7);
       this.cameras.main.shake(400, 0.01);
       this.cameras.main.flash(500, 255, 255, 255);
     }

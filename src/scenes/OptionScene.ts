@@ -17,7 +17,7 @@ const ROWS: { key: VolumeKey; label: string; sub: string }[] = [
 ];
 const STEPS = 10;
 
-/** オプション（音量）。タイトル画面とポーズ画面から開く。設定はセーブに保存され、すぐ反映される */
+/** オプション（音量・ダメージの数字）。タイトル画面とポーズ画面から開く。設定はセーブに保存され、すぐ反映される */
 export class OptionScene extends Phaser.Scene {
   constructor() {
     super('Option');
@@ -36,7 +36,7 @@ export class OptionScene extends Phaser.Scene {
 
     const top = Math.max(H * 0.16, 120);
     this.add.text(W / 2, top, 'OPTION', { fontFamily: FONT_EN, fontSize: '56px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 6 }).setOrigin(0.5);
-    this.add.text(W / 2, top + 48, '音量の調整', { fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.dim }).setOrigin(0.5);
+    this.add.text(W / 2, top + 48, '音量と表示', { fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.dim }).setOrigin(0.5);
 
     const panelW = Math.min(620, W - 40);
     const left = (W - panelW) / 2;
@@ -88,11 +88,26 @@ export class OptionScene extends Phaser.Scene {
       draw();
     });
 
+    // ダメージの数字（出す／出さない）
+    const ty = top + 150 + ROWS.length * 170;
+    this.add.rectangle(left, ty, panelW, 100, 0x111a3a, 0.95).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.5);
+    this.add.text(left + 24, ty + 16, 'DAMAGE', { fontFamily: FONT_EN, fontSize: '32px', color: COLOR_HEX.white, fontStyle: '700', letterSpacing: 3 });
+    this.add.text(left + 24, ty + 62, 'ダメージの数字', { fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim });
+    let dmgOn = save.settings.damageNumbers !== false;
+    const toggle = makeButton(this, left + panelW - 24 - 80, ty + 50, dmgOn ? 'ON' : 'OFF', () => {
+      dmgOn = !dmgOn;
+      const sv = loadSave();
+      sv.settings.damageNumbers = dmgOn;
+      writeSave(sv);
+      (toggle.list[2] as Phaser.GameObjects.Text).setText(dmgOn ? 'ON' : 'OFF');
+      AudioBus.play('se_levelup', 120);
+    }, { width: 160, height: 56, fontSize: 26, armDelayMs: 0 });
+
     const close = () => {
       this.scene.stop();
       this.scene.resume(from);
     };
-    makeButton(this, W / 2, top + 150 + ROWS.length * 170 + 60, 'CLOSE', close, { primary: true });
+    makeButton(this, W / 2, ty + 100 + 70, 'CLOSE', close, { primary: true });
     this.input.keyboard?.on('keydown-ESC', close);
   }
 }

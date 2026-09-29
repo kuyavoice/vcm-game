@@ -75,6 +75,7 @@ export class TitleScene extends Phaser.Scene {
     const sv0 = loadSave();
     const menu: { label: string; run: () => void }[] = [
       { label: 'OPTION', run: () => this.scene.launch('Option', { from: 'Title' }) },
+      { label: '遊び方', run: () => this.scene.start('HowTo') },
     ];
     if (visibleMusic(sv0).length > 0) menu.push({ label: 'MUSIC', run: () => this.scene.start('Music') });
     if (visibleGallery(sv0).length > 0) menu.push({ label: 'GALLERY', run: () => this.scene.start('Gallery') });
@@ -83,7 +84,7 @@ export class TitleScene extends Phaser.Scene {
     const mW = Math.min(160, Math.floor((W - 32 - mGap * (menu.length - 1)) / menu.length));
     const mLeft = (W - (mW * menu.length + mGap * (menu.length - 1))) / 2;
     menu.forEach((m, i) => {
-      makeButton(this, mLeft + mW / 2 + i * (mW + mGap), Math.max(H * 0.06, 50), m.label, m.run, { width: mW, height: 52, fontSize: 21 });
+      makeButton(this, mLeft + mW / 2 + i * (mW + mGap), Math.max(H * 0.06, 50), m.label, m.run, { width: mW, height: 52, fontSize: menu.length >= 5 ? 19 : 21 });
     });
 
     let started = false;
