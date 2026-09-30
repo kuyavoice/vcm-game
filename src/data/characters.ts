@@ -98,10 +98,11 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     speed: 150,
     pickup: 60,
     hitRadius: 18,
-    traits: { resonanceArtsPower: 0.15, meleePower: 1, damageMul: 1, maxHpMul: 1, healItemMul: 1, name: '指揮官', desc: '共鳴アーツの威力 +15%' },
+    // 共鳴アーツ +15% → +25%（2026-09-30 強化案A。律花の「攻撃力 +30%」に、アーツを強くする役として近づける）
+    traits: { resonanceArtsPower: 0.25, meleePower: 1, damageMul: 1, maxHpMul: 1, healItemMul: 1, name: '指揮官', desc: '共鳴アーツの威力 +25%' },
     startWeapon: 'yoisei',
     uniquePassive: { id: 'info_control', name: '情報統制システム', desc: '画面外の強敵（騎士級以上）の方向を矢印で表示' },
-    special: { id: 'soul_connect', name: '魂の共鳴', shortName: '共鳴', desc: '10秒間、共鳴アーツの威力×1.5・発動間隔−30%' },
+    special: { id: 'soul_connect', name: '魂の共鳴', shortName: '共鳴', desc: '12秒間、共鳴アーツの威力×1.5・発動間隔−30%' },
     excludedArts: ['engo'], // 『宵星（援護射撃）』は初期武器と重複
     unlockYell: 0,
     voicePrefix: 'kuya',

@@ -65,7 +65,8 @@ export const CONFIG = {
   soul: {
     /** ゲージ満タンに必要な撃破数 */
     killsToFull: 70,
-    durationSec: 10,
+    /** 10 → 12秒（2026-09-30 強化案B） */
+    durationSec: 12,
     artDamageMul: 1.5,
     artIntervalMul: 0.7,
   },

@@ -20,7 +20,7 @@ const tmp: Enemy[] = [];
 
 /** 『魂の共鳴』（空夜）：倍率は GameScene 側が ctx.artDamageMul / artIntervalMul に反映 */
 const soulConnect: SpecialBehavior = {
-  durationSec: 10,
+  durationSec: 12,
   activate(ctx) {
     ctx.fx.ring(ctx.player.x, ctx.player.y - 40, 260, 0x87ceeb, 8);
   },
