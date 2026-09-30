@@ -3180,7 +3180,8 @@ export class GameScene extends Phaser.Scene {
       this.xp.magnetAllUntil = this.ctx.now + 1500;
       this.fxRing(x, y, 60, 0x87ceeb, 4);
     } else if (kind === 'cake') {
-      const heal = Math.round(ITEMS.cake.heal * this.player.def.traits.healItemMul);
+      // 30 か、最大HPの20% の大きいほう（キャラ特性の倍率はそのあと）
+      const heal = Math.round(Math.max(ITEMS.cake.heal, this.player.maxHp * ITEMS.cake.healRatio) * this.player.def.traits.healItemMul);
       this.player.heal(heal);
       this.fxText(this.player.x, this.player.y - 110, `+${heal}`, '#F0E68C');
     } else if (kind === 'cross') {

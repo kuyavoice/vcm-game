@@ -117,13 +117,11 @@ export class Spawner {
       }
     }
 
-    // 壊れたスピーカー（ボス戦中は置かない）
-    if (!this.bossActive) {
-      this.speakerTimer += dt;
-      if (this.speakerTimer >= ITEMS.speaker.intervalSec) {
-        this.speakerTimer = 0;
-        this.placeSpeaker();
-      }
+    // 壊れたスピーカー（ボス戦中は間隔を長くして置く）
+    this.speakerTimer += dt;
+    if (this.speakerTimer >= (this.bossActive ? ITEMS.speaker.intervalSecBoss : ITEMS.speaker.intervalSec)) {
+      this.speakerTimer = 0;
+      this.placeSpeaker();
     }
   }
 
