@@ -88,56 +88,36 @@ export class OptionScene extends Phaser.Scene {
       draw();
     });
 
-    // ダメージの数字（出す／出さない）
-    const ty = top + 150 + ROWS.length * 170;
-    this.add.rectangle(left, ty, panelW, 100, 0x111a3a, 0.95).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.5);
-    this.add.text(left + 24, ty + 16, 'DAMAGE', { fontFamily: FONT_EN, fontSize: '32px', color: COLOR_HEX.white, fontStyle: '700', letterSpacing: 3 });
-    this.add.text(left + 24, ty + 62, 'ダメージの数字', { fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim });
-    let dmgOn = save.settings.damageNumbers !== false;
-    const toggle = makeButton(this, left + panelW - 24 - 80, ty + 50, dmgOn ? 'ON' : 'OFF', () => {
-      dmgOn = !dmgOn;
-      const sv = loadSave();
-      sv.settings.damageNumbers = dmgOn;
-      writeSave(sv);
-      (toggle.list[2] as Phaser.GameObjects.Text).setText(dmgOn ? 'ON' : 'OFF');
-      AudioBus.play('se_levelup', 120);
-    }, { width: 160, height: 56, fontSize: 26, armDelayMs: 0 });
-
-    // 必殺ボタンの位置（右下／左下）
-    const sy = ty + 100 + 16;
-    this.add.rectangle(left, sy, panelW, 100, 0x111a3a, 0.95).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.5);
-    this.add.text(left + 24, sy + 16, 'SPECIAL', { fontFamily: FONT_EN, fontSize: '32px', color: COLOR_HEX.white, fontStyle: '700', letterSpacing: 3 });
-    this.add.text(left + 24, sy + 62, '必殺ボタンの位置', { fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim });
-    let side: 'right' | 'left' = save.settings.specialSide === 'left' ? 'left' : 'right';
-    const sideToggle = makeButton(this, left + panelW - 24 - 80, sy + 50, side === 'left' ? 'LEFT' : 'RIGHT', () => {
-      side = side === 'left' ? 'right' : 'left';
-      const sv = loadSave();
-      sv.settings.specialSide = side;
-      writeSave(sv);
-      (sideToggle.list[2] as Phaser.GameObjects.Text).setText(side === 'left' ? 'LEFT' : 'RIGHT');
-      AudioBus.play('se_levelup', 120);
-    }, { width: 160, height: 56, fontSize: 26, armDelayMs: 0 });
-
-    // 戦闘中の曲（NORMAL／CUSTOM。CUSTOM の割り当てはミュージックで）
-    const by2 = sy + 100 + 16;
-    this.add.rectangle(left, by2, panelW, 100, 0x111a3a, 0.95).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.5);
-    this.add.text(left + 24, by2 + 16, 'BATTLE BGM', { fontFamily: FONT_EN, fontSize: '32px', color: COLOR_HEX.white, fontStyle: '700', letterSpacing: 3 });
-    this.add.text(left + 24, by2 + 62, '戦闘中の曲（CUSTOMの割り当てはMUSICで）', { fontFamily: FONT_JP, fontSize: '16px', color: COLOR_HEX.dim });
-    let mode: 'normal' | 'custom' = save.settings.bgmMode === 'custom' ? 'custom' : 'normal';
-    const modeToggle = makeButton(this, left + panelW - 24 - 80, by2 + 50, mode === 'custom' ? 'CUSTOM' : 'NORMAL', () => {
-      mode = mode === 'custom' ? 'normal' : 'custom';
-      const sv = loadSave();
-      sv.settings.bgmMode = mode;
-      writeSave(sv);
-      (modeToggle.list[2] as Phaser.GameObjects.Text).setText(mode === 'custom' ? 'CUSTOM' : 'NORMAL');
-      AudioBus.play('se_levelup', 120);
-    }, { width: 160, height: 56, fontSize: 24, armDelayMs: 0 });
+    // 切り替えの項目（4つ。縦に収めるため、1つ76px）
+    type Setting = ReturnType<typeof loadSave>['settings'];
+    let ty = top + 150 + ROWS.length * 170;
+    const toggleRow = (title: string, sub: string, labels: string[], get: (st: Setting) => number, set: (st: Setting, i: number) => void) => {
+      const h = 76;
+      this.add.rectangle(left, ty, panelW, h, 0x111a3a, 0.95).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.5);
+      this.add.text(left + 24, ty + 10, title, { fontFamily: FONT_EN, fontSize: '26px', color: COLOR_HEX.white, fontStyle: '700', letterSpacing: 3 });
+      this.add.text(left + 24, ty + 44, sub, { fontFamily: FONT_JP, fontSize: '15px', color: COLOR_HEX.dim });
+      let idx = get(save.settings);
+      const btn = makeButton(this, left + panelW - 20 - 80, ty + h / 2, labels[idx], () => {
+        idx = (idx + 1) % labels.length;
+        const sv = loadSave();
+        set(sv.settings, idx);
+        writeSave(sv);
+        (btn.list[2] as Phaser.GameObjects.Text).setText(labels[idx]);
+        AudioBus.play('se_levelup', 120);
+      }, { width: 160, height: 50, fontSize: 22, armDelayMs: 0 });
+      ty += h + 10;
+    };
+    toggleRow('DAMAGE', 'ダメージの数字', ['ON', 'OFF'], (st) => (st.damageNumbers !== false ? 0 : 1), (st, i) => { st.damageNumbers = i === 0; });
+    toggleRow('SPECIAL', '必殺ボタンの位置', ['RIGHT', 'LEFT'], (st) => (st.specialSide === 'left' ? 1 : 0), (st, i) => { st.specialSide = i === 1 ? 'left' : 'right'; });
+    toggleRow('BATTLE BGM', '戦闘中の曲（CUSTOMの割り当てはMUSICで）', ['NORMAL', 'CUSTOM'], (st) => (st.bgmMode === 'custom' ? 1 : 0), (st, i) => { st.bgmMode = i === 1 ? 'custom' : 'normal'; });
+    // 被弾の光：敵に当たったときの白い点滅。速い倍速だと画面全体がまぶしい、との声（2026-10-01）
+    toggleRow('HIT FLASH', '敵に当たったときの光り方', ['STRONG', 'SOFT', 'OFF'], (st) => (st.hitFlash === 'soft' ? 1 : st.hitFlash === 'off' ? 2 : 0), (st, i) => { st.hitFlash = i === 1 ? 'soft' : i === 2 ? 'off' : 'strong'; });
 
     const close = () => {
       this.scene.stop();
       this.scene.resume(from);
     };
-    makeButton(this, W / 2, by2 + 100 + 70, 'CLOSE', close, { primary: true });
+    makeButton(this, W / 2, ty + 46, 'CLOSE', close, { primary: true });
     this.input.keyboard?.on('keydown-ESC', close);
   }
 }

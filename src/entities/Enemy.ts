@@ -26,6 +26,8 @@ export interface FlyState {
 }
 
 export class Enemy extends Phaser.GameObjects.Sprite {
+  /** 被弾の光り方（オプション。GameScene が設定から入れる） */
+  static hitFlash: 'strong' | 'soft' | 'off' = 'strong';
   def: EnemyDef = ENEMIES.grunt;
   hp = 1;
   maxHp = 1;
@@ -127,8 +129,11 @@ export class Enemy extends Phaser.GameObjects.Sprite {
   /** ダメージ。返り値: 倒したら true */
   hit(dmg: number, now: number, kx = 0, ky = 0): boolean {
     this.hp -= dmg;
-    this.flashUntil = now + 60;
-    this.setTintFill(0xffffff);
+    // 被弾の光：強＝白く塗りつぶす／弱＝淡い色で塗りつぶす／無し
+    if (Enemy.hitFlash !== 'off') {
+      this.flashUntil = now + 60;
+      this.setTintFill(Enemy.hitFlash === 'soft' ? 0x6f7a9c : 0xffffff);
+    }
     const resist = 1 - this.def.knockbackResist;
     this.kbx += kx * resist;
     this.kby += ky * resist;

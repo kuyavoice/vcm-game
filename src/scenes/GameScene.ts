@@ -317,6 +317,7 @@ export class GameScene extends Phaser.Scene {
       const st = sv.settings;
       this.showDamage = st.damageNumbers !== false;
       this.hud.setSpecialSide(st.specialSide === 'left' ? 'left' : 'right');
+      Enemy.hitFlash = st.hitFlash === 'soft' || st.hitFlash === 'off' ? st.hitFlash : 'strong';
       // 曲のカスタム（ポーズ → オプションで切り替えたら、戻った瞬間に曲も変える）
       const before = JSON.stringify(this.customBgm);
       this.customBgm = customBgmKeys(sv);
@@ -611,7 +612,8 @@ export class GameScene extends Phaser.Scene {
     const specialActive = now < this.soulUntil;
     const soulActive = specialActive && def.special.id === 'soul_connect';
     ctx.artDamageMul = (1 + def.traits.resonanceArtsPower) * (soulActive ? CONFIG.soul.artDamageMul : 1);
-    ctx.artIntervalMul = soulActive ? CONFIG.soul.artIntervalMul : 1;
+    // 固有パッシブ『情報統制システム』（空夜）：共鳴アーツの発動間隔 −5%（2026-10-01）
+    ctx.artIntervalMul = (soulActive ? CONFIG.soul.artIntervalMul : 1) * (def.uniquePassive.id === 'info_control' ? CONFIG.infoControlIntervalMul : 1);
     ctx.bonusDamageMul = (now < this.kanpaUntil ? 1.3 : 1) * (now < this.rumbleUntil ? CONFIG.rumble.buffMul : 1);
     const stats = this.up.stats;
     const p = this.player;
