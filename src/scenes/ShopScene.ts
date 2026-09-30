@@ -131,9 +131,14 @@ export class ShopScene extends Phaser.Scene {
       this.add.rectangle(left, y, rowW, rowH, 0x111a3a, 0.9).setOrigin(0).setStrokeStyle(2, 0x3a4a8a, 0.7);
       this.add.text(left + 18, y + 9, `${it.name}　×${have}`, { fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.white, fontStyle: '700' });
       this.add.text(left + 18, y + 38, it.desc, { fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.dim });
-      makeButton(this, left + rowW - 16 - 80, y + rowH / 2, `★ ${it.cost}`, () => {
+      makeButton(this, left + rowW - 16 - 70, y + rowH / 2, `★ ${it.cost}`, () => {
         buy(it.cost, (sv) => { sv.consumables[it.id]++; }, `${it.name} +1`);
-      }, { width: 160, height: 46, fontSize: 20, primary: save.totalYell >= it.cost });
+      }, { width: 140, height: 46, fontSize: 20, primary: save.totalYell >= it.cost });
+      // まとめ買い（10個。2026-09-30 ユーザー要望）
+      const bulk = 10;
+      makeButton(this, left + rowW - 16 - 140 - 10 - 75, y + rowH / 2, `×${bulk}  ★ ${it.cost * bulk}`, () => {
+        buy(it.cost * bulk, (sv) => { sv.consumables[it.id] += bulk; }, `${it.name} +${bulk}`);
+      }, { width: 150, height: 46, fontSize: 18, primary: save.totalYell >= it.cost * bulk });
       y += rowH + 10;
     }
 
