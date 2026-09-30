@@ -118,11 +118,26 @@ export class OptionScene extends Phaser.Scene {
       AudioBus.play('se_levelup', 120);
     }, { width: 160, height: 56, fontSize: 26, armDelayMs: 0 });
 
+    // 戦闘中の曲（NORMAL／CUSTOM。CUSTOM の割り当てはミュージックで）
+    const by2 = sy + 100 + 16;
+    this.add.rectangle(left, by2, panelW, 100, 0x111a3a, 0.95).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.5);
+    this.add.text(left + 24, by2 + 16, 'BATTLE BGM', { fontFamily: FONT_EN, fontSize: '32px', color: COLOR_HEX.white, fontStyle: '700', letterSpacing: 3 });
+    this.add.text(left + 24, by2 + 62, '戦闘中の曲（CUSTOMの割り当てはMUSICで）', { fontFamily: FONT_JP, fontSize: '16px', color: COLOR_HEX.dim });
+    let mode: 'normal' | 'custom' = save.settings.bgmMode === 'custom' ? 'custom' : 'normal';
+    const modeToggle = makeButton(this, left + panelW - 24 - 80, by2 + 50, mode === 'custom' ? 'CUSTOM' : 'NORMAL', () => {
+      mode = mode === 'custom' ? 'normal' : 'custom';
+      const sv = loadSave();
+      sv.settings.bgmMode = mode;
+      writeSave(sv);
+      (modeToggle.list[2] as Phaser.GameObjects.Text).setText(mode === 'custom' ? 'CUSTOM' : 'NORMAL');
+      AudioBus.play('se_levelup', 120);
+    }, { width: 160, height: 56, fontSize: 24, armDelayMs: 0 });
+
     const close = () => {
       this.scene.stop();
       this.scene.resume(from);
     };
-    makeButton(this, W / 2, sy + 100 + 70, 'CLOSE', close, { primary: true });
+    makeButton(this, W / 2, by2 + 100 + 70, 'CLOSE', close, { primary: true });
     this.input.keyboard?.on('keydown-ESC', close);
   }
 }

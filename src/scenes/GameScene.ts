@@ -6,6 +6,7 @@ import { stageById, type StageDef } from '../data/stages';
 import { SCORE } from '../data/score';
 import { ENDLESS } from '../data/endless';
 import { isHeld } from '../utils/heldKeys';
+import { customBgmKeys, type BgmSlot } from '../utils/bgmCustom';
 import { ITEMS, PICKUPS, type PickupKind } from '../data/items';
 import { Player } from '../entities/Player';
 import { Enemy, type Hazard } from '../entities/Enemy';
@@ -120,6 +121,8 @@ export class GameScene extends Phaser.Scene {
   private debugExIndex = 0;
   /** 次にゲームへ戻ったとき、少しだけ無敵にする（レベルアップ・宝箱の画面を開いたとき立てる） */
   private guardOnResume = false;
+  /** 戦闘中の曲のカスタム（場面 → 音声のキー。CUSTOM でなければ空） */
+  private customBgm: Partial<Record<BgmSlot, string>> = {};
   private debugRookIndex = 0;
   private debugQueenIndex = 0;
   private fullMoon = false;
@@ -305,9 +308,14 @@ export class GameScene extends Phaser.Scene {
     this.dmgNums = [];
     for (let i = 0; i < 48; i++) this.dmgNums.push({ t: this.add.bitmapText(0, 0, font, '', 32).setOrigin(0.5).setDepth(41).setLetterSpacing(-7).setVisible(false), life: 0 });
     const readSetting = () => {
-      const st = loadSave().settings;
+      const sv = loadSave();
+      const st = sv.settings;
       this.showDamage = st.damageNumbers !== false;
       this.hud.setSpecialSide(st.specialSide === 'left' ? 'left' : 'right');
+      // 曲のカスタム（ポーズ → オプションで切り替えたら、戻った瞬間に曲も変える）
+      const before = JSON.stringify(this.customBgm);
+      this.customBgm = customBgmKeys(sv);
+      if (JSON.stringify(this.customBgm) !== before && this.player) this.resumeBgm();
     };
     readSetting();
     this.events.on(Phaser.Scenes.Events.RESUME, readSetting);
@@ -3351,27 +3359,29 @@ export class GameScene extends Phaser.Scene {
 
   /** いまの状況に合うBGMへ：ボス生存中はボス曲（ボスごとに別）、満月中は満月曲、それ以外はキャラ曲 */
   private resumeBgm(): void {
+    // カスタム（オプションで CUSTOM にして、ミュージックで割り当てた曲）があれば、それを先に試す
+    const c = this.customBgm;
     const boss = this.bosses.find((b) => b.active);
     if (boss) {
       if (boss.def.id === 'redknight') {
         // 悪夢の黒騎士は専用の曲（前半・後半とも同じ。無ければ黒騎士の曲）
-        AudioBus.playBgm('bgm_boss_redknight', boss.bk.phase === 2 ? 'bgm_boss_blackknight2' : 'bgm_boss_blackknight', 'bgm_boss_blackknight', 'bgm_boss');
+        AudioBus.playBgm(c.redknight ?? 'bgm_boss_redknight', 'bgm_boss_redknight', boss.bk.phase === 2 ? 'bgm_boss_blackknight2' : 'bgm_boss_blackknight', 'bgm_boss_blackknight', 'bgm_boss');
       } else if (boss.def.knight) {
         // 形態変化後は専用の曲（無ければ前半の曲のまま）。前半のうちに先読みしておく
-        if (boss.bk.phase === 2) AudioBus.playBgm('bgm_boss_blackknight2', 'bgm_boss_blackknight', 'bgm_boss');
+        if (boss.bk.phase === 2) AudioBus.playBgm(c.bk2 ?? 'bgm_boss_blackknight2', 'bgm_boss_blackknight2', 'bgm_boss_blackknight', 'bgm_boss');
         else {
-          AudioBus.playBgm('bgm_boss_blackknight', 'bgm_boss');
-          AudioBus.preloadBgm('bgm_boss_blackknight2');
+          AudioBus.playBgm(c.bk1 ?? 'bgm_boss_blackknight', 'bgm_boss_blackknight', 'bgm_boss');
+          AudioBus.preloadBgm(c.bk2 ?? 'bgm_boss_blackknight2');
         }
       }
       // 城兵級・女王級は専用の曲（無ければ旧版のボス戦の曲）
-      else if (boss.def.bossKind) AudioBus.playBgm(`bgm_boss_${boss.def.bossKind}`, 'bgm_boss', 'bgm_boss_blackknight');
+      else if (boss.def.bossKind) AudioBus.playBgm(c[boss.def.bossKind] ?? `bgm_boss_${boss.def.bossKind}`, `bgm_boss_${boss.def.bossKind}`, 'bgm_boss', 'bgm_boss_blackknight');
       else AudioBus.playBgm('bgm_boss', 'bgm_boss_blackknight');
       return;
     }
-    const chara = `bgm_chara_${this.player.def.id}`;
-    if (this.fullMoon) AudioBus.playBgm('bgm_fullmoon', chara, this.stage.bgm, 'bgm_stage');
-    else AudioBus.playBgm(chara, this.stage.bgm, 'bgm_stage');
+    const chara = c.normal ?? `bgm_chara_${this.player.def.id}`;
+    if (this.fullMoon) AudioBus.playBgm(c.fullmoon ?? 'bgm_fullmoon', 'bgm_fullmoon', chara, this.stage.bgm, 'bgm_stage');
+    else AudioBus.playBgm(chara, `bgm_chara_${this.player.def.id}`, this.stage.bgm, 'bgm_stage');
   }
 
   /** ノーダメージ時間を確定させる（被弾で区切る） */

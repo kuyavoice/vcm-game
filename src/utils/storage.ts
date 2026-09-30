@@ -15,7 +15,7 @@ export interface SaveData {
   bests: Record<string, BestRecord>;
   /** クリア済みステージID */
   cleared: number[];
-  settings: { bgm: number; se: number; voice: number; speed: number; character: string; /** ダメージの数字を出す */ damageNumbers: boolean; /** 必殺ボタンの位置（既定は右下） */ specialSide: 'right' | 'left' };
+  settings: { bgm: number; se: number; voice: number; speed: number; character: string; /** ダメージの数字を出す */ damageNumbers: boolean; /** 必殺ボタンの位置（既定は右下） */ specialSide: 'right' | 'left'; /** 戦闘中の曲：normal＝今までどおり／custom＝場面ごとに割り当てた曲 */ bgmMode: 'normal' | 'custom'; /** 場面 → 曲ID（music.ts）。utils/bgmCustom.ts */ bgmCustom: Record<string, string> };
   totalYell: number;
   /** 解放済みキャラID（空夜は常に使える） */
   unlockedCharacters: string[];
@@ -46,7 +46,7 @@ const DEFAULT: SaveData = {
   best: null,
   bests: {},
   cleared: [],
-  settings: { bgm: 0.7, se: 0.8, voice: 1, speed: 1, character: 'kuya', damageNumbers: true, specialSide: 'right' },
+  settings: { bgm: 0.7, se: 0.8, voice: 1, speed: 1, character: 'kuya', damageNumbers: true, specialSide: 'right', bgmMode: 'normal', bgmCustom: {} },
   totalYell: 0,
   unlockedCharacters: [],
   permanent: {},
@@ -70,7 +70,7 @@ export function loadSave(): SaveData {
     const data: SaveData = {
       ...structuredClone(DEFAULT),
       ...parsed,
-      settings: { ...DEFAULT.settings, ...(parsed.settings ?? {}) },
+      settings: { ...DEFAULT.settings, ...(parsed.settings ?? {}), bgmCustom: { ...(parsed.settings?.bgmCustom ?? {}) } },
       bests: { ...(parsed.bests ?? {}) },
       cleared: [...(parsed.cleared ?? [])],
       unlockedCharacters: [...(parsed.unlockedCharacters ?? [])],
