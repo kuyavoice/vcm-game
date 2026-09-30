@@ -259,11 +259,15 @@ const hoshikuzu: ArtBehavior = {
       ctx.fx.ring(c.x, c.y, 90, 0xffd54a, 3);
       return;
     }
+    // 進化前：近い敵から順に、星ごとに別の敵を狙う（敵より星が多ければ、また近い敵から）。敵が居なければ、向きはランダム
+    // （2026-09-30 詩-A・詩-B。以前は向きがランダムで、どの星も自分に近い敵に集まっていた）
     const n = projCount(ctx, s, w.def);
+    const near = ctx.onScreenEnemies().map((e) => ({ e, d: Math.hypot(e.x - c.x, e.y - c.y) })).sort((a, b) => a.d - b.d).map((x) => x.e);
     for (let i = 0; i < n; i++) {
-      const angle = Math.random() * Math.PI * 2;
+      const t = near.length ? near[i % near.length] : null;
+      const angle = t ? Math.atan2(t.y - c.y, t.x - c.x) : Math.random() * Math.PI * 2;
       ctx.fireBullet({
-        x: c.x, y: c.y, angle, speed: s.speed, damage: dmg, life, pierce: s.pierce, homing: true,
+        x: c.x, y: c.y, angle, speed: s.speed, damage: dmg, life, pierce: s.pierce, homing: true, target: t ?? undefined,
         texture: 'art_star', spin: 6, rotateToVel: false, knockback: 40,
       });
     }

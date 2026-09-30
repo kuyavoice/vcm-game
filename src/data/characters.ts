@@ -141,9 +141,10 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     speed: 135,
     pickup: 60,
     hitRadius: 18,
-    traits: { resonanceArtsPower: 0, meleePower: 1.2, damageMul: 1, maxHpMul: 1, healItemMul: 1, contactDamageMul: 0.75, name: 'トライスターの剣', desc: '近接武器の威力 +20%、接触ダメージ −25%' },
+    // 接触ダメージ −25% → −35%（2026-09-30 強化案 雪-2）
+    traits: { resonanceArtsPower: 0, meleePower: 1.2, damageMul: 1, maxHpMul: 1, healItemMul: 1, contactDamageMul: 0.65, name: 'トライスターの剣', desc: '近接武器の威力 +20%、接触ダメージ −35%' },
     startWeapon: 'greatsword',
-    uniquePassive: { id: 'kanpa', name: '完全看破', desc: '20%の確率で攻撃を回避。回避後1秒間、攻撃力+30%' },
+    uniquePassive: { id: 'kanpa', name: '完全看破', desc: '20%の確率で攻撃を回避。回避後2秒間、攻撃力+30%' },
     special: { id: 'setsugekka_ult', name: '乱れ雪月花', shortName: '雪月花', desc: '3秒間、画面内の敵に斬撃が計30回閃く' },
     excludedArts: ['setsugekka'],
     knockbackImmune: true,
@@ -166,7 +167,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     traits: { resonanceArtsPower: 0, meleePower: 1, damageMul: 1.3, maxHpMul: 0.7, healItemMul: 1, name: '極振りステッキ', desc: '攻撃力 +30%、最大HP −30%' },
     startWeapon: 'flamehound',
     uniquePassive: { id: 'precision', name: '精密制御', desc: '投射物すべてにゆるい追尾がつく' },
-    special: { id: 'angelic_rumble', name: 'エンジェリック・ランブル', shortName: 'ランブル', desc: '画面内の全ての敵にダメージ80＋炎上（5秒）' },
+    special: { id: 'angelic_rumble', name: 'エンジェリック・ランブル', shortName: 'ランブル', desc: '画面内の全ての敵にダメージ80＋炎上（5秒）。その後10秒間、攻撃力+30%' },
     excludedArts: [], // v2 で『紅蓮の矢』解禁
     unlockYell: 1000,
     voicePrefix: 'ritsuka',

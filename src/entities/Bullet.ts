@@ -19,6 +19,8 @@ export interface BulletOpts {
   pierce?: number;
   /** 追尾 */
   homing?: boolean;
+  /** 追尾で最初に狙う敵（倒れたら最寄りの敵へ）。『星屑の裁定』で、星ごとに別の敵を狙わせる */
+  target?: Enemy;
   /** 画面端で跳ね返る */
   bounce?: boolean;
   /** 命中した敵の鈍化（倍率と秒数） */
@@ -60,6 +62,7 @@ export class Bullet extends Phaser.GameObjects.Image {
   damage = 8;
   pierce = 0;
   homing = false;
+  target: Enemy | null = null;
   bounce = false;
   slow = 1;
   slowSec = 0;
@@ -101,6 +104,7 @@ export class Bullet extends Phaser.GameObjects.Image {
     this.damage = o.damage;
     this.pierce = o.pierce ?? 0;
     this.homing = o.homing ?? false;
+    this.target = o.target ?? null;
     this.bounce = o.bounce ?? false;
     this.slow = o.slow ?? 1;
     this.slowSec = o.slowSec ?? 0;

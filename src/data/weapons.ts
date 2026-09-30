@@ -132,7 +132,8 @@ export const FLAMEHOUND: WeaponDef = {
   id: 'flamehound', name: '焔の猟犬', owner: '寿 律花', kind: 'main', tags: ['projectile'],
   desc: '炎の玉が敵を追いかけ、当たると小さく爆ぜて燃え上がらせる。',
   color: 0xff4500, maxLevel: 8,
-  base: stats({ damage: 10, intervalSec: 1.2, count: 2, speed: 532, duration: 3, extra: { blastRadius: 40, blastDamage: 6, maxHounds: 12, turnRate: 5.6, burnDps: 4, burnSec: 3 } }),
+  // 爆発 6 → 8（2026-09-30 強化案 律-2）
+  base: stats({ damage: 10, intervalSec: 1.2, count: 2, speed: 532, duration: 3, extra: { blastRadius: 40, blastDamage: 8, maxHounds: 12, turnRate: 5.6, burnDps: 4, burnSec: 3 } }),
   levels: [
     more(1, '猟犬の数'), dmg(25), { desc: '爆発の範囲 +30%', apply: (s) => { s.extra.blastRadius *= 1.3; } },
     faster(10), more(1, '猟犬の数'), dmg(25),

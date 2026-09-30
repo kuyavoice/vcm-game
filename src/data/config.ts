@@ -71,6 +71,11 @@ export const CONFIG = {
     artIntervalMul: 0.7,
   },
 
+  // 『完全看破』（雪人）：回避のあと攻撃力+30%が続く秒数。1 → 2（2026-09-30 強化案 雪-1）
+  kanpaBuffSec: 2,
+  // 『エンジェリック・ランブル』（律花）：発動のあと、この秒数だけ攻撃力が buffMul 倍（2026-09-30 ユーザー案）
+  rumble: { buffSec: 10, buffMul: 1.3 },
+
   // 満月イベント
   fullMoon: {
     spawnMul: 2,

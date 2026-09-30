@@ -83,6 +83,8 @@ export class GameScene extends Phaser.Scene {
   private specialRunning = false;
   /** 完全看破：回避後の攻撃力+30%が続く時刻 */
   private kanpaUntil = 0;
+  /** 『エンジェリック・ランブル』のあとの攻撃力アップが切れる時刻 */
+  private rumbleUntil = 0;
   /** 慈愛の雫のタイマー */
   private cureTimer = 0;
   private tmp2: Enemy[] = [];
@@ -150,6 +152,7 @@ export class GameScene extends Phaser.Scene {
     this.specialHost = { state: {} };
     this.specialRunning = false;
     this.kanpaUntil = 0;
+    this.rumbleUntil = 0;
     this.cureTimer = 0;
     this.boss = null;
     this.bossDefeated = false;
@@ -536,6 +539,14 @@ export class GameScene extends Phaser.Scene {
 
     // 必殺の演出
     this.soulGfx.clear();
+    if (now < this.rumbleUntil) {
+      // 攻撃力アップ中：足元に炎色の輪
+      const k = (this.rumbleUntil - now) / (CONFIG.rumble.buffSec * 1000);
+      this.soulGfx.lineStyle(3, 0xff4500, 0.35 + Math.sin(now / 90) * 0.15);
+      this.soulGfx.strokeCircle(p.x, p.y - 8, 34 + Math.sin(now / 140) * 3);
+      this.soulGfx.lineStyle(2, 0xffb347, 0.5 * k);
+      this.soulGfx.strokeCircle(p.x, p.y - 8, 44);
+    }
     if (soulActive) {
       const k = (this.soulUntil - now) / (CONFIG.soul.durationSec * 1000);
       this.soulGfx.lineStyle(4, 0x87ceeb, 0.5 + Math.sin(now / 80) * 0.2);
@@ -601,7 +612,7 @@ export class GameScene extends Phaser.Scene {
     const soulActive = specialActive && def.special.id === 'soul_connect';
     ctx.artDamageMul = (1 + def.traits.resonanceArtsPower) * (soulActive ? CONFIG.soul.artDamageMul : 1);
     ctx.artIntervalMul = soulActive ? CONFIG.soul.artIntervalMul : 1;
-    ctx.bonusDamageMul = now < this.kanpaUntil ? 1.3 : 1;
+    ctx.bonusDamageMul = (now < this.kanpaUntil ? 1.3 : 1) * (now < this.rumbleUntil ? CONFIG.rumble.buffMul : 1);
     const stats = this.up.stats;
     const p = this.player;
 
@@ -2804,7 +2815,9 @@ export class GameScene extends Phaser.Scene {
 
       // 追尾
       if (b.homing) {
-        const t = this.nearestEnemy(b.x, b.y, 520);
+        // 決まった狙いがあれば、それが倒れるまでそちらへ。無ければ最寄りの敵へ
+        if (b.target && !b.target.active) b.target = null;
+        const t = b.target ?? this.nearestEnemy(b.x, b.y, 520);
         if (t) {
           const want = Math.atan2(t.y - b.y, t.x - b.x);
           const cur = Math.atan2(b.vy, b.vx);
@@ -3206,7 +3219,7 @@ export class GameScene extends Phaser.Scene {
     if (now >= p.shieldUntil && def.uniquePassive.id === 'kanpa' && Math.random() < 0.2) {
       // 完全看破：回避して1秒間攻撃力+30%
       p.invulnUntil = now + 150;
-      this.kanpaUntil = now + 1000;
+      this.kanpaUntil = now + CONFIG.kanpaBuffSec * 1000;
       this.fxText(p.x, p.y - 110, '看破', '#E8F4FF');
       return;
     }
@@ -3438,6 +3451,11 @@ export class GameScene extends Phaser.Scene {
     this.specialDamage = true;
     sp.activate(this.ctx, this.specialHost);
     this.specialDamage = false;
+    // 『エンジェリック・ランブル』：発動のあと、しばらく攻撃力が上がる
+    if (def.special.id === 'angelic_rumble') {
+      this.rumbleUntil = this.ctx.now + CONFIG.rumble.buffSec * 1000;
+      this.fxText(this.player.x, this.player.y - 130, `攻撃力 +${Math.round((CONFIG.rumble.buffMul - 1) * 100)}%`, '#FF4500');
+    }
     this.hud.banner(def.special.name, Phaser.Display.Color.IntegerToColor(def.color).rgba, 36);
     this.cameras.main.flash(300, 135, 206, 235);
     AudioBus.play('se_special');
