@@ -304,7 +304,11 @@ export class GameScene extends Phaser.Scene {
     const font = ensureDamageFont(this);
     this.dmgNums = [];
     for (let i = 0; i < 48; i++) this.dmgNums.push({ t: this.add.bitmapText(0, 0, font, '', 32).setOrigin(0.5).setDepth(41).setLetterSpacing(-7).setVisible(false), life: 0 });
-    const readSetting = () => { this.showDamage = loadSave().settings.damageNumbers !== false; };
+    const readSetting = () => {
+      const st = loadSave().settings;
+      this.showDamage = st.damageNumbers !== false;
+      this.hud.setSpecialSide(st.specialSide === 'left' ? 'left' : 'right');
+    };
     readSetting();
     this.events.on(Phaser.Scenes.Events.RESUME, readSetting);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.RESUME, readSetting));

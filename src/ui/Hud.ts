@@ -38,6 +38,8 @@ export class Hud {
   private arrows: Phaser.GameObjects.Graphics;
   private top = 0;
   private bottom = 0;
+  /** 必殺ボタンの位置（オプションで左右を選べる） */
+  private specialSide: 'right' | 'left' = 'right';
   private w = 720;
   private h = 1280;
   readonly soulRadius = 58;
@@ -123,7 +125,14 @@ export class Hud {
     this.scoreText.setPosition(this.w - 24, t + 64);
     this.pauseBtn.setPosition(this.w - 24 - 28, t + 100);
     this.speedBtn.setPosition(this.w - 24 - 56 - 10 - 36, t + 100);
-    this.soulBtn.setPosition(this.w - 24 - this.soulRadius, this.h - this.bottom - this.soulRadius);
+    this.soulBtn.setPosition(this.specialSide === 'left' ? 24 + this.soulRadius : this.w - 24 - this.soulRadius, this.h - this.bottom - this.soulRadius);
+  }
+
+  /** 必殺ボタンを左右どちらに置くか */
+  setSpecialSide(side: 'right' | 'left'): void {
+    if (this.specialSide === side) return;
+    this.specialSide = side;
+    this.layout();
   }
 
   update(d: HudState): void {

@@ -103,11 +103,26 @@ export class OptionScene extends Phaser.Scene {
       AudioBus.play('se_levelup', 120);
     }, { width: 160, height: 56, fontSize: 26, armDelayMs: 0 });
 
+    // 必殺ボタンの位置（右下／左下）
+    const sy = ty + 100 + 16;
+    this.add.rectangle(left, sy, panelW, 100, 0x111a3a, 0.95).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.5);
+    this.add.text(left + 24, sy + 16, 'SPECIAL', { fontFamily: FONT_EN, fontSize: '32px', color: COLOR_HEX.white, fontStyle: '700', letterSpacing: 3 });
+    this.add.text(left + 24, sy + 62, '必殺ボタンの位置', { fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim });
+    let side: 'right' | 'left' = save.settings.specialSide === 'left' ? 'left' : 'right';
+    const sideToggle = makeButton(this, left + panelW - 24 - 80, sy + 50, side === 'left' ? 'LEFT' : 'RIGHT', () => {
+      side = side === 'left' ? 'right' : 'left';
+      const sv = loadSave();
+      sv.settings.specialSide = side;
+      writeSave(sv);
+      (sideToggle.list[2] as Phaser.GameObjects.Text).setText(side === 'left' ? 'LEFT' : 'RIGHT');
+      AudioBus.play('se_levelup', 120);
+    }, { width: 160, height: 56, fontSize: 26, armDelayMs: 0 });
+
     const close = () => {
       this.scene.stop();
       this.scene.resume(from);
     };
-    makeButton(this, W / 2, ty + 100 + 70, 'CLOSE', close, { primary: true });
+    makeButton(this, W / 2, sy + 100 + 70, 'CLOSE', close, { primary: true });
     this.input.keyboard?.on('keydown-ESC', close);
   }
 }

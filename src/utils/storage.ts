@@ -15,7 +15,7 @@ export interface SaveData {
   bests: Record<string, BestRecord>;
   /** クリア済みステージID */
   cleared: number[];
-  settings: { bgm: number; se: number; voice: number; speed: number; character: string; /** ダメージの数字を出す */ damageNumbers: boolean };
+  settings: { bgm: number; se: number; voice: number; speed: number; character: string; /** ダメージの数字を出す */ damageNumbers: boolean; /** 必殺ボタンの位置（既定は右下） */ specialSide: 'right' | 'left' };
   totalYell: number;
   /** 解放済みキャラID（空夜は常に使える） */
   unlockedCharacters: string[];
@@ -46,7 +46,7 @@ const DEFAULT: SaveData = {
   best: null,
   bests: {},
   cleared: [],
-  settings: { bgm: 0.7, se: 0.8, voice: 1, speed: 1, character: 'kuya', damageNumbers: true },
+  settings: { bgm: 0.7, se: 0.8, voice: 1, speed: 1, character: 'kuya', damageNumbers: true, specialSide: 'right' },
   totalYell: 0,
   unlockedCharacters: [],
   permanent: {},
