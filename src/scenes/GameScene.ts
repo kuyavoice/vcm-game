@@ -300,7 +300,9 @@ export class GameScene extends Phaser.Scene {
       },
     };
 
-    AudioBus.playBgm(`bgm_chara_${def.id}`, this.stage.bgm, 'bgm_stage');
+    // 曲は resumeBgm で決める（カスタムの割り当てがあれば、最初からそれを流す。シーンは使い回されるので、ここで読み直す）
+    this.customBgm = customBgmKeys(loadSave());
+    this.resumeBgm();
     this.vo('start');
     this.hud.banner(`${this.stage.nameEn} —— ${this.stage.name}`, Phaser.Display.Color.IntegerToColor(this.stage.color).rgba, 32);
     // ダメージの数字（オプションで出す／出さないを切り替え。ポーズからオプションを開いて戻ったときも読み直す）
