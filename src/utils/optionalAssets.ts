@@ -6,6 +6,8 @@ import { GALLERY, galleryKey } from '../data/gallery';
 import { CODEX_ENEMIES, bestiaryKey, bestiaryFile } from '../data/codex';
 
 export const OPTIONAL_IMAGES: Record<string, string> = {
+  // タイトルのキービジュアル（1024×1536・ロゴ入り）。無ければ文字だけのタイトル
+  title_kv: 'assets/images/title_kv.webp',
   luna_chibi: 'assets/images/luna_chibi.png',
   // 宝箱の画面のルナ（4コマ横並び：0 通常／1 瞬き／2・3 大当たり）。無ければ luna_chibi
   luna_chest: 'assets/images/luna_chest.webp',
