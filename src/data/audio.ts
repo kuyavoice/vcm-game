@@ -25,6 +25,8 @@ export const AUDIO_MANIFEST: AudioEntry[] = [
   { key: 'bgm_boss_blackknight', path: 'assets/audio/bgm/boss_blackknight.mp3', category: 'bgm', loop: true },
   // 黒騎士の形態変化後（無ければ boss_blackknight のまま）
   { key: 'bgm_boss_blackknight2', path: 'assets/audio/bgm/boss_blackknight2.mp3', category: 'bgm', loop: true },
+  // EXステージ最後のボス『悪夢の黒騎士 ― Knight of the Black Snow』（前半・後半とも同じ曲。無ければ黒騎士の曲）
+  { key: 'bgm_boss_redknight', path: 'assets/audio/bgm/boss_redknight.mp3', category: 'bgm', loop: true },
   // 道中はキャラソンのバトルアレンジ（無ければ stageN → stage）
   { key: 'bgm_chara_kuya', path: 'assets/audio/bgm/chara_kuya.mp3', category: 'bgm', loop: true },
   { key: 'bgm_chara_mizuho', path: 'assets/audio/bgm/chara_mizuho.mp3', category: 'bgm', loop: true },

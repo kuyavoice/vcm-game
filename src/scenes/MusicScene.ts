@@ -76,7 +76,8 @@ export class MusicScene extends Phaser.Scene {
       const frame = this.add.rectangle(left, y, rowW, rowH - 10, 0x111a3a, 0.92).setOrigin(0).setStrokeStyle(2, owned ? m.color : 0x3a4a8a, owned ? 0.6 : 0.5);
       frames.set(m.id, frame);
       this.add.rectangle(left + 4, y + 8, 6, rowH - 26, owned ? m.color : 0x3a4a8a, 1).setOrigin(0);
-      this.add.text(left + 22, y + 8, m.title, { fontFamily: FONT_JP, fontSize: '24px', color: owned ? COLOR_HEX.white : '#5A6488', fontStyle: '700' });
+      // 長い曲名（英題つき）は、ボタンにかからないよう小さく
+      this.add.text(left + 22, y + 8, m.title, { fontFamily: FONT_JP, fontSize: m.title.length > 20 ? '19px' : '24px', color: owned ? COLOR_HEX.white : '#5A6488', fontStyle: '700' });
       this.add.text(left + 22, y + 40, m.sub, { fontFamily: FONT_JP, fontSize: '15px', color: COLOR_HEX.dim });
       const bx = left + rowW - 16 - 80;
       const by = y + (rowH - 10) / 2;

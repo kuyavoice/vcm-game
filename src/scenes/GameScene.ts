@@ -3353,7 +3353,10 @@ export class GameScene extends Phaser.Scene {
   private resumeBgm(): void {
     const boss = this.bosses.find((b) => b.active);
     if (boss) {
-      if (boss.def.knight) {
+      if (boss.def.id === 'redknight') {
+        // 悪夢の黒騎士は専用の曲（前半・後半とも同じ。無ければ黒騎士の曲）
+        AudioBus.playBgm('bgm_boss_redknight', boss.bk.phase === 2 ? 'bgm_boss_blackknight2' : 'bgm_boss_blackknight', 'bgm_boss_blackknight', 'bgm_boss');
+      } else if (boss.def.knight) {
         // 形態変化後は専用の曲（無ければ前半の曲のまま）。前半のうちに先読みしておく
         if (boss.bk.phase === 2) AudioBus.playBgm('bgm_boss_blackknight2', 'bgm_boss_blackknight', 'bgm_boss');
         else {
