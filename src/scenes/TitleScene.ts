@@ -148,7 +148,6 @@ export class TitleScene extends Phaser.Scene {
     } else {
       img.setScale(cover);
     }
-    // ゆっくり呼吸するように、わずかに拡大縮小
-    this.tweens.add({ targets: img, scale: img.scale * 1.02, duration: 6000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    // 絵は動かさない（静止画。2026-09-30 ユーザー指定）
   }
 }
