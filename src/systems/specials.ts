@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { AudioBus } from '../utils/audio';
+import { screenFlash } from '../utils/screenFlash';
 import type { SpecialId } from '../data/characters';
 import type { Enemy } from '../entities/Enemy';
 import type { BattleContext } from './WeaponSystem';
@@ -111,7 +112,7 @@ const setsugekkaUlt: SpecialBehavior = {
 const angelicRumble: SpecialBehavior = {
   durationSec: 0.6,
   activate(ctx) {
-    ctx.scene.cameras.main.flash(400, 255, 200, 160);
+    screenFlash(ctx.scene, 400, 255, 200, 160);
     ctx.scene.cameras.main.shake(250, 0.008);
     for (const e of ctx.onScreenEnemies()) {
       ctx.damage(e, 80 * ctx.stats.damageMul, 0, 0);

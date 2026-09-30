@@ -3,6 +3,7 @@ import type { ChestResult } from '../systems/Upgrades';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { SelectGuard } from '../ui/SelectGuard';
 import { AudioBus } from '../utils/audio';
+import { screenFlash } from '../utils/screenFlash';
 import { PORTRAITS, portraitKey } from '../data/portraits';
 import { pickLunaLine, type LunaGroup } from '../data/lunaLines';
 
@@ -98,7 +99,7 @@ export class ChestScene extends Phaser.Scene {
       AudioBus.play('se_chest');
       result = data.open();
       this.tweens.add({ targets: chest, scaleX: 12, scaleY: 8, duration: 90, yoyo: true });
-      this.cameras.main.flash(250, 255, 200, 230);
+      screenFlash(this, 250, 255, 200, 230);
 
       // ルナの台詞：合体 → 進化 → 通常 の優先でグループを選ぶ（大当たりのときも、中身でいちばん上のもの）
       const group: LunaGroup = result.rewards.some((r) => r.kind === 'fusion') ? 'fusion' : result.rewards.some((r) => r.kind === 'evolve') ? 'evolve' : 'normal';

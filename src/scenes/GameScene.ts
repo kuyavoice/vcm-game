@@ -6,6 +6,7 @@ import { stageById, type StageDef } from '../data/stages';
 import { SCORE } from '../data/score';
 import { ENDLESS } from '../data/endless';
 import { isHeld } from '../utils/heldKeys';
+import { screenFlash } from '../utils/screenFlash';
 import { customBgmKeys, type BgmSlot } from '../utils/bgmCustom';
 import { ITEMS, PICKUPS, type PickupKind } from '../data/items';
 import { Player } from '../entities/Player';
@@ -659,7 +660,7 @@ export class GameScene extends Phaser.Scene {
       this.cycleDamageMul = 1 + ENDLESS.cycleDamageAdd * this.cycleShown;
       if (this.cycleShown > 0) {
         this.hud.banner(`— ${this.cycleShown + 1}周目 —`, '#7CFFB2', 40);
-        this.cameras.main.flash(300, 124, 255, 178);
+        screenFlash(this, 300, 124, 255, 178);
       }
     }
     if (this.stage.scoreMode) {
@@ -3131,7 +3132,7 @@ export class GameScene extends Phaser.Scene {
         this.bossBurst(e.x, e.y - 60, def.eyeColor, 3);
         this.cameras.main.shake(260, 0.008);
         this.hud.banner(this.stage.scoreMode ? `${def.name} 撃破　+${SCORE.points[def.id]}` : `${def.name} 撃破`, '#FFD700', 34);
-        this.cameras.main.flash(300, 255, 255, 255);
+        screenFlash(this, 300);
         // 撃破後も続くので、ボスが居なくなったら道中の曲に戻す
         this.resumeBgm();
         return;
@@ -3142,7 +3143,7 @@ export class GameScene extends Phaser.Scene {
       this.bossDefeated = true;
       this.bossBurst(e.x, e.y - 60, def.eyeColor, 7);
       this.cameras.main.shake(400, 0.01);
-      this.cameras.main.flash(500, 255, 255, 255);
+      screenFlash(this, 500);
     }
   }
 
@@ -3187,7 +3188,7 @@ export class GameScene extends Phaser.Scene {
       this.player.heal(heal);
       this.fxText(this.player.x, this.player.y - 110, `+${heal}`, '#F0E68C');
     } else if (kind === 'cross') {
-      this.cameras.main.flash(400, 255, 255, 255);
+      screenFlash(this, 400);
       for (const e of this.onScreenEnemies()) {
         if (e.def.boss) continue;
         if (e.def.tier <= 1) this.damageEnemy(e, 1e9, 0, 0);
@@ -3460,7 +3461,7 @@ export class GameScene extends Phaser.Scene {
       this.fxText(this.player.x, this.player.y - 130, `攻撃力 +${Math.round((CONFIG.rumble.buffMul - 1) * 100)}%`, '#FF4500');
     }
     this.hud.banner(def.special.name, Phaser.Display.Color.IntegerToColor(def.color).rgba, 36);
-    this.cameras.main.flash(300, 135, 206, 235);
+    screenFlash(this, 300, 135, 206, 235);
     AudioBus.play('se_special');
     this.vo('special');
   }
