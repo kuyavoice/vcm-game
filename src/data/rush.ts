@@ -13,6 +13,8 @@ export const RUSH = {
   fixedLevel: 40,
   /** 選ぶ共鳴アーツの数 */
   pickCount: 3,
+  /** 持っていけるサポートの数（0〜。最大Lvで始まる。2026-10-01 ユーザー要望：足の遅いキャラがすぐ倒れるため） */
+  supportCount: 2,
   /** 最初のボスが出るまでと、ボス（の組）を倒してから次が出るまでの秒数 */
   firstDelaySec: 3,
   gapSec: 15,

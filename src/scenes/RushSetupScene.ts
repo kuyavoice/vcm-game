@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { WEAPONS, ART_IDS } from '../data/weapons';
+import { PASSIVES } from '../data/passives';
 import { CHARACTERS } from '../data/characters';
 import { RUSH, RUSH_STAGE } from '../data/rush';
 import { PORTRAITS, portraitKey } from '../data/portraits';
@@ -30,10 +31,13 @@ export class RushSetupScene extends Phaser.Scene {
     const known = new Set(save.codex);
     const pool = ART_IDS.filter((id) => known.has(id) && !chara.excludedArts.includes(id));
     const picked = new Set<string>((save.lastRushArts ?? []).filter((id) => pool.includes(id)));
+    // サポート：図鑑に登録済みのもの（`passive:ID`）から、supportCount まで。0でもよい
+    const supPool = Object.values(PASSIVES).filter((p) => known.has(`passive:${p.id}`)).map((p) => p.id);
+    const pickedSup = new Set<string>((save.lastRushSupports ?? []).filter((id) => supPool.includes(id)));
 
     const top = Math.max(H * 0.06, 40);
     this.add.text(W / 2, top, 'BOSS RUSH', { fontFamily: FONT_EN, fontSize: '44px', color: '#FF8C42', fontStyle: '700', letterSpacing: 5 }).setOrigin(0.5);
-    this.add.text(W / 2, top + 44, `共鳴アーツを${RUSH.pickCount}つ選ぶ（全部Lv8で始まる）`, { fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim }).setOrigin(0.5);
+    this.add.text(W / 2, top + 44, `共鳴アーツを${RUSH.pickCount}つ、サポートを${RUSH.supportCount}つまで選ぶ（全部 最大Lvで始まる）`, { fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim }).setOrigin(0.5);
     this.add.text(W / 2, top + 70, `${chara.name}　／　Lv${RUSH.fixedLevel} 固定・永続強化なし`, { fontFamily: FONT_JP, fontSize: '16px', color: COLOR_HEX.accent }).setOrigin(0.5);
     const count = this.add.text(W / 2, top + 100, '', { fontFamily: FONT_EN, fontSize: '22px', color: COLOR_HEX.gold, fontStyle: '700' }).setOrigin(0.5);
 
@@ -43,6 +47,8 @@ export class RushSetupScene extends Phaser.Scene {
     let y = top + 130;
     const frames = new Map<string, Phaser.GameObjects.Rectangle>();
     const marks = new Map<string, Phaser.GameObjects.Text>();
+    const supFrames = new Map<string, Phaser.GameObjects.Rectangle>();
+    const supMarks = new Map<string, Phaser.GameObjects.Text>();
     let startBtn: Phaser.GameObjects.Container | null = null;
 
     const refresh = () => {
@@ -51,7 +57,12 @@ export class RushSetupScene extends Phaser.Scene {
         frames.get(id)?.setStrokeStyle(2, on ? 0xffd700 : WEAPONS[id].color, on ? 1 : 0.5).setFillStyle(0x111a3a, on ? 1 : 0.85);
         marks.get(id)?.setText(on ? '✓' : '').setVisible(on);
       }
-      count.setText(`${picked.size} / ${RUSH.pickCount}`);
+      for (const id of supPool) {
+        const on = pickedSup.has(id);
+        supFrames.get(id)?.setStrokeStyle(2, on ? 0xffd700 : PASSIVES[id].color, on ? 1 : 0.5).setFillStyle(0x111a3a, on ? 1 : 0.85);
+        supMarks.get(id)?.setVisible(on);
+      }
+      count.setText(`ARTS ${picked.size} / ${RUSH.pickCount}　　SUPPORT ${pickedSup.size} / ${RUSH.supportCount}`);
       if (startBtn) {
         const ok = picked.size === RUSH.pickCount;
         startBtn.setAlpha(ok ? 1 : 0.4);
@@ -67,6 +78,11 @@ export class RushSetupScene extends Phaser.Scene {
       y += 140;
     }
 
+    const section = (label: string) => {
+      this.add.text(left, y, label, { fontFamily: FONT_EN, fontSize: '18px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 3 });
+      y += 28;
+    };
+    section('ARTS');
     for (const id of pool) {
       const def = WEAPONS[id];
       const frame = this.add.rectangle(left, y, rowW, rowH - 8, 0x111a3a, 0.85).setOrigin(0).setStrokeStyle(2, def.color, 0.5).setInteractive({ useHandCursor: true });
@@ -103,17 +119,48 @@ export class RushSetupScene extends Phaser.Scene {
       y += rowH;
     }
 
+    // サポート（任意。最大Lvで始まる）
+    if (supPool.length > 0) {
+      y += 10;
+      section('SUPPORT');
+      const sh = 56;
+      for (const id of supPool) {
+        const def = PASSIVES[id];
+        const frame = this.add.rectangle(left, y, rowW, sh - 8, 0x111a3a, 0.85).setOrigin(0).setStrokeStyle(2, def.color, 0.5).setInteractive({ useHandCursor: true });
+        supFrames.set(id, frame);
+        this.add.rectangle(left + 4, y + 8, 6, sh - 24, def.color, 1).setOrigin(0);
+        this.add.text(left + 22, y + 6, def.name, { fontFamily: FONT_JP, fontSize: '19px', color: COLOR_HEX.white, fontStyle: '700' });
+        this.add.text(left + 22, y + 30, `${def.owner}　${def.desc}`, { fontFamily: FONT_JP, fontSize: '12px', color: COLOR_HEX.dim }).setCrop(0, 0, rowW - 92, 16);
+        const mark = this.add.text(left + rowW - 22, y + (sh - 8) / 2, '✓', { fontFamily: FONT_EN, fontSize: '28px', color: COLOR_HEX.gold, fontStyle: '700' }).setOrigin(1, 0.5);
+        supMarks.set(id, mark);
+        let pressedAt = -1;
+        frame.on('pointerdown', (p: Phaser.Input.Pointer) => { pressedAt = p.y; });
+        frame.on('pointerup', (p: Phaser.Input.Pointer) => {
+          if (pressedAt < 0 || Math.abs(p.y - pressedAt) > 12) { pressedAt = -1; return; }
+          pressedAt = -1;
+          if (pickedSup.has(id)) pickedSup.delete(id);
+          else if (pickedSup.size < RUSH.supportCount) pickedSup.add(id);
+          else return;
+          AudioBus.play('se_item', 60);
+          refresh();
+        });
+        y += sh;
+      }
+    }
+
     const by = Math.max(H - Math.max(90, H * 0.08), y + 60);
     makeButton(this, W / 2 - 150, by, 'BACK', () => this.scene.start('StageSelect'), { width: 240, height: 60, fontSize: 22 });
     startBtn = makeButton(this, W / 2 + 150, by, 'START', () => {
       if (picked.size !== RUSH.pickCount) return;
       const arts = pool.filter((id) => picked.has(id));
+      const supports = supPool.filter((id) => pickedSup.has(id));
       const sv = loadSave();
       sv.lastRushArts = arts;
+      sv.lastRushSupports = supports;
       writeSave(sv);
       AudioBus.playBgm('bgm_title');
       this.cameras.main.fadeOut(250, 6, 9, 19);
-      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('Game', { characterId: chara.id, stageId: RUSH_STAGE.id, rushArts: arts }));
+      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('Game', { characterId: chara.id, stageId: RUSH_STAGE.id, rushArts: arts, rushSupports: supports }));
     }, { width: 240, height: 60, fontSize: 24, primary: true });
     refresh();
 

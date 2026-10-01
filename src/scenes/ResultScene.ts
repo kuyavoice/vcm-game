@@ -36,7 +36,7 @@ export interface RunResult {
   /** デバッグ操作を使ったプレイ（記録・エールを保存しない） */
   debug?: boolean;
   /** ボスラッシュ：周ごとのクリア時間・到達した周・ボスごとの撃破時刻・倒したボスの数・選んだアーツ */
-  rush?: { loopTimes: number[]; loop: number; bossTimes: { name: string; sec: number; loop: number }[]; bossesDefeated: number; arts: string[] };
+  rush?: { loopTimes: number[]; loop: number; bossTimes: { name: string; sec: number; loop: number }[]; bossesDefeated: number; arts: string[]; supports?: string[] };
 }
 
 export class ResultScene extends Phaser.Scene {
@@ -118,7 +118,7 @@ export class ResultScene extends Phaser.Scene {
     if (rush && !r.debug) {
       // ボスラッシュの記録（端末内）：1周のクリア時間の短い順（倒れる前に1周できたときだけ）
       if (rushTime !== null && r.rush) {
-        const entry = { timeSec: rushTime, loops: r.rush.loopTimes.length, character: r.characterId, arts: r.rush.arts, date: new Date().toISOString().slice(0, 10) };
+        const entry = { timeSec: rushTime, loops: r.rush.loopTimes.length, character: r.characterId, arts: r.rush.arts, supports: r.rush.supports ?? [], date: new Date().toISOString().slice(0, 10) };
         save.rushRanking.push(entry);
         save.rushRanking.sort((a, b) => a.timeSec - b.timeSec || b.loops - a.loops);
         save.rushRanking = save.rushRanking.slice(0, RUSH.rankingSize);

@@ -127,6 +127,7 @@ export class GameScene extends Phaser.Scene {
   private guardOnResume = false;
   /** ボスラッシュで選んだ共鳴アーツ（init で受け取る） */
   private rushArts: string[] = [];
+  private rushSupports: string[] = [];
   /** ボスラッシュの進行：周・組・次のボスが出る時刻・周の開始時刻・周ごとのクリア時間・ボスごとの撃破時刻・未処理の報酬 */
   private rush = { loop: 1, wave: 0, nextAt: 0, loopStartSec: 0, loopTimes: [] as number[], bossTimes: [] as { name: string; sec: number; loop: number }[], rewards: [] as ('support' | 'art' | 'chest')[], bossesDefeated: 0 };
   /** 戦闘中の曲のカスタム（場面 → 音声のキー。CUSTOM でなければ空） */
@@ -140,10 +141,11 @@ export class GameScene extends Phaser.Scene {
     super('Game');
   }
 
-  init(data: { characterId?: string; stageId?: number; rushArts?: string[] }): void {
+  init(data: { characterId?: string; stageId?: number; rushArts?: string[]; rushSupports?: string[] }): void {
     this.characterId = data.characterId ?? DEFAULT_CHARACTER;
     this.stage = stageById(data.stageId ?? 1);
     this.rushArts = data.rushArts ?? [];
+    this.rushSupports = data.rushSupports ?? [];
     this.rush = { loop: 1, wave: 0, nextAt: 0, loopStartSec: 0, loopTimes: [], bossTimes: [], rewards: [], bossesDefeated: 0 };
     this.elapsed = 0;
     this.kills = 0;
@@ -251,6 +253,8 @@ export class GameScene extends Phaser.Scene {
         const w = r.newWeapon;
         if (w) while (!w.isMaxLevel) w.levelUp();
       }
+      // 持っていくサポートは最大Lv
+      for (const id of this.rushSupports) if (PASSIVES[id]) this.up.passives.set(id, PASSIVES[id].maxLevel);
     }
     this.up.recompute();
     this.player.maxHp = Math.round(def.hp * def.traits.maxHpMul * this.up.stats.maxHpMul);
@@ -3714,7 +3718,7 @@ export class GameScene extends Phaser.Scene {
       main: { name: this.up.main.name, level: this.up.main.level, color: this.up.main.def.color },
       passives: [...this.up.passives].map(([id, lv]) => ({ name: PASSIVES[id].name, level: lv, color: PASSIVES[id].color })),
       debug: this.debugUsed,
-      rush: this.stage.rush ? { loopTimes: this.rush.loopTimes, loop: this.rush.loop, bossTimes: this.rush.bossTimes, bossesDefeated: this.rush.bossesDefeated, arts: this.rushArts } : undefined,
+      rush: this.stage.rush ? { loopTimes: this.rush.loopTimes, loop: this.rush.loop, bossTimes: this.rush.bossTimes, bossesDefeated: this.rush.bossesDefeated, arts: this.rushArts, supports: this.rushSupports } : undefined,
     };
     if (!cleared) {
       this.player.play(`${this.player.spriteKey}_hit`);
