@@ -12,6 +12,7 @@ import { unlockSecret } from '../utils/unlock';
 import { NIGHTMARE_STAGE, NIGHTMARE_AVAILABLE } from '../data/nightmare';
 import { GALLERY, galleryKey } from '../data/gallery';
 import { ENDLESS, ENDLESS_STAGE, endlessTitle, endlessLoop } from '../data/endless';
+import { RUSH, RUSH_STAGE, rushTitle, fmtTime } from '../data/rush';
 
 export interface RunResult {
   characterId: string;
@@ -34,6 +35,8 @@ export interface RunResult {
   passives?: { name: string; level: number; color: number }[];
   /** デバッグ操作を使ったプレイ（記録・エールを保存しない） */
   debug?: boolean;
+  /** ボスラッシュ：周ごとのクリア時間・到達した周・ボスごとの撃破時刻・倒したボスの数・選んだアーツ */
+  rush?: { loopTimes: number[]; loop: number; bossTimes: { name: string; sec: number; loop: number }[]; bossesDefeated: number; arts: string[] };
 }
 
 export class ResultScene extends Phaser.Scene {
@@ -51,7 +54,7 @@ export class ResultScene extends Phaser.Scene {
     const ck = galleryKey('sp_congratulation');
     this.congratsKey = r.cleared && r.stageId === NIGHTMARE_STAGE.id && hasOptionalImage(ck) ? ck : '';
     // エンドレスは、倒れて終わっても勝利立ち絵（記録をたたえる画面にする）
-    const win = r.cleared || r.stageId === ENDLESS_STAGE.id;
+    const win = r.cleared || r.stageId === ENDLESS_STAGE.id || (r.stageId === RUSH_STAGE.id && (r.rush?.loopTimes.length ?? 0) > 0);
     const key = win ? `victory_${r.characterId}` : `gameover_${r.characterId}`;
     this.victoryKey = hasOptionalImage(key) ? key : '';
   }
@@ -95,7 +98,9 @@ export class ResultScene extends Phaser.Scene {
     cam.fadeIn(300, 6, 9, 19);
     // クリア時は操作キャラ別の曲、それ以外はゲームオーバーの曲（未配置なら result → title）
     const endless = r.stageId === ENDLESS_STAGE.id;
-    if (r.cleared || endless) AudioBus.playBgm(`bgm_clear_${r.characterId}`, 'bgm_result', 'bgm_title');
+    const rush = r.stageId === RUSH_STAGE.id;
+    const rushTime = rush && r.rush && r.rush.loopTimes.length > 0 ? r.rush.loopTimes[0] : null;
+    if (r.cleared || endless || rushTime !== null) AudioBus.playBgm(`bgm_clear_${r.characterId}`, 'bgm_result', 'bgm_title');
     else AudioBus.playBgm('bgm_gameover', 'bgm_result', 'bgm_title');
 
     const stage = stageById(r.stageId ?? 1);
@@ -110,7 +115,17 @@ export class ResultScene extends Phaser.Scene {
     else if (!r.debug && r.cleared && prev && !prev.cleared) save.bests[key] = { ...prev, cleared: true };
     // スコアアタックのランキング（端末内ベスト10）
     let rank = 0;
-    if (endless && !r.debug) {
+    if (rush && !r.debug) {
+      // ボスラッシュの記録（端末内）：1周のクリア時間の短い順（倒れる前に1周できたときだけ）
+      if (rushTime !== null && r.rush) {
+        const entry = { timeSec: rushTime, loops: r.rush.loopTimes.length, character: r.characterId, arts: r.rush.arts, date: new Date().toISOString().slice(0, 10) };
+        save.rushRanking.push(entry);
+        save.rushRanking.sort((a, b) => a.timeSec - b.timeSec || b.loops - a.loops);
+        save.rushRanking = save.rushRanking.slice(0, RUSH.rankingSize);
+        rank = save.rushRanking.indexOf(entry) + 1;
+        isBest = rank === 1;
+      } else isBest = false;
+    } else if (endless && !r.debug) {
       // エンドレスの記録（端末内）：生存時間の長い順
       const entry = { timeSec: r.timeSec, score: r.score ?? 0, kills: r.kills, level: r.level, character: r.characterId, date: new Date().toISOString().slice(0, 10) };
       save.endlessRanking.push(entry);
@@ -164,14 +179,14 @@ export class ResultScene extends Phaser.Scene {
     // 見出し（「死」を使わない）
     // エンドレス：見出しは記録。称号（生存時間で決まる）を大きく出す
     const rankTitle = endless ? endlessTitle(r.timeSec) : null;
-    const title = endless ? 'ENDLESS' : r.cleared ? 'SIGNAL CLEAR' : r.timeUp ? 'TIME UP' : 'SIGNAL LOST';
-    const sub = rankTitle ? `称号　「${rankTitle.name}」` : r.cleared ? '声は、届いた。' : r.timeUp ? '長い夜が、明けた。' : '声が、途切れた……';
+    const title = rush ? 'BOSS RUSH' : endless ? 'ENDLESS' : r.cleared ? 'SIGNAL CLEAR' : r.timeUp ? 'TIME UP' : 'SIGNAL LOST';
+    const sub = rush ? (rushTime !== null ? `称号　「${rushTitle(rushTime)}」` : '声が、途切れた……') : rankTitle ? `称号　「${rankTitle.name}」` : r.cleared ? '声は、届いた。' : r.timeUp ? '長い夜が、明けた。' : '声が、途切れた……';
     this.add.text(W / 2, H * 0.10, title, {
-      fontFamily: FONT_EN, fontSize: '76px', color: endless ? COLOR_HEX.gold : r.cleared ? COLOR_HEX.accent : COLOR_HEX.danger, fontStyle: '700', letterSpacing: endless ? 10 : 4,
+      fontFamily: FONT_EN, fontSize: '76px', color: rush ? (rushTime !== null ? '#FF8C42' : COLOR_HEX.danger) : endless ? COLOR_HEX.gold : r.cleared ? COLOR_HEX.accent : COLOR_HEX.danger, fontStyle: '700', letterSpacing: endless || rush ? 10 : 4,
       stroke: '#060913', strokeThickness: 8,
     }).setOrigin(0.5);
     this.add.text(W / 2, H * 0.10 + 62, sub, {
-      fontFamily: FONT_JP, fontSize: endless ? '32px' : '26px', color: endless ? COLOR_HEX.gold : COLOR_HEX.white, fontStyle: endless ? '700' : 'normal', stroke: '#060913', strokeThickness: 6,
+      fontFamily: FONT_JP, fontSize: endless || rushTime !== null ? '32px' : '26px', color: endless || rushTime !== null ? COLOR_HEX.gold : COLOR_HEX.white, fontStyle: endless || rushTime !== null ? '700' : 'normal', stroke: '#060913', strokeThickness: 6,
     }).setOrigin(0.5);
     if (rankTitle?.next && !r.debug) {
       const left = rankTitle.next.inSec;
@@ -196,13 +211,22 @@ export class ResultScene extends Phaser.Scene {
     const py = H * 0.27;
     // 下にビルドの一覧を置くので、行の間隔を詰める（スコアアタックは1行多い）
     const rowCount = r.score !== undefined ? 8 : 7;
-    const pitch = rowCount >= 8 ? 48 : 52;
+    // ボスラッシュは、下にボスごとの撃破時刻を1行足すので、行の間隔を詰める
+    const pitch = rowCount >= 8 || rush ? 48 : 52;
     const panelH = 20 + rowCount * pitch;
     const panel = this.add.rectangle(px, py, W * 0.40, panelH, 0x0b1026, 0.88).setOrigin(0, 0).setStrokeStyle(2, 0x87ceeb, 0.6);
     const mm = Math.floor(r.timeSec / 60).toString().padStart(2, '0');
     const ss = Math.floor(r.timeSec % 60).toString().padStart(2, '0');
     // エンドレスは、生存時間を一番上に大きく。順位は生存時間で決まる
-    const rows: [string, string][] = endless ? [
+    const rows: [string, string][] = rush ? [
+      ['TIME', rushTime !== null ? `${fmtTime(rushTime)}${rank ? `  #${rank}` : ''}` : '—'],
+      ['LOOPS', `${r.rush?.loopTimes.length ?? 0}周クリア`],
+      ['BOSSES', `${r.rush?.bossesDefeated ?? 0}`],
+      ['CHARACTER', chara?.name ?? r.characterId],
+      ['DEFEATED', `${r.kills}`],
+      ['YELL', `★ ${r.yell}`],
+      ['SPEED', `×${r.speed ?? 1}`],
+    ] : endless ? [
       ['TIME', `${mm}:${ss}${rank ? `  #${rank}` : ''}`],
       ['LOOP', `${endlessLoop(r.timeSec)}周目`],
       ['SCORE', `${(r.score ?? 0).toLocaleString()}`],
@@ -224,8 +248,8 @@ export class ResultScene extends Phaser.Scene {
     rows.forEach(([k, v], i) => {
       const y = py + 14 + i * pitch;
       this.add.text(px + 18, y, k, { fontFamily: FONT_EN, fontSize: '16px', color: COLOR_HEX.dim, fontStyle: '700' });
-      const jp = k === 'CHARACTER' || k === 'STAGE' || k === 'LOOP';
-      const main = endless && k === 'TIME';
+      const jp = k === 'CHARACTER' || k === 'STAGE' || k === 'LOOP' || k === 'LOOPS';
+      const main = (endless || rush) && k === 'TIME';
       this.add.text(px + 18, y + (main ? 15 : 17), v, { fontFamily: jp ? FONT_JP : FONT_EN, fontSize: main ? '30px' : jp ? '22px' : '26px', color: main ? COLOR_HEX.gold : COLOR_HEX.white, fontStyle: '700' });
     });
 
@@ -237,7 +261,13 @@ export class ResultScene extends Phaser.Scene {
     if (artRows.length + supRows.length > 0) {
       const bw = Math.min(680, W - 40);
       const bx = (W - bw) / 2;
-      const by0 = py + panelH + 12;
+      let by0 = py + panelH + 12;
+      if (rush && r.rush && r.rush.bossTimes.length > 0) {
+        // ボスごとの撃破時刻（1周目）
+        const first = r.rush.bossTimes.filter((b) => b.loop === 1);
+        this.add.text(W / 2, by0, first.map((b) => `${b.name} ${fmtTime(b.sec)}`).join('　'), { fontFamily: FONT_JP, fontSize: '15px', color: COLOR_HEX.gold, stroke: '#060913', strokeThickness: 4 }).setOrigin(0.5, 0);
+        by0 += 26;
+      }
       const lines = Math.max(artRows.length, supRows.length, 1);
       const rowH = 24;
       this.add.rectangle(bx, by0, bw, 38 + lines * rowH + 10, 0x0b1026, 0.9).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.6);
@@ -268,14 +298,16 @@ export class ResultScene extends Phaser.Scene {
       note.setText('生成中…');
       const blob = await renderShareCard(r);
       if (!blob) { note.setText('生成に失敗しました'); busy = false; return; }
-      const res = await shareOrDownload(blob, `dstage_${stage.id}_${endless ? 'record' : r.cleared ? 'clear' : 'lost'}.png`, buildPostText(r));
+      const res = await shareOrDownload(blob, `dstage_${stage.id}_${endless || rush ? 'record' : r.cleared ? 'clear' : 'lost'}.png`, buildPostText(r));
       note.setText(res === 'shared' ? '共有しました' : res === 'downloaded' ? '画像を保存しました' : '保存できませんでした');
       busy = false;
     }, { width: 280, height: 60, fontSize: 22 });
     makeButton(this, W / 2 + 150, H * 0.80, 'Xにポスト', () => openXPost(buildPostText(r)), { width: 280, height: 60, fontSize: 22 });
 
     makeButton(this, W / 2, H * 0.80 + 130, 'RETRY', () => {
-      this.scene.start('Game', { characterId: r.characterId, stageId: stage.id });
+      // ボスラッシュは、アーツを選び直す画面へ
+      if (rush) this.scene.start('RushSetup', { characterId: r.characterId });
+      else this.scene.start('Game', { characterId: r.characterId, stageId: stage.id });
     }, { primary: true });
     makeButton(this, W / 2, H * 0.80 + 222, 'STAGE SELECT', () => this.scene.start('StageSelect'));
 

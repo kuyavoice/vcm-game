@@ -4,6 +4,7 @@ import type { RunResult } from '../scenes/ResultScene';
 import { CHARACTERS } from '../data/characters';
 import { stageById } from '../data/stages';
 import { endlessTitle, endlessLoop } from '../data/endless';
+import { rushTitle, fmtTime } from '../data/rush';
 
 export const SHARE_URL = 'https://kuyavoice.github.io/vcm-game/';
 export const SHARE_TAG = '#DSTAGESURVIVORS';
@@ -36,7 +37,9 @@ export async function renderShareCard(r: RunResult): Promise<Blob | null> {
   const stage = stageById(r.stageId ?? 1);
   const accent = hex(chara?.color ?? 0x87ceeb);
   const endless = !!stage.endless;
-  const win = r.cleared || endless;
+  const rush = !!stage.rush;
+  const rushTime = rush && r.rush && r.rush.loopTimes.length > 0 ? r.rush.loopTimes[0] : null;
+  const win = r.cleared || endless || rushTime !== null;
 
   // 背景：ステージの基調色＋夜空
   const base = stage.id === 3 ? '#2a3140' : stage.id === 2 ? '#141a33' : '#0b1026';
@@ -105,12 +108,12 @@ export async function renderShareCard(r: RunResult): Promise<Blob | null> {
   // タイトル（結果）
   g.textAlign = 'center';
   g.shadowColor = '#060913'; g.shadowBlur = 24;
-  g.fillStyle = endless ? '#FFD700' : r.cleared ? '#87CEEB' : '#FF4D6D';
+  g.fillStyle = rush ? (rushTime !== null ? '#FF8C42' : '#FF4D6D') : endless ? '#FFD700' : r.cleared ? '#87CEEB' : '#FF4D6D';
   g.font = en(120);
-  g.fillText(endless ? 'ENDLESS' : r.cleared ? 'SIGNAL CLEAR' : 'SIGNAL LOST', W / 2, 120);
-  g.fillStyle = endless ? '#FFD700' : '#FFFFFF';
-  g.font = jp(endless ? 52 : 44);
-  g.fillText(endless ? `称号　「${endlessTitle(r.timeSec).name}」` : r.cleared ? '声は、届いた。' : '声が、途切れた……', W / 2, 262);
+  g.fillText(rush ? 'BOSS RUSH' : endless ? 'ENDLESS' : r.cleared ? 'SIGNAL CLEAR' : 'SIGNAL LOST', W / 2, 120);
+  g.fillStyle = endless || rushTime !== null ? '#FFD700' : '#FFFFFF';
+  g.font = jp(endless || rushTime !== null ? 52 : 44);
+  g.fillText(rush ? (rushTime !== null ? `称号　「${rushTitle(rushTime)}」` : '声が、途切れた……') : endless ? `称号　「${endlessTitle(r.timeSec).name}」` : r.cleared ? '声は、届いた。' : '声が、途切れた……', W / 2, 262);
   g.shadowBlur = 0;
 
   // スタッツパネル
@@ -126,7 +129,15 @@ export async function renderShareCard(r: RunResult): Promise<Blob | null> {
   g.strokeRect(px, py, pw, ph);
   const mm = Math.floor(r.timeSec / 60).toString().padStart(2, '0');
   const ss = Math.floor(r.timeSec % 60).toString().padStart(2, '0');
-  const rows: [string, string, boolean][] = endless ? [
+  const rows: [string, string, boolean][] = rush ? [
+    ['TIME', rushTime !== null ? fmtTime(rushTime) : '—', false],
+    ['LOOPS', `${r.rush?.loopTimes.length ?? 0}周クリア`, true],
+    ['BOSSES', `${r.rush?.bossesDefeated ?? 0}`, false],
+    ['CHARACTER', chara?.name ?? r.characterId, true],
+    ['DEFEATED', `${r.kills}`, false],
+    ['YELL', `★ ${r.yell}`, false],
+    ['SPEED', `×${r.speed ?? 1}`, false],
+  ] : endless ? [
     ['TIME', `${mm}:${ss}`, false],
     ['LOOP', `${endlessLoop(r.timeSec)}周目`, true],
     ['SCORE', (r.score ?? 0).toLocaleString(), false],
@@ -150,7 +161,7 @@ export async function renderShareCard(r: RunResult): Promise<Blob | null> {
     const y = py + 20 + i * pitch;
     g.fillStyle = '#8A94B8'; g.font = en(22);
     g.fillText(k, px + 24, y);
-    const main = endless && k === 'TIME';
+    const main = (endless || rush) && k === 'TIME';
     g.fillStyle = main ? '#FFD700' : '#FFFFFF'; g.font = isJp ? jp(32) : en(main ? 46 : 40);
     g.fillText(v, px + 24, y + (main ? 22 : 26));
   });
@@ -242,7 +253,7 @@ export function buildPostText(r: RunResult): string {
   const fusions = (r.arts ?? []).filter((a) => a.fusion).length;
   const lines = [
     `${GAME_TITLE}｜${chara?.name ?? ''}で ${stage.nameEn}「${stage.name}」`,
-    stage.endless ? `称号「${endlessTitle(r.timeSec).name}」—— ${endlessLoop(r.timeSec)}周目` : r.cleared ? 'SIGNAL CLEAR —— 声は、届いた。' : 'SIGNAL LOST —— 声が、途切れた……',
+    stage.rush ? (r.rush && r.rush.loopTimes.length > 0 ? `1周 ${fmtTime(r.rush.loopTimes[0])}（${r.rush.loopTimes.length}周クリア）—— 称号「${rushTitle(r.rush.loopTimes[0])}」` : 'ボスに届かなかった……') : stage.endless ? `称号「${endlessTitle(r.timeSec).name}」—— ${endlessLoop(r.timeSec)}周目` : r.cleared ? 'SIGNAL CLEAR —— 声は、届いた。' : 'SIGNAL LOST —— 声が、途切れた……',
     `生存 ${mm}:${ss}／撃破 ${r.kills}／Lv${r.level}${fusions ? `／合体技 ${fusions}` : ''}`,
     SHARE_URL,
     SHARE_TAG,

@@ -5,6 +5,7 @@ import { ENEMIES } from '../data/enemies';
 import { stageById, type StageDef } from '../data/stages';
 import { SCORE } from '../data/score';
 import { ENDLESS } from '../data/endless';
+import { RUSH, rushWaves, rushTempo, fmtTime } from '../data/rush';
 import { isHeld } from '../utils/heldKeys';
 import { screenFlash } from '../utils/screenFlash';
 import { customBgmKeys, type BgmSlot } from '../utils/bgmCustom';
@@ -124,6 +125,10 @@ export class GameScene extends Phaser.Scene {
   private debugExIndex = 0;
   /** 次にゲームへ戻ったとき、少しだけ無敵にする（レベルアップ・宝箱の画面を開いたとき立てる） */
   private guardOnResume = false;
+  /** ボスラッシュで選んだ共鳴アーツ（init で受け取る） */
+  private rushArts: string[] = [];
+  /** ボスラッシュの進行：周・組・次のボスが出る時刻・周の開始時刻・周ごとのクリア時間・ボスごとの撃破時刻・未処理の報酬 */
+  private rush = { loop: 1, wave: 0, nextAt: 0, loopStartSec: 0, loopTimes: [] as number[], bossTimes: [] as { name: string; sec: number; loop: number }[], rewards: [] as ('support' | 'art' | 'chest')[], bossesDefeated: 0 };
   /** 戦闘中の曲のカスタム（場面 → 音声のキー。CUSTOM でなければ空） */
   private customBgm: Partial<Record<BgmSlot, string>> = {};
   private debugRookIndex = 0;
@@ -135,9 +140,11 @@ export class GameScene extends Phaser.Scene {
     super('Game');
   }
 
-  init(data: { characterId?: string; stageId?: number }): void {
+  init(data: { characterId?: string; stageId?: number; rushArts?: string[] }): void {
     this.characterId = data.characterId ?? DEFAULT_CHARACTER;
     this.stage = stageById(data.stageId ?? 1);
+    this.rushArts = data.rushArts ?? [];
+    this.rush = { loop: 1, wave: 0, nextAt: 0, loopStartSec: 0, loopTimes: [], bossTimes: [], rewards: [], bossesDefeated: 0 };
     this.elapsed = 0;
     this.kills = 0;
     this.over = false;
@@ -235,6 +242,16 @@ export class GameScene extends Phaser.Scene {
     for (const id of def.excludedArts) this.up.excluded.add(id);
     this.up.traitDamageMul = def.traits.damageMul;
     this.up.characterId = this.characterId;
+    // ボスラッシュ：Lv40 固定。初期武器と、選んだ共鳴アーツ3つを Lv8 で持って始める
+    if (this.stage.rush) {
+      while (!this.up.main.isMaxLevel) this.up.main.levelUp();
+      for (const id of this.rushArts) {
+        if (this.up.arts.some((w) => w.def.id === id)) continue;
+        const r = this.up.apply({ kind: 'weapon', id, title: '', owner: '', tag: '', desc: '', color: 0 });
+        const w = r.newWeapon;
+        if (w) while (!w.isMaxLevel) w.levelUp();
+      }
+    }
     this.up.recompute();
     this.player.maxHp = Math.round(def.hp * def.traits.maxHpMul * this.up.stats.maxHpMul);
     this.player.hp = this.player.maxHp;
@@ -264,6 +281,8 @@ export class GameScene extends Phaser.Scene {
 
     // システム
     this.xp = new XpSystem(this.pickups);
+    // ボスラッシュは Lv 固定（ボスのHPの式に使う）
+    if (this.stage.rush) this.xp.level = RUSH.fixedLevel;
     this.xp.xpMul = this.stage.xpMul;
     this.xp.onItem = (kind, value, x, y) => this.onItem(kind, value, x, y);
     this.spawner = new Spawner(this, this.enemies, this.player, this.stage);
@@ -568,7 +587,7 @@ export class GameScene extends Phaser.Scene {
     this.hud.update({
       hp: p.hp, maxHp: p.maxHp, xp: this.xp.xp, xpToNext: this.xp.xpToNext, level: this.xp.level,
       time: this.elapsed, kills: this.kills, yell: this.xp.yell,
-      band: `${this.spawner.bandLabel}　${this.stage.nameEn}`,
+      band: this.stage.rush ? this.rushLabel(now) : `${this.spawner.bandLabel}　${this.stage.nameEn}`,
       soul: this.soulGauge, soulActive,
       boss: (() => { const b = this.bosses.find((x) => x.active) ?? null; return b ? { name: this.bosses.filter((x) => x.active).length > 1 ? `${b.def.name} ×${this.bosses.filter((x) => x.active).length}` : b.def.name, hp: b.hp, maxHp: b.maxHp } : null; })(),
       score: this.stage.scoreMode ? { score: Math.round(this.score), combo: this.comboMul } : null,
@@ -701,10 +720,18 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    // ボスラッシュ：ボスの組を順に出す。前の組を倒して報酬を受け取り、少し間を置いてから次
+    if (this.stage.rush && !this.overlayActive() && this.rush.rewards.length === 0 && this.bosses.every((b) => !b.active)) {
+      if (this.rush.nextAt === 0) this.rush.nextAt = now + RUSH.firstDelaySec * 1000;
+      if (now >= this.rush.nextAt) this.spawnRushWave();
+    }
+
     // 経験値・アイテム
     if (this.xp.update(dt, now, p.x, p.y - 12, p.def.pickup * stats.pickupMul) > 0) AudioBus.play('se_gem', 90);
     if (!this.overlayActive()) {
-      if (this.xp.pendingLevelUps > 0) {
+      if (this.rush.rewards.length > 0) {
+        this.openRushReward(this.rush.rewards.shift()!);
+      } else if (this.xp.pendingLevelUps > 0) {
         this.xp.pendingLevelUps--;
         this.openLevelUp();
       } else if (this.pendingChests > 0) {
@@ -920,7 +947,7 @@ export class GameScene extends Phaser.Scene {
     const p = this.player;
     // 赤騎士：行動の間隔が短く、突進が速い。光の色は赤
     const red = e.def.id === 'redknight';
-    const tempo = red ? CONFIG.redKnight.tempoMul : 1;
+    const tempo = (red ? CONFIG.redKnight.tempoMul : 1) / this.bossIdleMul();
     const glow = red ? 0xff2244 : 0x9d4dff;
     // 赤騎士の激昂（50%を切った瞬間）：短い無敵のあと、専用の技を使い始める
     if (red && !b.enraged && e.hp <= e.maxHp * CONFIG.redKnight.enrageAt) {
@@ -1761,6 +1788,89 @@ export class GameScene extends Phaser.Scene {
     this.updateWalls(this.gameNow);
   }
 
+  // ─────────────────────────── ボスラッシュ ───────────────────────────
+
+  /** ボスの行動の間隔の倍率（ボスラッシュは周が進むと短い。それ以外は1） */
+  private bossIdleMul(): number {
+    return this.stage.rush ? rushTempo(this.rush.loop) : 1;
+  }
+
+  /** いまの周の、次のボスの組を出す（全部、最初から後半の行動） */
+  private spawnRushWave(): void {
+    const waves = rushWaves(this.rush.loop);
+    if (this.rush.wave === 0) this.rush.loopStartSec = this.elapsed;
+    const ids = waves[this.rush.wave];
+    ids.forEach((id, i) => {
+      const boss = this.spawner.spawnRushBoss(id);
+      if (!boss) return;
+      this.spawner.bossActive = true;
+      this.onBossSpawn(boss, RUSH.hpMul[id] ?? 1, i, ids.length, true);
+    });
+    this.rush.nextAt = Infinity;
+  }
+
+  /** ボスラッシュ：ボスを倒した。報酬を積み、組を全部倒したら次へ。周の最後なら周クリア */
+  private onRushBossDefeated(e: Enemy): void {
+    this.rush.bossesDefeated++;
+    this.rush.bossTimes.push({ name: e.def.name, sec: this.elapsed, loop: this.rush.loop });
+    const reward = RUSH.reward[e.def.id];
+    if (reward) this.rush.rewards.push(reward);
+    if (!this.bosses.every((b) => !b.active)) return;
+    const waves = rushWaves(this.rush.loop);
+    this.rush.wave++;
+    if (this.rush.wave >= waves.length) {
+      const t = this.elapsed - this.rush.loopStartSec;
+      this.rush.loopTimes.push(t);
+      this.hud.banner(`${this.rush.loop}周目 クリア　${fmtTime(t)}`, '#FFD700', 36);
+      this.rush.loop++;
+      this.rush.wave = 0;
+    }
+    this.rush.nextAt = this.gameNow + RUSH.gapSec * 1000;
+  }
+
+  /** HUD の時間帯の欄：周と、次のボスまでの秒数 */
+  private rushLabel(now: number): string {
+    const alive = this.bosses.filter((b) => b.active);
+    if (alive.length > 0) return `${this.rush.loop}周目　${alive.map((b) => b.def.name).join('・')}`;
+    const left = this.rush.nextAt === Infinity || this.rush.nextAt === 0 ? 0 : Math.max(0, Math.ceil((this.rush.nextAt - now) / 1000));
+    return `${this.rush.loop}周目　次のボスまで ${left}秒`;
+  }
+
+  /** ボスラッシュの報酬：サポート（3択）／共鳴アーツ（3択・Lv8）／宝箱 */
+  private openRushReward(kind: 'support' | 'art' | 'chest'): void {
+    if (kind === 'chest') {
+      this.openChest();
+      return;
+    }
+    const pool = this.up.buildChoices(40).filter((c) => (kind === 'support' ? c.kind === 'passive' : c.kind === 'weapon' && c.tag === 'NEW'));
+    const choices = pool.slice(0, 3);
+    if (choices.length === 0) {
+      // 選べるものが無い（枠が埋まっているなど）：代わりに宝箱
+      this.openChest();
+      return;
+    }
+    const data: LevelUpData = {
+      level: this.xp.level,
+      choices,
+      onPick: (c: Choice) => {
+        const r = this.up.apply(c);
+        // 共鳴アーツは Lv8 で加わる
+        if (r.newWeapon) while (!r.newWeapon.isMaxLevel) r.newWeapon.levelUp();
+        const p = this.player;
+        p.maxHp = Math.round(p.def.hp * p.def.traits.maxHpMul * this.up.stats.maxHpMul) + this.up.stats.maxHpBonus;
+        if (r.maxHpDelta > 0) p.heal(r.maxHpDelta);
+        if (c.kind === 'weapon' && r.newWeapon) this.cutIn.show({ owner: c.owner, title: c.title, tag: 'Lv 8', color: c.color });
+        this.up.recompute();
+      },
+    };
+    AudioBus.play('se_levelup');
+    this.joystick.reset();
+    this.haltFrame = true;
+    this.guardOnResume = true;
+    this.scene.pause();
+    this.scene.launch('LevelUp', data);
+  }
+
   /** 重み付きの乱数で行動を選ぶ（last と skip の行動は選ばない）。選べなければ空 */
   private pickAct(table: Readonly<Record<string, number>>, last: string, skip: string[] = []): string {
     let total = 0;
@@ -2163,7 +2273,7 @@ export class GameScene extends Phaser.Scene {
       e.bk.exForce = '';
       b.lastAct = act;
       // 行動の途中は数えないので、岩壁のあとの待ち時間は「壁がせり上がってから」になる
-      b.actTimer = act === 'wall' ? R.wallChargeDelaySec : R.attackEverySec;
+      b.actTimer = (act === 'wall' ? R.wallChargeDelaySec : R.attackEverySec) * this.bossIdleMul();
       e.aim.length = 0;
       if (act === 'charge') {
         b.windup = B.kingChargeTrackSec + B.kingChargeLockSec;
@@ -2384,7 +2494,7 @@ export class GameScene extends Phaser.Scene {
     // 召喚：体の周りに蕾を産み落とす（ほかの行動とは別の間隔）
     b.ringTimer -= dt;
     if (b.ringTimer <= 0) {
-      b.ringTimer = p2 ? Q.summonEverySecBloom : Q.summonEverySec;
+      b.ringTimer = (p2 ? Q.summonEverySecBloom : Q.summonEverySec) * this.bossIdleMul();
       let alive = 0;
       for (const o of this.enemies.getChildren() as Enemy[]) if (o.active && o.def.bud) alive++;
       const n = Math.min(p2 ? Q.budsBloom : Q.buds, Q.maxBuds - alive);
@@ -2422,7 +2532,7 @@ export class GameScene extends Phaser.Scene {
       const act = e.bk.exForce || (far ? 'thrust' : '') || this.pickAct(table, b.lastAct, skip) || this.pickAct(table, '', skip);
       e.bk.exForce = '';
       b.lastAct = act;
-      b.actTimer = Q.attackEverySec;
+      b.actTimer = Q.attackEverySec * this.bossIdleMul();
       e.aim.length = 0;
       if (act === 'cage') {
         const from = now + Q.cageWindupSec * 1000;
@@ -3107,26 +3217,29 @@ export class GameScene extends Phaser.Scene {
       this.comboMul = Math.min(SCORE.comboMax, 1 + this.combo * SCORE.comboStep);
       this.score += (SCORE.points[def.id] ?? 1) * this.comboMul;
     }
-    this.xp.drop(e.x, e.y, def.xp, this.ctx.now, this.up.stats.luckMul);
+    // ボスラッシュは Lv 固定なので、欠片は落とさない
+    if (!this.stage.rush) this.xp.drop(e.x, e.y, def.xp, this.ctx.now, this.up.stats.luckMul);
     // 『運命のチャーハン』：スパイスの帯の中で倒した敵が、まれにミニチャーハンを落とす
     if (e.bandDrop > 0 && this.gameNow < e.vulnUntil && Math.random() < e.bandDrop) this.xp.spawn(e.x, e.y, 'chahan', 1, this.ctx.now);
-    if (def.tier >= 2 && !def.boss && Math.random() < ITEMS.chest.dropChance * this.up.stats.luckMul) {
+    if (!this.stage.rush && def.tier >= 2 && !def.boss && Math.random() < ITEMS.chest.dropChance * this.up.stats.luckMul) {
       this.xp.spawn(e.x, e.y, 'chest', 1, this.ctx.now);
     }
     AudioBus.play('se_kill', 40);
     if (def.boss) {
       // 撃破ボーナスのエール
       if (def.defeatYell) {
-        this.xp.yell += def.defeatYell;
-        this.fxText(this.player.x, this.player.y - 140, `+${def.defeatYell} ★`, '#FFD700');
+        const yell = Math.round(def.defeatYell * (this.stage.rush ? RUSH.yellMul : 1));
+        this.xp.yell += yell;
+        this.fxText(this.player.x, this.player.y - 140, `+${yell} ★`, '#FFD700');
       }
+      if (this.stage.rush) this.onRushBossDefeated(e);
       this.bosses = this.bosses.filter((b) => b !== e);
       this.clearBossField(def.bossKind);
       if (this.bosses.every((b) => !b.active)) this.spawner.bossActive = false;
       // 最後のボスが決まっているステージ（スコアアタック・悪夢）は、それ以外のボスを倒しても続く
       const finalBoss = this.stage.finalBoss ?? (this.stage.scoreMode ? 'blackknight' : undefined);
       // エンドレスは、どのボスを倒しても続く
-      if (this.stage.endless || (finalBoss && def.id !== finalBoss)) {
+      if (this.stage.endless || this.stage.rush || (finalBoss && def.id !== finalBoss)) {
         // 一瞬止めてから弾ける
         this.hitStopMs = 140;
         this.bossBurst(e.x, e.y - 60, def.eyeColor, 3);
@@ -3601,6 +3714,7 @@ export class GameScene extends Phaser.Scene {
       main: { name: this.up.main.name, level: this.up.main.level, color: this.up.main.def.color },
       passives: [...this.up.passives].map(([id, lv]) => ({ name: PASSIVES[id].name, level: lv, color: PASSIVES[id].color })),
       debug: this.debugUsed,
+      rush: this.stage.rush ? { loopTimes: this.rush.loopTimes, loop: this.rush.loop, bossTimes: this.rush.bossTimes, bossesDefeated: this.rush.bossesDefeated, arts: this.rushArts } : undefined,
     };
     if (!cleared) {
       this.player.play(`${this.player.spriteKey}_hit`);

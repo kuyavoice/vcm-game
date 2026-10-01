@@ -32,6 +32,10 @@ export interface SaveData {
   scoreRanking: { score: number; kills: number; timeSec: number; character: string; date: string; cleared: boolean }[];
   /** エンドレスの端末内の記録（生存時間の長い順） */
   endlessRanking: { timeSec: number; score: number; kills: number; level: number; character: string; date: string }[];
+  /** ボスラッシュの記録（1周のクリア時間の短い順）。loops＝クリアした周の数 */
+  rushRanking: { timeSec: number; loops: number; character: string; arts: string[]; date: string }[];
+  /** ボスラッシュで前回選んだアーツ */
+  lastRushArts: string[];
   /** 隠しキャラの出現状態（キャラID → pending＝出現演出がまだ／shown＝演出済みで NEW の印だけ）。一度選ぶと消える */
   secretNew: Record<string, 'pending' | 'shown'>;
   /** ギャラリーで解放した絵のID */
@@ -56,6 +60,8 @@ const DEFAULT: SaveData = {
   colorSelected: {},
   scoreRanking: [],
   endlessRanking: [],
+  rushRanking: [],
+  lastRushArts: [],
   secretNew: {},
   gallery: [],
   music: [],
@@ -81,6 +87,8 @@ export function loadSave(): SaveData {
       colorSelected: { ...(parsed.colorSelected ?? {}) },
       scoreRanking: [...(parsed.scoreRanking ?? [])],
       endlessRanking: [...(parsed.endlessRanking ?? [])],
+      rushRanking: [...(parsed.rushRanking ?? [])],
+      lastRushArts: [...(parsed.lastRushArts ?? [])],
       secretNew: { ...(parsed.secretNew ?? {}) },
       gallery: [...(parsed.gallery ?? [])],
       music: [...(parsed.music ?? [])],

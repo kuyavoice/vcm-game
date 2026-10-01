@@ -5,6 +5,7 @@ import { STAGES, type StageDef } from '../data/stages';
 import { SCORE_STAGE } from '../data/score';
 import { NIGHTMARE_STAGE, NIGHTMARE_AVAILABLE } from '../data/nightmare';
 import { ENDLESS_STAGE, isEndlessShown, endlessLoop } from '../data/endless';
+import { RUSH_STAGE } from '../data/rush';
 import { unlockSecret } from '../utils/unlock';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, isStageUnlocked } from '../utils/storage';
@@ -44,14 +45,14 @@ export class StageSelectScene extends Phaser.Scene {
     const characterId = resolveCharacter(save);
     const guard = new SelectGuard(this);
     const cardW = Math.min(640, W - 40);
-    const allStages = [...STAGES, SCORE_STAGE, ...(NIGHTMARE_AVAILABLE ? [NIGHTMARE_STAGE] : []), ...(isEndlessShown() ? [ENDLESS_STAGE] : [])];
+    const allStages = [...STAGES, SCORE_STAGE, ...(NIGHTMARE_AVAILABLE ? [NIGHTMARE_STAGE] : []), ...(isEndlessShown() ? [ENDLESS_STAGE] : []), RUSH_STAGE];
     // 解放の条件：スコアアタックは全ステージのクリア。ほかは、決まったステージのクリア
     // `?debug` のときは、エンドレスを解放済みとして扱う（本当に解放していなければ、記録は保存しない。GameScene 側）
     const debug = /[?&]debug(?:[&=]|$)/.test(location.search);
     const isOpen = (st: StageDef) => (st.endless && debug) || (st.scoreMode && !st.endless ? STAGES.every((x) => save.cleared.includes(x.id)) : isStageUnlocked(save, st.unlockAfter));
     // 5枚のときは、見出しと下のボタンの間に収まる高さに詰める
     const compact = allStages.length > 4;
-    const gap = compact ? 12 : 16;
+    const gap = allStages.length >= 7 ? 10 : compact ? 12 : 16;
     const areaTop = H * 0.11 + 104;
     const areaBottom = H - Math.max(90, H * 0.08) - 44;
     const cardH = compact ? Math.min(176, Math.floor((areaBottom - areaTop - gap * (allStages.length - 1)) / allStages.length)) : 176;
@@ -61,7 +62,8 @@ export class StageSelectScene extends Phaser.Scene {
     allStages.forEach((st, i) => {
       const unlocked = isOpen(st);
       const top = save.endlessRanking[0];
-      const best = st.endless ? (top ? { kills: top.kills, timeSec: top.timeSec, cleared: true, loop: endlessLoop(top.timeSec) } : undefined) : st.scoreMode ? (save.scoreRanking[0] ? { kills: save.scoreRanking[0].kills, timeSec: save.scoreRanking[0].timeSec, cleared: save.scoreRanking[0].cleared, score: save.scoreRanking[0].score } : undefined) : save.bests[String(st.id)];
+      const rb = save.rushRanking[0];
+      const best = st.rush ? (rb ? { kills: 0, timeSec: rb.timeSec, cleared: true, loop: rb.loops, rush: true } : undefined) : st.endless ? (top ? { kills: top.kills, timeSec: top.timeSec, cleared: true, loop: endlessLoop(top.timeSec) } : undefined) : st.scoreMode ? (save.scoreRanking[0] ? { kills: save.scoreRanking[0].kills, timeSec: save.scoreRanking[0].timeSec, cleared: save.scoreRanking[0].cleared, score: save.scoreRanking[0].score } : undefined) : save.bests[String(st.id)];
       const cont = this.buildCard(st, unlocked, best, cardW, cardH);
       cont.setPosition(W / 2 + 40, y).setAlpha(0);
       this.tweens.add({ targets: cont, alpha: 1, x: W / 2, duration: 220, delay: 60 * i, ease: 'Cubic.out' });
@@ -74,7 +76,9 @@ export class StageSelectScene extends Phaser.Scene {
           if (!guard.release(hit)) return;
           this.cameras.main.fadeOut(250, 6, 9, 19);
           this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.scene.start('Game', { characterId, stageId: st.id });
+            // ボスラッシュは、アーツを選ぶ画面を挟む
+            if (st.rush) this.scene.start('RushSetup', { characterId });
+            else this.scene.start('Game', { characterId, stageId: st.id });
           });
         });
       }
@@ -90,11 +94,12 @@ export class StageSelectScene extends Phaser.Scene {
       const st = allStages[n - 1];
       const ok = st && isOpen(st);
       if (!ok || !guard.confirm()) return;
-      this.scene.start('Game', { characterId, stageId: st.id });
+      if (st.rush) this.scene.start('RushSetup', { characterId });
+      else this.scene.start('Game', { characterId, stageId: st.id });
     });
   }
 
-  private buildCard(st: StageDef, unlocked: boolean, best: { kills: number; timeSec: number; cleared: boolean; score?: number; loop?: number } | undefined, cardW: number, cardH: number): Phaser.GameObjects.Container {
+  private buildCard(st: StageDef, unlocked: boolean, best: { kills: number; timeSec: number; cleared: boolean; score?: number; loop?: number; rush?: boolean } | undefined, cardW: number, cardH: number): Phaser.GameObjects.Container {
     // 6枚のときは、さらに詰める
     const tight = cardH < 150;
     const cont = this.add.container(0, 0);
@@ -120,7 +125,7 @@ export class StageSelectScene extends Phaser.Scene {
       if (best) {
         const mm = Math.floor(best.timeSec / 60).toString().padStart(2, '0');
         const ss = Math.floor(best.timeSec % 60).toString().padStart(2, '0');
-        const bestText = this.add.text(cardW / 2 - 20, cardH / 2 - (tight ? 8 : 16), best.loop !== undefined ? `BEST  ${mm}:${ss}  LOOP ${best.loop}` : best.score !== undefined ? `BEST  ${best.score.toLocaleString()} pt  ${mm}:${ss}` : `BEST  ✕ ${best.kills}  ${mm}:${ss}${best.cleared ? '  CLEAR' : ''}`, {
+        const bestText = this.add.text(cardW / 2 - 20, cardH / 2 - (tight ? 8 : 16), best.rush ? `BEST  ${mm}:${ss}  ×${best.loop} LOOP` : best.loop !== undefined ? `BEST  ${mm}:${ss}  LOOP ${best.loop}` : best.score !== undefined ? `BEST  ${best.score.toLocaleString()} pt  ${mm}:${ss}` : `BEST  ✕ ${best.kills}  ${mm}:${ss}${best.cleared ? '  CLEAR' : ''}`, {
           fontFamily: FONT_EN, fontSize: '16px', color: best.cleared ? COLOR_HEX.gold : COLOR_HEX.accent, fontStyle: '700',
         }).setOrigin(1, 1);
         cont.add(bestText);

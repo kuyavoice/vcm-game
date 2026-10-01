@@ -147,6 +147,12 @@ export class Spawner {
     return 'grunt';
   }
 
+  /** ボスラッシュ：ボスを1体出す（動かないボスは画面の中、ほかは画面の外周） */
+  spawnRushBoss(id: EnemyId): Enemy | null {
+    const pos = ENEMIES[id].fixed ? this.nearPoint(CONFIG.queen.spawnDistance) : this.ringPoint();
+    return this.spawnBoss(id, pos.x, pos.y);
+  }
+
   /** 画面の外周（矩形の少し外側）のランダムな点 */
   private ringPoint(): { x: number; y: number } {
     const cam = this.scene.cameras.main;
