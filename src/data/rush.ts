@@ -20,14 +20,16 @@ export const RUSH = {
   gapSec: 15,
   /** ボスごとのHP倍率（(3000 + 400×40) に掛ける。硬さは周で増やさない） */
   hpMul: { rook: 1.0, queen: 1.2, blackknight: 1.5, redknight: 2.0 } as Partial<Record<EnemyId, number>>,
-  /** 周ごとの、ボスの行動の間隔の倍率（予兆の長さは変えない）。4周目以降は最後の値 */
-  tempo: [1.0, 0.8, 0.7],
-  /** 周ごとのボスの組。4周目以降は最後の並び */
+  /** 周ごとの、ボスの行動の間隔の倍率（予兆の長さは変えない）。表の先は最後の値（2026-10-01：4周目 0.6、5周目〜 0.5） */
+  tempo: [1.0, 0.8, 0.7, 0.6, 0.5],
+  /** 1〜2周目のボスの組。3周目からは rushWaves() の決まりで作る */
   waves: [
     [['rook'], ['queen'], ['blackknight'], ['redknight']],
     [['rook', 'queen'], ['blackknight'], ['redknight']],
-    [['rook', 'queen'], ['blackknight', 'redknight']],
   ] as EnemyId[][][],
+  /** 敵の攻撃力：この周から、1周ごとに damageAdd ずつ上がる（2026-10-01 ユーザー承認。100分を超える人が出たため） */
+  damageFromLoop: 4,
+  damageAdd: 0.25,
   /** ボスを倒したときの報酬 */
   reward: { rook: 'support', queen: 'art', blackknight: 'chest', redknight: 'chest' } as Partial<Record<EnemyId, 'support' | 'art' | 'chest'>>,
   /** ボス撃破のエールの倍率（短いモードで稼げすぎないように） */
@@ -36,9 +38,24 @@ export const RUSH = {
   rankingSize: 10,
 };
 
-/** 周ごとの、ボスの組の並び */
+const ORDER: EnemyId[] = ['rook', 'queen', 'blackknight', 'redknight'];
+
+/**
+ * 周ごとの、ボスの組の並び。
+ * 1〜2周目は表。3周目からは、同時に出る数が 5周ごとに1体ずつ増える（3〜4周目 2体／5〜9周目 3体／10周目〜 4体）。
+ * 15周目からは、4体の組が2回。
+ */
 export function rushWaves(loop: number): EnemyId[][] {
-  return RUSH.waves[Math.min(loop, RUSH.waves.length) - 1];
+  if (loop <= RUSH.waves.length) return RUSH.waves[loop - 1];
+  if (loop >= 15) return [ORDER.slice(), ORDER.slice()];
+  const simul = Math.min(4, 2 + Math.floor(loop / 5));
+  const rest = ORDER.slice(simul);
+  return rest.length ? [ORDER.slice(0, simul), rest] : [ORDER.slice()];
+}
+
+/** 周ごとの、敵の攻撃力の倍率（4周目から上がる） */
+export function rushDamageMul(loop: number): number {
+  return loop < RUSH.damageFromLoop ? 1 : 1 + RUSH.damageAdd * (loop - RUSH.damageFromLoop + 1);
 }
 
 /** 周ごとの、行動の間隔の倍率 */

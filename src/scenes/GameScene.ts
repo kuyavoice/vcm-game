@@ -5,7 +5,7 @@ import { ENEMIES } from '../data/enemies';
 import { stageById, type StageDef } from '../data/stages';
 import { SCORE } from '../data/score';
 import { ENDLESS } from '../data/endless';
-import { RUSH, rushWaves, rushTempo, fmtTime } from '../data/rush';
+import { RUSH, rushWaves, rushTempo, rushDamageMul, fmtTime } from '../data/rush';
 import { isHeld } from '../utils/heldKeys';
 import { screenFlash } from '../utils/screenFlash';
 import { customBgmKeys, type BgmSlot } from '../utils/bgmCustom';
@@ -1828,6 +1828,8 @@ export class GameScene extends Phaser.Scene {
       this.hud.banner(`${this.rush.loop}周目 クリア　${fmtTime(t)}`, '#FFD700', 36);
       this.rush.loop++;
       this.rush.wave = 0;
+      // 4周目から、敵の攻撃力が周ごとに上がる
+      this.cycleDamageMul = rushDamageMul(this.rush.loop);
     }
     this.rush.nextAt = this.gameNow + RUSH.gapSec * 1000;
   }
