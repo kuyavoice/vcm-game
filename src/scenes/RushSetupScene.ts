@@ -102,7 +102,7 @@ export class RushSetupScene extends Phaser.Scene {
         tx = left + 22 + fr * 2 + 12;
       }
       this.add.text(tx, y + 8, def.name, { fontFamily: FONT_JP, fontSize: '21px', color: COLOR_HEX.white, fontStyle: '700' });
-      this.add.text(tx, y + 34, `${def.owner}　${def.desc}`, { fontFamily: FONT_JP, fontSize: '13px', color: COLOR_HEX.dim, wordWrap: { width: rowW - (tx - left) - 70 } }).setCrop(0, 0, rowW - (tx - left) - 70, 18);
+      this.add.text(tx, y + 34, `${def.owner}　${def.desc}`, { fontFamily: FONT_JP, fontSize: '13px', color: COLOR_HEX.dim }).setCrop(0, 0, rowW - (tx - left) - 70, 18);
       const mark = this.add.text(left + rowW - 22, y + (rowH - 8) / 2, '✓', { fontFamily: FONT_EN, fontSize: '30px', color: COLOR_HEX.gold, fontStyle: '700' }).setOrigin(1, 0.5);
       marks.set(id, mark);
       let pressedAt = -1;
