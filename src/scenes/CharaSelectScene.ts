@@ -113,6 +113,7 @@ export class CharaSelectScene extends Phaser.Scene {
   }
 
   private choose(id: string): void {
+    AudioBus.voice(id, 'select');
     const save = loadSave();
     save.settings.character = id;
     writeSave(save);

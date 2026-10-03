@@ -9,11 +9,12 @@ export interface OptionData {
   from: string;
 }
 
-type VolumeKey = 'bgm' | 'se';
+type VolumeKey = 'bgm' | 'se' | 'voice';
 
 const ROWS: { key: VolumeKey; label: string; sub: string }[] = [
   { key: 'bgm', label: 'BGM', sub: '音楽' },
   { key: 'se', label: 'SE', sub: '効果音' },
+  { key: 'voice', label: 'VOICE', sub: 'ボイス' },
 ];
 const STEPS = 10;
 
@@ -77,6 +78,8 @@ export class OptionScene extends Phaser.Scene {
         draw();
         // 効果音は、変えた音量で試しに鳴らす
         if (row.key === 'se') AudioBus.play('se_levelup', 120);
+        // ボイスは、選択中のキャラのレベルアップの声で試す
+        if (row.key === 'voice') AudioBus.voice(loadSave().settings.character || 'kuya', 'levelup');
       };
       makeButton(this, left + 24 + btnW / 2, y + 96, '−', () => change(-1), { width: btnW, height: 56, fontSize: 34, armDelayMs: 0 });
       makeButton(this, left + panelW - 24 - btnW / 2, y + 96, '＋', () => change(1), { width: btnW, height: 56, fontSize: 30, armDelayMs: 0 });
@@ -91,21 +94,26 @@ export class OptionScene extends Phaser.Scene {
     // 切り替えの項目（4つ。縦に収めるため、1つ76px）
     type Setting = ReturnType<typeof loadSave>['settings'];
     let ty = top + 150 + ROWS.length * 170;
+    // 2列に並べる（音量が3段になり、縦に収まらなくなったため）
+    const colW = (panelW - 10) / 2;
+    let col = 0;
     const toggleRow = (title: string, sub: string, labels: string[], get: (st: Setting) => number, set: (st: Setting, i: number) => void) => {
       const h = 76;
-      this.add.rectangle(left, ty, panelW, h, 0x111a3a, 0.95).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.5);
-      this.add.text(left + 24, ty + 10, title, { fontFamily: FONT_EN, fontSize: '26px', color: COLOR_HEX.white, fontStyle: '700', letterSpacing: 3 });
-      this.add.text(left + 24, ty + 44, sub, { fontFamily: FONT_JP, fontSize: '15px', color: COLOR_HEX.dim });
+      const x = left + col * (colW + 10);
+      this.add.rectangle(x, ty, colW, h, 0x111a3a, 0.95).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.5);
+      this.add.text(x + 14, ty + 8, title, { fontFamily: FONT_EN, fontSize: '19px', color: COLOR_HEX.white, fontStyle: '700', letterSpacing: 2 });
+      this.add.text(x + 14, ty + 50, sub, { fontFamily: FONT_JP, fontSize: '12px', color: COLOR_HEX.dim }).setCrop(0, 0, colW - 28, 16);
       let idx = get(save.settings);
-      const btn = makeButton(this, left + panelW - 20 - 80, ty + h / 2, labels[idx], () => {
+      const btn = makeButton(this, x + colW - 14 - 52, ty + 30, labels[idx], () => {
         idx = (idx + 1) % labels.length;
         const sv = loadSave();
         set(sv.settings, idx);
         writeSave(sv);
         (btn.list[2] as Phaser.GameObjects.Text).setText(labels[idx]);
         AudioBus.play('se_levelup', 120);
-      }, { width: 160, height: 50, fontSize: 22, armDelayMs: 0 });
-      ty += h + 10;
+      }, { width: 104, height: 40, fontSize: 17, armDelayMs: 0 });
+      col++;
+      if (col === 2) { col = 0; ty += h + 10; }
     };
     toggleRow('DAMAGE', 'ダメージの数字', ['ON', 'OFF'], (st) => (st.damageNumbers !== false ? 0 : 1), (st, i) => { st.damageNumbers = i === 0; });
     toggleRow('SPECIAL', '必殺ボタンの位置', ['RIGHT', 'LEFT'], (st) => (st.specialSide === 'left' ? 1 : 0), (st, i) => { st.specialSide = i === 1 ? 'left' : 'right'; });
@@ -119,6 +127,7 @@ export class OptionScene extends Phaser.Scene {
       this.scene.stop();
       this.scene.resume(from);
     };
+    if (col !== 0) ty += 86;
     makeButton(this, W / 2, ty + 46, 'CLOSE', close, { primary: true });
     this.input.keyboard?.on('keydown-ESC', close);
   }

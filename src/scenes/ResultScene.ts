@@ -284,6 +284,8 @@ export class ResultScene extends Phaser.Scene {
       col(bx + bw / 2 + 8, 'SUPPORT', supRows);
     }
     if (isBest) {
+      // ベスト更新のボイス（クリア・ゲームオーバーのボイスが鳴っていれば、その後に）
+      AudioBus.voice(r.characterId, 'best', { queue: true });
       this.add.text(panel.x + panel.width - 14, py - 14, 'NEW BEST', {
         fontFamily: FONT_EN, fontSize: '20px', color: '#060913', backgroundColor: '#FFD700', fontStyle: '700', padding: { x: 8, y: 2 },
       }).setOrigin(1, 1).setAngle(-4);

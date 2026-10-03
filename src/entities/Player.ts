@@ -11,6 +11,8 @@ export class Player extends Phaser.GameObjects.Sprite {
   invulnUntil = 0;
   idleFor = 0;
   sleeping = false;
+  /** 居眠りを始めたとき（ボイス用） */
+  onSleep?: () => void;
   moving = false;
   private hitAnimUntil = 0;
   private zz?: Phaser.GameObjects.Text;
@@ -138,6 +140,7 @@ export class Player extends Phaser.GameObjects.Sprite {
 
   private sleep(): void {
     this.sleeping = true;
+    this.onSleep?.();
     this.zz = this.scene.add
       .text(this.x + 28, this.y - this.displayHeight - 6, 'zZ', {
         fontFamily: '"Oswald", sans-serif',

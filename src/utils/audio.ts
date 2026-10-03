@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { AUDIO_MANIFEST, type AudioCategory } from '../data/audio';
 import { loadSave } from './storage';
+import { VOICE_PRIORITY, VOICE_COOLDOWN_MS, VOICE_DUCK, VOICE_GAIN, voiceFiles, voiceFilesOf, voiceKey, type VoiceKind } from '../data/voice';
 
 /** 未配置ファイルでも落ちないサウンド窓口。音量はカテゴリ別 */
 class AudioBusImpl {
@@ -26,6 +27,8 @@ class AudioBusImpl {
     const timer = setTimeout(() => ctl.abort(), 2500);
     await Promise.all(
       AUDIO_MANIFEST.map(async (e) => {
+        // ボイスは、配置済みの一覧から作っているので確認しない
+        if (e.category === 'voice') { this.available.add(e.key); return; }
         try {
           const res = await fetch(baseUrl + e.path, { method: 'HEAD', signal: ctl.signal });
           const type = res.headers.get('content-type') ?? '';
@@ -45,6 +48,7 @@ class AudioBusImpl {
     for (const e of AUDIO_MANIFEST) {
       if (!this.available.has(e.key)) continue;
       if (e.category === 'bgm' && e.key !== 'bgm_title') continue;
+      if (e.category === 'voice') continue;
       loader.audio(e.key, e.path);
     }
   }
@@ -54,7 +58,8 @@ class AudioBusImpl {
 
   setVolume(cat: AudioCategory, v: number): void {
     this.volumes[cat] = v;
-    if (cat === 'bgm' && this.bgm && 'setVolume' in this.bgm) (this.bgm as Phaser.Sound.WebAudioSound).setVolume(v);
+    if (cat === 'bgm' && this.bgm && 'setVolume' in this.bgm) (this.bgm as Phaser.Sound.WebAudioSound).setVolume(this.voiceSound ? v * VOICE_DUCK : v);
+    if (cat === 'voice' && this.voiceSound && 'setVolume' in this.voiceSound) (this.voiceSound as Phaser.Sound.WebAudioSound).setVolume(v * this.voiceGain);
   }
 
   private has(key: string): boolean {
@@ -126,7 +131,7 @@ class AudioBusImpl {
     if (!this.game) return;
     this.stopBgm();
     this.wantedBgm = key; // stopBgm が消すので入れ直す
-    this.bgm = this.game.sound.add(key, { loop: true, volume: this.volumes.bgm });
+    this.bgm = this.game.sound.add(key, { loop: true, volume: this.voiceSound ? this.volumes.bgm * VOICE_DUCK : this.volumes.bgm });
     this.bgm.play();
   }
 
@@ -140,6 +145,137 @@ class AudioBusImpl {
     return this.bgm ? this.bgm.key : this.wantedBgm;
   }
 
+  // ─────────────────────────── ボイス ───────────────────────────
+
+  private voiceSound?: Phaser.Sound.BaseSound;
+  private voicePriority = 0;
+  private voiceGain = 1;
+  /** 種類ごとの、最後に鳴らした時刻（連続を間引く） */
+  private voiceLastAt = new Map<string, number>();
+  /** 種類ごとの、最後に鳴らした差分（直前と同じものは避ける） */
+  private voiceLastVariant = new Map<string, string>();
+  /** 鳴り終わったら鳴らすもの（queue 指定） */
+  private voiceQueued: { characterId: string; kind: VoiceKind } | null = null;
+  /** 読み込み中のキーと、読み終わったら鳴らすか */
+  private voiceLoading = new Set<string>();
+
+  /** そのキャラのボイスを先に読んでおく（ゲーム開始時）。無いキャラなら何もしない */
+  preloadVoices(characterId: string, scene: Phaser.Scene): void {
+    const files = voiceFilesOf(characterId);
+    let queued = false;
+    for (const f of files) {
+      const key = voiceKey(f);
+      if (this.has(key) || this.voiceLoading.has(key)) continue;
+      this.voiceLoading.add(key);
+      scene.load.audio(key, `assets/audio/voice/${f}`);
+      scene.load.once(`filecomplete-audio-${key}`, () => this.voiceLoading.delete(key));
+      queued = true;
+    }
+    if (queued && !scene.load.isLoading()) scene.load.start();
+  }
+
+  /** そのキャラのその種類のボイスがあるか */
+  hasVoice(characterId: string, kind: VoiceKind): boolean {
+    return voiceFiles(characterId, kind).length > 0;
+  }
+
+  /**
+   * ボイスを鳴らす。返り値：鳴らした（または鳴らす予約をした）か。
+   * - 同時に鳴るのは1つ。鳴っている途中なら、優先度が高いときだけ割り込む（同じ優先度は捨てる）。queue なら鳴り終わってから鳴らす
+   * - 種類ごとの間引き（VOICE_COOLDOWN_MS）。差分はランダムで、直前と同じものは避ける
+   * - 鳴っている間は BGM を下げる
+   * - まだ読んでいなければ読んでから鳴らす
+   */
+  voice(characterId: string, kind: VoiceKind, opts: { queue?: boolean } = {}): boolean {
+    if (!this.game || this.volumes.voice <= 0) return false;
+    const files = voiceFiles(characterId, kind);
+    if (files.length === 0) return false;
+    const now = performance.now();
+    const cdKey = `${characterId}:${kind}`;
+    const cd = VOICE_COOLDOWN_MS[kind] ?? 0;
+    if (cd > 0 && now - (this.voiceLastAt.get(cdKey) ?? -Infinity) < cd) return false;
+    const prio = VOICE_PRIORITY[kind];
+    if (this.voiceSound && this.voiceSound.isPlaying) {
+      if (prio <= this.voicePriority) {
+        if (opts.queue) { this.voiceQueued = { characterId, kind }; return true; }
+        return false;
+      }
+      this.stopVoice();
+    }
+    // 差分を選ぶ（直前と同じものは避ける）
+    let pool = files;
+    const last = this.voiceLastVariant.get(cdKey);
+    if (files.length > 1 && last) pool = files.filter((f) => f !== last);
+    const file = pool[Math.floor(Math.random() * pool.length)];
+    this.voiceLastVariant.set(cdKey, file);
+    this.voiceLastAt.set(cdKey, now);
+    const key = voiceKey(file);
+    this.voicePriority = prio;
+    this.voiceGain = VOICE_GAIN[characterId] ?? 1;
+    if (this.has(key)) {
+      this.startVoice(key);
+      return true;
+    }
+    // まだ読んでいない：読んでから鳴らす（そのあいだに強いボイスが来たら、そちらを優先）
+    const scene = this.aliveScene();
+    if (!scene) return false;
+    const want = this.voicePriority;
+    this.voiceLoading.add(key);
+    scene.load.audio(key, `assets/audio/voice/${file}`);
+    scene.load.once(`filecomplete-audio-${key}`, () => {
+      this.voiceLoading.delete(key);
+      if (this.voicePriority === want && !(this.voiceSound && this.voiceSound.isPlaying)) this.startVoice(key);
+    });
+    if (!scene.load.isLoading()) scene.load.start();
+    return true;
+  }
+
+  private startVoice(key: string): void {
+    if (!this.game) return;
+    this.stopVoice();
+    const snd = this.game.sound.add(key, { volume: this.volumes.voice * this.voiceGain });
+    this.voiceSound = snd;
+    // BGM を下げる
+    if (this.bgm && 'setVolume' in this.bgm) (this.bgm as Phaser.Sound.WebAudioSound).setVolume(this.volumes.bgm * VOICE_DUCK);
+    snd.once('complete', () => this.onVoiceEnd(snd));
+    snd.once('stop', () => this.onVoiceEnd(snd));
+    snd.play();
+  }
+
+  private onVoiceEnd(snd: Phaser.Sound.BaseSound): void {
+    if (this.voiceSound !== snd) return;
+    this.voiceSound = undefined;
+    this.voicePriority = 0;
+    snd.destroy();
+    if (this.bgm && 'setVolume' in this.bgm) (this.bgm as Phaser.Sound.WebAudioSound).setVolume(this.volumes.bgm);
+    const q = this.voiceQueued;
+    if (q) {
+      this.voiceQueued = null;
+      this.voice(q.characterId, q.kind);
+    }
+  }
+
+  /** 鳴っているボイスを止める（画面の切り替えなど） */
+  stopVoice(): void {
+    const snd = this.voiceSound;
+    if (!snd) return;
+    this.voiceSound = undefined;
+    this.voicePriority = 0;
+    snd.stop();
+    snd.destroy();
+    if (this.bgm && 'setVolume' in this.bgm) (this.bgm as Phaser.Sound.WebAudioSound).setVolume(this.volumes.bgm);
+  }
+
+  /** 生きているシーン（遅延読み込みのローダーに使う） */
+  private aliveScene(): Phaser.Scene | undefined {
+    if (!this.game) return undefined;
+    const alive = this.game.scene.getScenes(false).filter((x) => {
+      const st = x.sys.settings.status;
+      return st >= Phaser.Scenes.INIT && st <= Phaser.Scenes.PAUSED;
+    });
+    return alive.find((x) => x.scene.key === 'Game') ?? alive[alive.length - 1];
+  }
+
   stopBgm(): void {
     this.wantedBgm = '';
     if (this.bgm) {
@@ -151,3 +287,5 @@ class AudioBusImpl {
 }
 
 export const AudioBus = new AudioBusImpl();
+// 確認用（ブラウザのコンソールから状態を見る）
+(window as unknown as { __AudioBus?: unknown }).__AudioBus = AudioBus;

@@ -1,6 +1,9 @@
 // サウンド・ボイスの差し込み口。ファイルを置くだけで鳴る（未配置なら無音）。
 // パスは public/ 配下。素材はオーナー側で用意（SUNO／ElevenLabs）。
 
+import { VOICE_FILES } from './voiceIndex';
+import { voiceKey } from './voice';
+
 export type AudioCategory = 'bgm' | 'se' | 'voice';
 
 export interface AudioEntry {
@@ -88,41 +91,9 @@ export const AUDIO_MANIFEST: AudioEntry[] = [
   { key: 'se_fusion', path: 'assets/audio/se/fusion.mp3', category: 'se' },
   { key: 'se_beam', path: 'assets/audio/se/beam.mp3', category: 'se' },
   { key: 'se_freeze', path: 'assets/audio/se/freeze.mp3', category: 'se' },
-  // 詩音ボイス
-  { key: 'vo_shion_start', path: 'assets/audio/voice/shion_start.mp3', category: 'voice' },
-  { key: 'vo_shion_evolve', path: 'assets/audio/voice/shion_evolve.mp3', category: 'voice' },
-  { key: 'vo_shion_special', path: 'assets/audio/voice/shion_special.mp3', category: 'voice' },
-  { key: 'vo_shion_levelup', path: 'assets/audio/voice/shion_levelup.mp3', category: 'voice' },
-  { key: 'vo_shion_hit', path: 'assets/audio/voice/shion_hit.mp3', category: 'voice' },
-  { key: 'vo_shion_gameover', path: 'assets/audio/voice/shion_gameover.mp3', category: 'voice' },
-  { key: 'vo_shion_clear', path: 'assets/audio/voice/shion_clear.mp3', category: 'voice' },
-  // 空夜ボイス
-  { key: 'vo_kuya_start', path: 'assets/audio/voice/kuya_start.mp3', category: 'voice' },
-  { key: 'vo_kuya_evolve', path: 'assets/audio/voice/kuya_evolve.mp3', category: 'voice' },
-  { key: 'vo_kuya_special', path: 'assets/audio/voice/kuya_special.mp3', category: 'voice' },
-  { key: 'vo_kuya_levelup', path: 'assets/audio/voice/kuya_levelup.mp3', category: 'voice' },
-  { key: 'vo_kuya_hit', path: 'assets/audio/voice/kuya_hit.mp3', category: 'voice' },
-  { key: 'vo_kuya_gameover', path: 'assets/audio/voice/kuya_gameover.mp3', category: 'voice' },
-  { key: 'vo_kuya_clear', path: 'assets/audio/voice/kuya_clear.mp3', category: 'voice' },
-  { key: 'vo_mizuho_start', path: 'assets/audio/voice/mizuho_start.mp3', category: 'voice' },
-  { key: 'vo_mizuho_evolve', path: 'assets/audio/voice/mizuho_evolve.mp3', category: 'voice' },
-  { key: 'vo_mizuho_special', path: 'assets/audio/voice/mizuho_special.mp3', category: 'voice' },
-  { key: 'vo_mizuho_levelup', path: 'assets/audio/voice/mizuho_levelup.mp3', category: 'voice' },
-  { key: 'vo_mizuho_hit', path: 'assets/audio/voice/mizuho_hit.mp3', category: 'voice' },
-  { key: 'vo_mizuho_gameover', path: 'assets/audio/voice/mizuho_gameover.mp3', category: 'voice' },
-  { key: 'vo_mizuho_clear', path: 'assets/audio/voice/mizuho_clear.mp3', category: 'voice' },
-  { key: 'vo_yukihito_start', path: 'assets/audio/voice/yukihito_start.mp3', category: 'voice' },
-  { key: 'vo_yukihito_evolve', path: 'assets/audio/voice/yukihito_evolve.mp3', category: 'voice' },
-  { key: 'vo_yukihito_special', path: 'assets/audio/voice/yukihito_special.mp3', category: 'voice' },
-  { key: 'vo_yukihito_levelup', path: 'assets/audio/voice/yukihito_levelup.mp3', category: 'voice' },
-  { key: 'vo_yukihito_hit', path: 'assets/audio/voice/yukihito_hit.mp3', category: 'voice' },
-  { key: 'vo_yukihito_gameover', path: 'assets/audio/voice/yukihito_gameover.mp3', category: 'voice' },
-  { key: 'vo_yukihito_clear', path: 'assets/audio/voice/yukihito_clear.mp3', category: 'voice' },
-  { key: 'vo_ritsuka_start', path: 'assets/audio/voice/ritsuka_start.mp3', category: 'voice' },
-  { key: 'vo_ritsuka_evolve', path: 'assets/audio/voice/ritsuka_evolve.mp3', category: 'voice' },
-  { key: 'vo_ritsuka_special', path: 'assets/audio/voice/ritsuka_special.mp3', category: 'voice' },
-  { key: 'vo_ritsuka_levelup', path: 'assets/audio/voice/ritsuka_levelup.mp3', category: 'voice' },
-  { key: 'vo_ritsuka_hit', path: 'assets/audio/voice/ritsuka_hit.mp3', category: 'voice' },
-  { key: 'vo_ritsuka_gameover', path: 'assets/audio/voice/ritsuka_gameover.mp3', category: 'voice' },
-  { key: 'vo_ritsuka_clear', path: 'assets/audio/voice/ritsuka_clear.mp3', category: 'voice' },
 ];
+
+// キャラクターボイス：配置されているファイルの一覧（voiceIndex.ts。make_voice.py が書き出す）から作る。
+// 起動時には読まず、使うキャラのぶんだけ読む（AudioBus.preloadVoices）
+for (const f of VOICE_FILES) AUDIO_MANIFEST.push({ key: voiceKey(f), path: `assets/audio/voice/${f}`, category: 'voice' });
+

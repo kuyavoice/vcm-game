@@ -6,6 +6,10 @@ import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave } from '../utils/storage';
 import { AudioBus } from '../utils/audio';
 import { makeButton } from '../ui/Button';
+import { visibleCharacters } from '../utils/unlock';
+
+/** タイトルコールは起動ごとに1回 */
+let titleCalled = false;
 
 /**
  * タイトル。キービジュアル（`title_kv`。1024×1536、ロゴ入り）があれば、それを画面いっぱいに出して、下の帯にメニューを置く。
@@ -65,6 +69,14 @@ export class TitleScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const sv = loadSave();
+    // タイトルコール：解放済みの操作キャラからランダムで1人（隠しキャラは解放後だけ候補）
+    if (!titleCalled) {
+      const cands = visibleCharacters(sv).filter((id) => AudioBus.hasVoice(id, 'title'));
+      if (cands.length > 0) {
+        titleCalled = true;
+        AudioBus.voice(cands[Math.floor(Math.random() * cands.length)], 'title');
+      }
+    }
     const best = sv.bests['1'];
     let line = `★ ${sv.totalYell} YELL`;
     if (best) {

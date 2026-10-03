@@ -9,6 +9,7 @@ import { RUSH, rushWaves, rushTempo, rushDamageMul, fmtTime } from '../data/rush
 import { isHeld } from '../utils/heldKeys';
 import { screenFlash } from '../utils/screenFlash';
 import { customBgmKeys, type BgmSlot } from '../utils/bgmCustom';
+import { VOICE_PER_RUN, PINCH_RATIO, UNION_FUSION, type VoiceKind } from '../data/voice';
 import { ITEMS, PICKUPS, type PickupKind } from '../data/items';
 import { Player } from '../entities/Player';
 import { Enemy, type Hazard } from '../entities/Enemy';
@@ -147,6 +148,7 @@ export class GameScene extends Phaser.Scene {
     this.rushArts = data.rushArts ?? [];
     this.rushSupports = data.rushSupports ?? [];
     this.rush = { loop: 1, wave: 0, nextAt: 0, loopStartSec: 0, loopTimes: [], bossTimes: [], rewards: [], bossesDefeated: 0 };
+    this.voiceCount = {};
     this.elapsed = 0;
     this.kills = 0;
     this.over = false;
@@ -330,7 +332,9 @@ export class GameScene extends Phaser.Scene {
     // 曲は resumeBgm で決める（カスタムの割り当てがあれば、最初からそれを流す。シーンは使い回されるので、ここで読み直す）
     this.customBgm = customBgmKeys(loadSave());
     this.resumeBgm();
+    AudioBus.preloadVoices(this.characterId, this);
     this.vo('start');
+    this.player.onSleep = () => this.vo('idle');
     this.hud.banner(`${this.stage.nameEn} —— ${this.stage.name}`, Phaser.Display.Color.IntegerToColor(this.stage.color).rgba, 32);
     // ダメージの数字（オプションで出す／出さないを切り替え。ポーズからオプションを開いて戻ったときも読み直す）
     const font = ensureDamageFont(this);
@@ -3327,9 +3331,17 @@ export class GameScene extends Phaser.Scene {
 
   private counterUntil = 0;
 
-  /** ボイス（キャラ別。未配置なら無音） */
-  private vo(kind: string, minGapMs = 0): void {
-    AudioBus.play(`vo_${this.player.def.voicePrefix}_${kind}`, minGapMs);
+  /** ボイス（キャラ別。未配置なら無音。間引き・優先度は AudioBus 側）。1プレイの回数の上限がある種類は、ここで数える */
+  private voiceCount: Partial<Record<VoiceKind, number>> = {};
+  private vo(kind: VoiceKind, _minGapMs = 0): void {
+    const cap = VOICE_PER_RUN[kind];
+    if (cap !== undefined) {
+      const n = this.voiceCount[kind] ?? 0;
+      if (n >= cap) return;
+      if (AudioBus.voice(this.characterId, kind)) this.voiceCount[kind] = n + 1;
+      return;
+    }
+    AudioBus.voice(this.characterId, kind);
   }
 
   /** プレイヤーへのダメージ入口：被ダメ倍率・必殺の軽減・完全看破の回避 */
@@ -3353,8 +3365,11 @@ export class GameScene extends Phaser.Scene {
     if (contact) amount *= def.traits.contactDamageMul ?? 1;
     let mul = this.up.stats.damageTakenMul;
     if (now < this.soulUntil && def.special.id === 'aqua_lament') mul *= 0.3;
+    const before = p.hp / p.maxHp;
     if (p.takeDamage(amount * mul, now, raw)) {
       this.onPlayerHit();
+      // ピンチ：HPが3割を切った瞬間
+      if (before >= PINCH_RATIO && p.hp / p.maxHp < PINCH_RATIO && p.hp > 0) this.vo('pinch');
       if (this.stage.scoreMode) { this.combo = 0; this.comboMul = 1; this.scoreNoDamageBreak(); }
     }
   }
@@ -3470,6 +3485,7 @@ export class GameScene extends Phaser.Scene {
 
   private startFullMoon(): void {
     this.fullMoon = true;
+    this.vo('fullmoon');
     this.enemySpeedMul = this.stage.enemySpeedMul * CONFIG.fullMoon.enemySpeedMul;
     this.xp.xpMul = this.stage.xpMul * CONFIG.fullMoon.xpMul;
     const cam = this.cameras.main;
@@ -3558,6 +3574,7 @@ export class GameScene extends Phaser.Scene {
       this.cameras.main.shake(300, 0.006);
       if (boss.def.fixed) AudioBus.play('se_queen_emerge', 0, 'se_boss');
       else AudioBus.play('se_boss');
+      this.vo('boss');
     }
     this.resumeBgm();
   }
@@ -3670,6 +3687,10 @@ export class GameScene extends Phaser.Scene {
           if (rw.kind === 'yell' && rw.yell) this.xp.yell += rw.yell;
           if (rw.kind === 'fusion' && rw.owners) {
             for (const o of rw.owners) this.cutIn.show({ owner: o, title: rw.title, tag: 'FUSION', color: rw.color });
+            // 操作キャラの専用合体技なら union、それ以外は fusion
+            const unionId = UNION_FUSION[this.characterId];
+            const isUnion = !!unionId && rw.weapon?.def.id === unionId;
+            this.vo(isUnion ? 'union' : 'fusion');
           } else if (rw.owner && rw.kind !== 'yell') {
             this.cutIn.show({
               owner: rw.owner, title: rw.title,
