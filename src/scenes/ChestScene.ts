@@ -37,8 +37,27 @@ export class ChestScene extends Phaser.Scene {
       fontFamily: FONT_EN, fontSize: '22px', color: COLOR_HEX.dim, fontStyle: '700', letterSpacing: 6,
     }).setOrigin(0.5);
 
-    // 宝箱
-    const chest = this.add.image(W / 2, H * 0.36, 'item_chest').setScale(10);
+    // 宝箱：絵（chest.webp・6コマ）があれば、閉じた箱を 1・2 で0.5秒ごとに交互。無ければドット絵
+    const chestY = H * 0.36 + 80;
+    let chest: Phaser.GameObjects.Image;
+    let setChestFrame: ((f: number) => void) | null = null;
+    let closedTimer: Phaser.Time.TimerEvent | null = null;
+    if (this.textures.exists('chest_box')) {
+      const tex = this.textures.get('chest_box');
+      if (!tex.has('f1')) {
+        const src = tex.getSourceImage() as HTMLImageElement;
+        const fw = Math.floor(src.width / 6);
+        for (let i = 0; i < 6; i++) tex.add(`f${i + 1}`, 0, i * fw, 0, fw, src.height);
+        tex.setFilter(Phaser.Textures.FilterMode.LINEAR);
+      }
+      chest = this.add.image(W / 2, chestY, 'chest_box', 'f1').setOrigin(0.5, 1);
+      chest.setScale(200 / chest.width);
+      setChestFrame = (f) => chest.setFrame(`f${f}`);
+      let closed = 1;
+      closedTimer = this.time.addEvent({ delay: 500, loop: true, callback: () => { closed = 3 - closed; chest.setFrame(`f${closed}`); } });
+    } else {
+      chest = this.add.image(W / 2, chestY, 'item_chest').setOrigin(0.5, 1).setScale(10);
+    }
     this.tweens.add({ targets: chest, y: chest.y - 10, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
 
     // ルナ（チビ）：画像があれば表示、無ければ小さなプレースホルダー
@@ -98,11 +117,24 @@ export class ChestScene extends Phaser.Scene {
       hint.setVisible(false);
       AudioBus.play('se_chest');
       result = data.open();
-      this.tweens.add({ targets: chest, scaleX: 12, scaleY: 8, duration: 90, yoyo: true });
+      this.tweens.add({ targets: chest, scaleX: chest.scaleX * 1.2, scaleY: chest.scaleY * 0.8, duration: 90, yoyo: true });
       screenFlash(this, 250, 255, 200, 230);
 
       // ルナの台詞：合体 → 進化 → 通常 の優先でグループを選ぶ（大当たりのときも、中身でいちばん上のもの）
       const group: LunaGroup = result.rewards.some((r) => r.kind === 'fusion') ? 'fusion' : result.rewards.some((r) => r.kind === 'evolve') ? 'evolve' : 'normal';
+      // 宝箱の絵：3（開く途中）を0.15秒 → 4（開いた）。進化・合体・大当たりは 5・6 を0.2秒ごとに交互
+      closedTimer?.remove();
+      if (setChestFrame) {
+        const frame = setChestFrame;
+        const big = result.jackpot || group !== 'normal';
+        frame(3);
+        this.time.delayedCall(150, () => {
+          if (!big) { frame(4); return; }
+          let f = 5;
+          frame(f);
+          this.time.addEvent({ delay: 200, loop: true, callback: () => { f = 11 - f; frame(f); } });
+        });
+      }
       bubble.setText(pickLunaLine(group, data.characterId ?? ''));
       if (result.jackpot) {
         header.setText('大当たり！').setColor('#FFD700');
