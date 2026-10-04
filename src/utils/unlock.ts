@@ -8,6 +8,11 @@ import { loadSave, writeSave, type SaveData } from './storage';
 
 /** URLに `?debug` が付いている（確認用） */
 const DEBUG = typeof location !== 'undefined' && /debug/.test(location.search);
+/** URLに `?judge` が付いている（審査モード。2026-10-05）：全ステージ・隠しキャラ以外の全キャラを解放済みとして遊べる。デバッグの表示は出ない。記録・エール・実績は保存しない */
+const JUDGE = typeof location !== 'undefined' && /[?&]judge(?:[&=]|$)/.test(location.search);
+export const isJudge = () => JUDGE;
+/** 仮の解放（?debug か ?judge） */
+export const isTrialUnlock = () => DEBUG || JUDGE;
 
 /** セーブの上で本当に解放しているか（`?debug` の仮の解放は含まない） */
 export function isCharacterOwned(id: string, save: SaveData): boolean {
@@ -24,7 +29,7 @@ export function isCharacterOwned(id: string, save: SaveData): boolean {
 export function isCharacterUnlocked(id: string, save: SaveData): boolean {
   const def = CHARACTERS[id];
   if (!def) return false;
-  if (DEBUG && !def.secret) return true;
+  if ((DEBUG || JUDGE) && !def.secret) return true;
   return isCharacterOwned(id, save);
 }
 

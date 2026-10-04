@@ -18,13 +18,16 @@ import { wrapJa } from '../utils/wrapJa';
 import { makeButton } from '../ui/Button';
 import { voiceFiles, voiceFilesOf, VOICE_KIND_ORDER, VOICE_KIND_LABEL, UNION_FUSION } from '../data/voice';
 import { AudioBus } from '../utils/audio';
+import { ACHIEVEMENTS, unlockAchievements } from '../data/achievements';
+import { writeSave } from '../utils/storage';
 import { go as goScene, wipeIn, panel as uiPanel, UI } from '../ui/theme';
 
-type Tab = 'arts' | 'chara' | 'enemy';
+type Tab = 'arts' | 'chara' | 'enemy' | 'achv';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'arts', label: '共鳴アーツ' },
   { id: 'chara', label: 'キャラクター' },
   { id: 'enemy', label: 'ネミノクス' },
+  { id: 'achv', label: '実績' },
 ];
 
 /** 未登録の絵を塗りつぶす色（シルエット） */
@@ -59,6 +62,8 @@ export class CodexScene extends Phaser.Scene {
     this.add.tileSprite(0, 0, W, H, 'bg').setOrigin(0).setDepth(-5);
 
     const save = loadSave();
+    // プレイに依らない実績（全員解放・図鑑の登録数）は、図鑑を開いたときにも見直す
+    if (unlockAchievements(null, save).length > 0) writeSave(save);
     const top = Math.max(H * 0.06, 40);
     this.add.text(W / 2, top, 'RESONANCE CODEX', { fontFamily: FONT_EN, fontSize: '44px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 5 }).setOrigin(0.5);
     this.drawTabs(W, top + 56);
@@ -67,7 +72,7 @@ export class CodexScene extends Phaser.Scene {
     // 横長の画面（PC）では、キャラクターとネミノクスの欄を中央に寄せる（共鳴アーツは従来どおり横幅いっぱい）
     const aw = this.tab === 'arts' ? W - 56 : Math.min(W - 56, 960);
     const area: Area = { x: (W - aw) / 2, y: top + 120, w: aw, h: by - 46 - (top + 120) };
-    const res = this.tab === 'arts' ? this.drawArts(save, area) : this.tab === 'chara' ? this.drawCharacters(save, area) : this.drawEnemies(save, area);
+    const res = this.tab === 'arts' ? this.drawArts(save, area) : this.tab === 'chara' ? this.drawCharacters(save, area) : this.tab === 'enemy' ? this.drawEnemies(save, area) : this.drawAchievements(save, area);
     this.add.text(W / 2, top + 98, `${res.found} / ${res.total}　　${this.page + 1} / ${res.pages}`, { fontFamily: FONT_EN, fontSize: '20px', color: COLOR_HEX.gold, fontStyle: '700' }).setOrigin(0.5);
 
     const go = (d: number) => {
@@ -106,14 +111,15 @@ export class CodexScene extends Phaser.Scene {
 
   private drawTabs(W: number, cy: number): void {
     const gap = 8;
-    const tw = Math.min(216, Math.floor((W - 56 - gap * 2) / 3));
+    const n = TABS.length;
+    const tw = Math.min(216, Math.floor((W - 56 - gap * (n - 1)) / n));
     const th = 46;
-    const x0 = W / 2 - (tw * 3 + gap * 2) / 2;
+    const x0 = W / 2 - (tw * n + gap * (n - 1)) / 2;
     TABS.forEach((t, i) => {
       const on = t.id === this.tab;
       const x = x0 + i * (tw + gap);
       uiPanel(this, x, cy - th / 2, tw, th, { fill: on ? 0x87ceeb : UI.fill, alpha: on ? 1 : 0.92, strokeAlpha: on ? 1 : 0.5, stripe: false, cut: 10 });
-      this.add.text(x + tw / 2, cy, t.label, { fontFamily: FONT_JP, fontSize: '20px', color: on ? '#060913' : COLOR_HEX.white, fontStyle: '700' }).setOrigin(0.5);
+      this.add.text(x + tw / 2, cy, t.label, { fontFamily: FONT_JP, fontSize: tw < 160 ? '17px' : '20px', color: on ? '#060913' : COLOR_HEX.white, fontStyle: '700' }).setOrigin(0.5);
       if (!on) this.tapZone(x, cy - th / 2, tw, th, () => this.scene.restart({ tab: t.id, page: 0 }));
     });
   }
@@ -253,6 +259,28 @@ export class CodexScene extends Phaser.Scene {
     }
     layer.add(makeButton(this, W / 2, Math.min(H - 60, y + 44), 'CLOSE', close, { width: 220, height: 56, fontSize: 22, armDelayMs: 200 }));
     this.input.keyboard?.once('keydown-ESC', close);
+  }
+
+  // ───────────────────────── 実績 ─────────────────────────
+
+  /** 実績の一覧（1ページ 10個）。解除済みは金色、未解除は薄く。条件は全部見せる */
+  private drawAchievements(save: SaveData, area: Area): TabResult {
+    const per = 10;
+    const pages = Math.max(1, Math.ceil(ACHIEVEMENTS.length / per));
+    this.page = Phaser.Math.Clamp(this.page, 0, pages - 1);
+    const list = ACHIEVEMENTS.slice(this.page * per, this.page * per + per);
+    const rowH = Math.min(64, Math.floor(area.h / per));
+    let y = area.y;
+    for (const a of list) {
+      const got = save.achievements.includes(a.id);
+      const color = got ? 0xffd700 : 0x3a4a8a;
+      uiPanel(this, area.x, y, area.w, rowH - 8, { color, alpha: 0.92, strokeAlpha: got ? 0.8 : 0.4, cut: 12 });
+      this.add.text(area.x + 20, y + 8, got ? '★' : '☆', { fontFamily: FONT_EN, fontSize: '22px', color: got ? COLOR_HEX.gold : '#5A6488' });
+      this.add.text(area.x + 50, y + 6, a.name, { fontFamily: FONT_JP, fontSize: '20px', color: got ? COLOR_HEX.white : '#8A94B8', fontStyle: '700' });
+      this.add.text(area.x + 50, y + 32, a.desc, { fontFamily: FONT_JP, fontSize: '13px', color: COLOR_HEX.dim }).setCrop(0, 0, area.w - 70, 18);
+      y += rowH;
+    }
+    return { found: save.achievements.length, total: ACHIEVEMENTS.length, pages };
   }
 
   // ───────────────────────── ネミノクス ─────────────────────────

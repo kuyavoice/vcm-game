@@ -12,7 +12,7 @@ export const ENDLESS_AVAILABLE = true;
 /** いま、ステージ選択に出してよいか */
 export function isEndlessShown(): boolean {
   if (ENDLESS_AVAILABLE) return true;
-  return typeof location !== 'undefined' && /[?&](endless|debug)(?:[&=]|$)/.test(location.search);
+  return typeof location !== 'undefined' && /[?&](endless|debug|judge)(?:[&=]|$)/.test(location.search);
 }
 
 /** 1周目（0:00〜20:00）。最初はビルドを組む時間 */

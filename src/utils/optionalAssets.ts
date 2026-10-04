@@ -8,7 +8,7 @@ import { CODEX_ENEMIES, bestiaryKey, bestiaryFile } from '../data/codex';
 export const OPTIONAL_IMAGES: Record<string, string> = {
   // タイトルのキービジュアル（1024×1536・ロゴ入り）。無ければ文字だけのタイトル
   title_kv: 'assets/images/title_kv.webp',
-  luna_chibi: 'assets/images/luna_chibi.png',
+  luna_chibi: 'assets/images/luna_chibi.webp',
   // 宝箱の画面のルナ（4コマ横並び：0 通常／1 瞬き／2・3 大当たり）。無ければ luna_chibi
   luna_chest: 'assets/images/luna_chest.webp',
   // 宝箱の画面の宝箱（6コマ横並び：1・2 閉じた箱／3 開く途中／4 開いた／5・6 大当たり）。無ければドット絵の item_chest
@@ -52,7 +52,8 @@ for (const g of GALLERY) OPTIONAL_IMAGES[galleryKey(g.id)] = g.file;
 for (const e of CODEX_ENEMIES) if (e.art) OPTIONAL_IMAGES[bestiaryKey(e.id)] = bestiaryFile(e.id);
 
 /** 起動時に読まず、使う場面で読む画像（キーの接頭辞） */
-export const LAZY_IMAGE_PREFIXES = ['victory_', 'gameover_', 'gal_', 'best_', 'cutin_'];
+// luna_ と chest_ は宝箱の画面と初回の案内でしか使わないので、ゲーム開始時に読む（2026-10-05）
+export const LAZY_IMAGE_PREFIXES = ['victory_', 'gameover_', 'gal_', 'best_', 'cutin_', 'luna_', 'chest_'];
 export const isLazyImage = (key: string) => LAZY_IMAGE_PREFIXES.some((p) => key.startsWith(p));
 
 const available = new Set<string>();

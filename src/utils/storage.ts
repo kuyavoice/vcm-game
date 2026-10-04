@@ -49,6 +49,8 @@ export interface SaveData {
   tutorialDone: boolean;
   /** 初回起動の「光の点滅について」を閉じた */
   flashNoticeShown: boolean;
+  /** 解除した実績のID（data/achievements.ts） */
+  achievements: string[];
 }
 
 const DEFAULT: SaveData = {
@@ -74,6 +76,7 @@ const DEFAULT: SaveData = {
   bestiary: null,
   tutorialDone: false,
   flashNoticeShown: false,
+  achievements: [],
 };
 
 export function loadSave(): SaveData {
@@ -102,6 +105,7 @@ export function loadSave(): SaveData {
       gallery: [...(parsed.gallery ?? [])],
       music: [...(parsed.music ?? [])],
       bestiary: parsed.bestiary ? [...parsed.bestiary] : null,
+      achievements: [...(parsed.achievements ?? [])],
     };
     // 旧形式の移行：best → bests[1]
     if (data.best && !data.bests['1']) {

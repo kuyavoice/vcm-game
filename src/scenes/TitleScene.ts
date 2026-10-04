@@ -8,7 +8,7 @@ import { AudioBus } from '../utils/audio';
 import { makeButton } from '../ui/Button';
 import { go, panel } from '../ui/theme';
 import { t } from '../utils/lang';
-import { visibleCharacters } from '../utils/unlock';
+import { visibleCharacters, isJudge } from '../utils/unlock';
 
 /** タイトルコールは起動ごとに1回 */
 let titleCalled = false;
@@ -95,6 +95,11 @@ export class TitleScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const sv = loadSave();
+    if (isJudge()) {
+      this.add.text(W / 2, tapY + 112, t('JUDGE MODE ― 全ステージ・全キャラを解放して遊べます（記録は保存されません）', 'JUDGE MODE - all stages and characters are open (nothing is saved)'), {
+        fontFamily: FONT_JP, fontSize: '15px', color: '#00FF88', stroke: '#060913', strokeThickness: 4,
+      }).setOrigin(0.5);
+    }
     // タイトルコール：解放済みの操作キャラからランダムで1人（隠しキャラは解放後だけ候補）
     if (!titleCalled) {
       const cands = visibleCharacters(sv).filter((id) => AudioBus.hasVoice(id, 'title'));

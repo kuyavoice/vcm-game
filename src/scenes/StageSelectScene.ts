@@ -13,6 +13,7 @@ import { SelectGuard } from '../ui/SelectGuard';
 import { makeButton } from '../ui/Button';
 import { go, wipeIn, panel } from '../ui/theme';
 import { t } from '../utils/lang';
+import { isJudge } from '../utils/unlock';
 import { AudioBus } from '../utils/audio';
 
 /** ステージ選択（タイトル → ここ → ゲーム）。前ステージのクリアで解放 */
@@ -51,7 +52,8 @@ export class StageSelectScene extends Phaser.Scene {
     // 解放の条件：スコアアタックは全ステージのクリア。ほかは、決まったステージのクリア
     // `?debug` のときは、エンドレスを解放済みとして扱う（本当に解放していなければ、記録は保存しない。GameScene 側）
     const debug = /[?&]debug(?:[&=]|$)/.test(location.search);
-    const isOpen = (st: StageDef) => (st.endless && debug) || (st.scoreMode && !st.endless ? STAGES.every((x) => save.cleared.includes(x.id)) : isStageUnlocked(save, st.unlockAfter));
+    // 審査モード（?judge）は全部開く（記録は保存しない。GameScene 側）
+    const isOpen = (st: StageDef) => isJudge() || (st.endless && debug) || (st.scoreMode && !st.endless ? STAGES.every((x) => save.cleared.includes(x.id)) : isStageUnlocked(save, st.unlockAfter));
     // 5枚のときは、見出しと下のボタンの間に収まる高さに詰める
     const compact = allStages.length > 4;
     const gap = allStages.length >= 7 ? 10 : compact ? 12 : 16;

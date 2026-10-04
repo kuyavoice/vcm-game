@@ -14,7 +14,7 @@ import { ITEMS, PICKUPS, type PickupKind } from '../data/items';
 import { Player } from '../entities/Player';
 import { Enemy, type Hazard } from '../entities/Enemy';
 import { ensureDamageFont } from '../utils/textures';
-import { isCharacterOwned } from '../utils/unlock';
+import { isCharacterOwned, isJudge } from '../utils/unlock';
 import { Bullet, EnemyBullet, type BulletOpts } from '../entities/Bullet';
 import { Pickup } from '../entities/Pickup';
 import { SpatialHash } from '../systems/SpatialHash';
@@ -67,6 +67,10 @@ export class GameScene extends Phaser.Scene {
   private realNow = 0;
   /** 最後のボスを倒したあと、リザルトへ行く実時間（撃破の余韻を見せてから） */
   private finishAt = 0;
+  /** 実績の判定用の回数（1プレイ） */
+  private runFullMoons = 0;
+  private runSpecials = 0;
+  private runChests = 0;
   /** 必殺のカットインを最後に出した実時間（0＝このプレイではまだ）。オプション CUT-IN の判定に使う */
   private cutInLastAt = 0;
   private spawner!: Spawner;
@@ -172,6 +176,9 @@ export class GameScene extends Phaser.Scene {
     this.slowMoUntil = 0;
     this.finishAt = 0;
     this.cutInLastAt = 0;
+    this.runFullMoons = 0;
+    this.runSpecials = 0;
+    this.runChests = 0;
     this.tutStep = 0;
     this.tutMoved = 0;
     this.kills = 0;
@@ -378,7 +385,7 @@ export class GameScene extends Phaser.Scene {
     // 必殺カットインの絵（縦・横）：操作キャラのぶんだけ、ここで読む（起動時に全員ぶん読まない）
     {
       let queued = false;
-      for (const k of [`cutin_${this.characterId}`, `cutin_${this.characterId}_wide`]) {
+      for (const k of [`cutin_${this.characterId}`, `cutin_${this.characterId}_wide`, 'luna_chest', 'luna_chibi', 'chest_box']) {
         if (hasOptionalImage(k) && !this.textures.exists(k)) { this.load.image(k, OPTIONAL_IMAGES[k]); queued = true; }
       }
       if (queued && !this.load.isLoading()) this.load.start();
@@ -414,6 +421,8 @@ export class GameScene extends Phaser.Scene {
     this.events.on(Phaser.Scenes.Events.RESUME, guardResume);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.RESUME, guardResume));
     if (this.debug) this.buildDebugPanel();
+    // 審査モード（?judge）：全部解放して遊べるぶん、記録・エール・実績は保存しない
+    if (isJudge()) this.debugUsed = true;
     // `?debug` の仮の解放で選んだキャラは、確認用のプレイとして扱う（記録・エールを保存しない）
     if (this.debug && !isCharacterOwned(this.characterId, loadSave())) this.debugUsed = true;
     // `?debug` で、解放していないエンドレスに入ったときも同じ
@@ -3604,6 +3613,7 @@ export class GameScene extends Phaser.Scene {
 
   private startFullMoon(): void {
     this.fullMoon = true;
+    this.runFullMoons++;
     this.vo('fullmoon');
     this.enemySpeedMul = this.stage.enemySpeedMul * CONFIG.fullMoon.enemySpeedMul;
     this.xp.xpMul = this.stage.xpMul * CONFIG.fullMoon.xpMul;
@@ -3704,6 +3714,7 @@ export class GameScene extends Phaser.Scene {
     const def = this.player.def;
     const sp = SPECIALS[def.special.id];
     this.soulGauge = 0;
+    this.runSpecials++;
     this.soulUntil = this.ctx.now + sp.durationSec * 1000;
     this.specialHost = { state: {} };
     this.specialRunning = true;
@@ -3807,7 +3818,7 @@ export class GameScene extends Phaser.Scene {
     }
     const data: ChestData = {
       characterId: this.characterId,
-      open: () => this.up.openChest(this.up.stats.luckMul),
+      open: () => { this.runChests++; return this.up.openChest(this.up.stats.luckMul); },
       onClose: (r: ChestResult) => {
         const p = this.player;
         p.maxHp = Math.round(p.def.hp * p.def.traits.maxHpMul * this.up.stats.maxHpMul) + this.up.stats.maxHpBonus;
@@ -3871,6 +3882,9 @@ export class GameScene extends Phaser.Scene {
       main: { name: this.up.main.name, level: this.up.main.level, color: this.up.main.def.color },
       passives: [...this.up.passives].map(([id, lv]) => ({ name: PASSIVES[id].name, level: lv, color: PASSIVES[id].color })),
       debug: this.debugUsed,
+      fullMoons: this.runFullMoons,
+      specials: this.runSpecials,
+      chests: this.runChests,
       rush: this.stage.rush ? { loopTimes: this.rush.loopTimes, loop: this.rush.loop, bossTimes: this.rush.bossTimes, bossesDefeated: this.rush.bossesDefeated, arts: this.rushArts, supports: this.rushSupports } : undefined,
     };
     if (!cleared) {

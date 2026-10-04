@@ -5,6 +5,7 @@ import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { makeButton } from '../ui/Button';
 import { go, wipeIn, panel as uiPanel, stagger } from '../ui/theme';
 import { t } from '../utils/lang';
+import { unlockAchievements, type AchievementDef } from '../data/achievements';
 import { loadSave, writeSave } from '../utils/storage';
 import { AudioBus } from '../utils/audio';
 import { renderShareCard, shareOrDownload, buildPostText, openXPost } from '../utils/shareCard';
@@ -37,6 +38,10 @@ export interface RunResult {
   passives?: { name: string; level: number; color: number }[];
   /** デバッグ操作を使ったプレイ（記録・エールを保存しない） */
   debug?: boolean;
+  /** 実績の判定用：満月を越えた回数・必殺を使った回数・宝箱を開けた回数 */
+  fullMoons?: number;
+  specials?: number;
+  chests?: number;
   /** ボスラッシュ：周ごとのクリア時間・到達した周・ボスごとの撃破時刻・倒したボスの数・選んだアーツ */
   rush?: { loopTimes: number[]; loop: number; bossTimes: { name: string; sec: number; loop: number }[]; bossesDefeated: number; arts: string[]; supports?: string[] };
 }
@@ -157,8 +162,11 @@ export class ResultScene extends Phaser.Scene {
         unlocked = '特別なイラストが解放されました';
       }
     }
+    // 実績（保存し終えた状態で判定。デバッグ・審査モードは解除しない）
+    let gotAchievements: AchievementDef[] = [];
     if (!r.debug) {
       save.totalYell += r.yell;
+      gotAchievements = unlockAchievements(r, save);
       writeSave(save);
       // 隠しキャラ：スコアアタックで強化版の黒騎士を倒すと解放。ここでは何も表示しない（出現はキャラ選択画面で）
       if (stage.scoreMode && r.cleared) unlockSecret('shion');
@@ -332,6 +340,16 @@ export class ResultScene extends Phaser.Scene {
       else go(this, 'Game', { characterId: r.characterId, stageId: stage.id });
     }, { primary: true });
     const btnSel = makeButton(this, W / 2, H * 0.80 + 222, 'STAGE SELECT', () => go(this, 'StageSelect'));
+    // 解除した実績：左上に小さな札を順に出す（1.4秒後から 0.5秒おき。4秒で消える）
+    gotAchievements.forEach((a, i) => {
+      const ty = H * 0.10 + 150 + i * 46;
+      const tag = this.add.container(-260, ty).setDepth(50);
+      tag.add(uiPanel(this, 0, -18, 250, 36, { color: 0xffd700, alpha: 0.96, strokeAlpha: 0.9, cut: 10 }).gfx);
+      tag.add(this.add.text(14, 0, `${t('実績解除', 'ACHIEVEMENT')}　${a.name}`, { fontFamily: FONT_JP, fontSize: '15px', color: COLOR_HEX.gold, fontStyle: '700' }).setOrigin(0, 0.5));
+      this.tweens.add({ targets: tag, x: 16, duration: 260, delay: 1400 + i * 500, ease: 'Cubic.out' });
+      this.tweens.add({ targets: tag, alpha: 0, duration: 300, delay: 1400 + i * 500 + 4000, onComplete: () => tag.destroy() });
+      if (i === 0) this.time.delayedCall(1400, () => AudioBus.play('se_item', 0));
+    });
     // ボタンは、数字が出そろってから順に
     stagger(this, [btnSave, btnPost, btnRetry, btnSel], { delay: 700, step: 70 });
 
