@@ -3714,7 +3714,8 @@ export class GameScene extends Phaser.Scene {
       if (shown) this.cutInLastAt = Math.max(1, this.realNow);
     }
     if (!shown) this.hud.banner(def.special.name, Phaser.Display.Color.IntegerToColor(def.color).rgba, 36);
-    screenFlash(this, 300, 135, 206, 235);
+    // カットインを出すときは画面全体の光は出さない（カットイン自身の白いフラッシュがあり、重ねると帯が白飛びする）
+    if (!shown) screenFlash(this, 300, 135, 206, 235);
     AudioBus.play('se_special');
     this.vo('special');
   }

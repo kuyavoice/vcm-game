@@ -19,6 +19,12 @@ export const OPTIONAL_IMAGES: Record<string, string> = {
   portrait_yukihito: 'assets/images/portrait/yukihito_portrait.png',
   portrait_ritsuka: 'assets/images/portrait/ritsuka_portrait.png',
   portrait_shion: 'assets/images/portrait/shion_portrait.png',
+  // 必殺カットイン用の絵（透過・1200×1000程度・バストアップ・左向き）。無ければ立ち絵（standing_）を上半身だけ出す
+  cutin_kuya: 'assets/images/cutin/kuya_cutin.webp',
+  cutin_mizuho: 'assets/images/cutin/mizuho_cutin.webp',
+  cutin_yukihito: 'assets/images/cutin/yukihito_cutin.webp',
+  cutin_ritsuka: 'assets/images/cutin/ritsuka_cutin.webp',
+  cutin_shion: 'assets/images/cutin/shion_cutin.webp',
   // クリア時の勝利立ち絵（透過・1024×1536）。起動時には読まず、リザルトで必要な1枚だけ読む。無ければ通常の立ち絵
   victory_kuya: 'assets/images/victory/kuya_victory.webp',
   victory_mizuho: 'assets/images/victory/mizuho_victory.webp',
