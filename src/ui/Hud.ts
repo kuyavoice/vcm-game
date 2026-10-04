@@ -29,6 +29,8 @@ export class Hud {
   private scoreText: Phaser.GameObjects.Text;
   private pauseBtn: Phaser.GameObjects.Container;
   private speedBtn: Phaser.GameObjects.Container;
+  private muteBtn: Phaser.GameObjects.Container;
+  private muteText: Phaser.GameObjects.Text;
   private speedText: Phaser.GameObjects.Text;
   private soulBtn: Phaser.GameObjects.Container;
   private soulGfx: Phaser.GameObjects.Graphics;
@@ -44,7 +46,7 @@ export class Hud {
   private h = 1280;
   readonly soulRadius = 58;
 
-  constructor(private scene: Phaser.Scene, onPause: () => void, onSoul: () => void, onSpeed: () => void) {
+  constructor(private scene: Phaser.Scene, onPause: () => void, onSoul: () => void, onSpeed: () => void, onMute: () => void) {
     this.container = scene.add.container(0, 0).setDepth(100);
     this.bars = scene.add.graphics();
     this.arrows = scene.add.graphics().setDepth(99).setScrollFactor(0);
@@ -78,6 +80,15 @@ export class Hud {
       onSpeed();
     });
 
+    // 消音ボタン（2026-10-05）：人前ですぐ消せるように。保存はしない
+    const mbg = scene.add.rectangle(0, 0, 48, 44, 0x111a3a, 0.9).setStrokeStyle(2, 0x87ceeb, 0.6);
+    this.muteText = scene.add.text(0, 0, '♪', en(22)).setOrigin(0.5);
+    this.muteBtn = scene.add.container(0, 0, [mbg, this.muteText]);
+    mbg.setInteractive({ useHandCursor: true }).on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, ev: Phaser.Types.Input.EventData) => {
+      ev.stopPropagation();
+      onMute();
+    });
+
     // 必殺ボタン『魂の共鳴』（右下・親指の届く位置）
     this.soulGfx = scene.add.graphics();
     this.soulLabel = scene.add.text(0, 0, '共鳴', { fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.white, fontStyle: '700' }).setOrigin(0.5);
@@ -95,7 +106,7 @@ export class Hud {
       onSoul();
     });
 
-    this.container.add([this.bars, this.timeText, this.killText, this.yellText, this.lvText, this.hpText, this.bandText, this.bossText, this.debugText, this.scoreText, this.pauseBtn, this.speedBtn, this.soulBtn]);
+    this.container.add([this.bars, this.timeText, this.killText, this.yellText, this.lvText, this.hpText, this.bandText, this.bossText, this.debugText, this.scoreText, this.pauseBtn, this.speedBtn, this.muteBtn, this.soulBtn]);
     // 入力の当たり判定は子要素自身の scrollFactor を見るので、入れ子の末端まで 0 を設定する
     const fix = (obj: Phaser.GameObjects.GameObject) => {
       (obj as unknown as Phaser.GameObjects.Components.ScrollFactor).setScrollFactor?.(0);
@@ -130,7 +141,13 @@ export class Hud {
     this.scoreText.setPosition(this.w - 24, t + 64);
     this.pauseBtn.setPosition(this.w - 24 - 28, t + 100);
     this.speedBtn.setPosition(this.w - 24 - 56 - 10 - 36, t + 100);
+    this.muteBtn.setPosition(this.w - 24 - 56 - 10 - 72 - 10 - 24, t + 100);
     this.soulBtn.setPosition(this.specialSide === 'left' ? 24 + this.soulRadius : this.w - 24 - this.soulRadius, this.h - this.bottom - this.soulRadius);
+  }
+
+  /** 消音の表示（♪＝鳴っている／✕＝消音中） */
+  setMuted(on: boolean): void {
+    this.muteText.setText(on ? '✕' : '♪').setColor(on ? COLOR_HEX.danger : COLOR_HEX.white);
   }
 
   /** 必殺ボタンを左右どちらに置くか */

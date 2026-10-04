@@ -3,10 +3,10 @@ import { visibleGallery } from './GalleryScene';
 import { visibleMusic } from './MusicScene';
 import { getSafeInsets } from '../utils/safeArea';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
-import { loadSave } from '../utils/storage';
+import { loadSave, writeSave } from '../utils/storage';
 import { AudioBus } from '../utils/audio';
 import { makeButton } from '../ui/Button';
-import { go } from '../ui/theme';
+import { go, panel } from '../ui/theme';
 import { visibleCharacters } from '../utils/unlock';
 
 /** タイトルコールは起動ごとに1回 */
@@ -142,9 +142,10 @@ export class TitleScene extends Phaser.Scene {
 
     // フッター：位置づけ／AI利用の表記（ポータルと同じ文言）／コピーライト。ホームバーなどのセーフエリア分だけ上げる
     if (kv) {
-      this.add.text(W / 2, H - 46 - fb, 'ファンゲーム（IF・お祭り枠）　画像・楽曲等の一部制作にAI技術を活用しています。', {
+      const credit = this.add.text(W / 2, H - 46 - fb, 'ファンゲーム（IF・お祭り枠）　画像・楽曲等の一部制作にAI技術を活用しています。　CREDITS ▸', {
         fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.dim,
-      }).setOrigin(0.5).setAlpha(0.9);
+      }).setOrigin(0.5).setAlpha(0.9).setInteractive({ useHandCursor: true });
+      credit.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, ev: Phaser.Types.Input.EventData) => { ev.stopPropagation(); go(this, 'Credits'); });
     } else {
       this.add.text(W / 2, H - 92 - fb, 'ファンゲーム（IF・お祭り枠）', {
         fontFamily: FONT_JP, fontSize: '16px', color: COLOR_HEX.dim,
@@ -164,8 +165,43 @@ export class TitleScene extends Phaser.Scene {
       AudioBus.playBgm('bgm_title');
       go(this, 'CharaSelect');
     };
-    this.input.once('pointerdown', start);
-    this.input.keyboard?.once('keydown', start);
+    const armStart = () => {
+      this.input.once('pointerdown', start);
+      this.input.keyboard?.once('keydown', start);
+    };
+    // 初回起動：光の点滅についての注意（2026-10-05）。閉じるまで TAP TO START は効かない
+    if (!sv.flashNoticeShown) this.showFlashNotice(W, H, armStart);
+    else armStart();
+  }
+
+  /** 初回起動の注意：画面の点滅がある旨と、オプションで弱くできること。「弱くする」を押せばその場で soft に */
+  private showFlashNotice(W: number, H: number, onClose: () => void): void {
+    const layer = this.add.container(0, 0).setDepth(60);
+    const shade = this.add.rectangle(0, 0, W, H, 0x020308, 0.82).setOrigin(0).setInteractive();
+    shade.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, ev: Phaser.Types.Input.EventData) => ev.stopPropagation());
+    const pw = Math.min(560, W - 48);
+    const ph = 300;
+    const px = (W - pw) / 2;
+    const py = H / 2 - ph / 2;
+    layer.add([shade, panel(this, px, py, pw, ph, { color: 0xffd700, alpha: 0.98, strokeAlpha: 0.8 }).gfx]);
+    layer.add(this.add.text(W / 2, py + 34, '光の点滅について', { fontFamily: FONT_JP, fontSize: '26px', color: COLOR_HEX.gold, fontStyle: '700' }).setOrigin(0.5));
+    layer.add(this.add.text(W / 2, py + 112, 'このゲームには、画面が白く光る演出（被弾・必殺・撃破）があります。\nまぶしく感じる場合は、オプションの HIT FLASH／SCREEN FLASH で弱くできます。', {
+      fontFamily: FONT_JP, fontSize: '17px', color: COLOR_HEX.white, align: 'center', lineSpacing: 8, wordWrap: { width: pw - 48, useAdvancedWrap: true },
+    }).setOrigin(0.5));
+    const close = (soft: boolean) => {
+      const save = loadSave();
+      save.flashNoticeShown = true;
+      if (soft) {
+        save.settings.hitFlash = 'soft';
+        save.settings.screenFlash = 'soft';
+      }
+      writeSave(save);
+      layer.destroy();
+      // 閉じたタップで TAP TO START が反応しないよう、少し待ってから待ち受ける
+      this.time.delayedCall(250, onClose);
+    };
+    layer.add(makeButton(this, W / 2 - 120, py + ph - 56, 'このまま', () => close(false), { width: 220, height: 56, fontSize: 20, primary: true, armDelayMs: 300 }));
+    layer.add(makeButton(this, W / 2 + 120, py + ph - 56, '弱くする', () => close(true), { width: 220, height: 56, fontSize: 20, armDelayMs: 300 }));
   }
 
   /**

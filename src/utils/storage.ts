@@ -47,6 +47,8 @@ export interface SaveData {
   bestiary: string[] | null;
   /** 初回プレイの案内を見た（STAGE 1 を一度でも始めたら true） */
   tutorialDone: boolean;
+  /** 初回起動の「光の点滅について」を閉じた */
+  flashNoticeShown: boolean;
 }
 
 const DEFAULT: SaveData = {
@@ -71,6 +73,7 @@ const DEFAULT: SaveData = {
   music: [],
   bestiary: null,
   tutorialDone: false,
+  flashNoticeShown: false,
 };
 
 export function loadSave(): SaveData {

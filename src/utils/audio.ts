@@ -159,6 +159,18 @@ class AudioBusImpl {
   /** 読み込み中のキーと、読み終わったら鳴らすか */
   private voiceLoading = new Set<string>();
 
+  /** 全体の消音（HUD のボタン。保存しない。会場や人前ですぐ消せるように） */
+  setMuted(on: boolean): void {
+    this.isMuted = on;
+    if (this.game) this.game.sound.mute = on;
+  }
+
+  /** 自前で持つ（game.sound.mute の読み値は WebAudio の gain の反映待ちで1拍遅れることがある） */
+  get muted(): boolean {
+    return this.isMuted;
+  }
+  private isMuted = false;
+
   /** そのキャラのボイスを先に読んでおく（ゲーム開始時）。無いキャラなら何もしない */
   preloadVoices(characterId: string, scene: Phaser.Scene): void {
     const files = voiceFilesOf(characterId);
