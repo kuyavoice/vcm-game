@@ -5,7 +5,7 @@ import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, writeSave } from '../utils/storage';
 import { SelectGuard } from '../ui/SelectGuard';
 import { makeButton } from '../ui/Button';
-import { go, wipeIn, panel } from '../ui/theme';
+import { go, wipeIn, panel, UI, type Panel } from '../ui/theme';
 import { portraitKey, PORTRAITS } from '../data/portraits';
 import { AudioBus } from '../utils/audio';
 import { clearNewBadge, hasNewBadge, isCharacterUnlocked, isSecretPending, markSecretShown, resolveCharacter, visibleCharacters } from '../utils/unlock';
@@ -45,7 +45,8 @@ export class CharaSelectScene extends Phaser.Scene {
     // 5人以上を並べるときは、カードを少し詰める
     const compact = order.length >= 5;
     const cardW = Math.min(640, W - 40);
-    const cardH = compact ? 126 : 150;
+    // 2026-10-05 磨き B：カードは1行（名前・クラス・HP/SPD/ATK のゲージ）。選んだキャラの詳しい説明は立ち絵の下に出す
+    const cardH = compact ? 96 : 108;
     const gap = compact ? 10 : 14;
     const total = order.length * cardH + (order.length - 1) * gap;
     const buttonsY = H - Math.max(90, H * 0.08);
@@ -58,22 +59,65 @@ export class CharaSelectScene extends Phaser.Scene {
 
     // 選択中キャラのドット立ち絵（`assets/images/portrait/{id}_portrait.png`、置けば表示）
     const avail = cardsTop - headerBottom - 24;
-    const portrait = this.add.image(W / 2, headerBottom + avail / 2, '__DEFAULT').setVisible(false);
-    const showPortrait = (id: string) => {
+    const picH = avail - 44;
+    const portrait = this.add.image(W / 2, headerBottom + picH / 2, '__DEFAULT').setVisible(false);
+    // 選んだキャラの説明（武器・必殺・特性）。立ち絵の下
+    const detail = this.add.text(W / 2, cardsTop - 26, '', {
+      fontFamily: FONT_JP, fontSize: '15px', color: COLOR_HEX.white, align: 'center', lineSpacing: 4, wordWrap: { width: Math.min(640, W - 40), useAdvancedWrap: true },
+    }).setOrigin(0.5, 1);
+    const showDetail = (id: string) => {
+      const def = CHARACTERS[id];
+      const weapon = WEAPONS[def.startWeapon];
+      detail.setText(isCharacterUnlocked(id, save) ? `武器『${weapon.name}』／必殺『${def.special.name}』\n特性：${def.traits.desc}` : `★ ${def.unlockYell} エールで解放`);
+    };
+    const setPortrait = (id: string) => {
       const key = `portrait_${id}`;
       if (!this.textures.exists(key)) { portrait.setVisible(false); return; }
       portrait.setTexture(key);
-      const sc = portrait.height * 3 <= avail ? 3 : 2; // 3倍の整数倍。狭ければ2倍。最近傍は pixelArt 設定で全体に効く
+      // 4倍まで（整数倍。最近傍は pixelArt 設定で全体に効く）。狭ければ 3倍 → 2倍
+      const sc = portrait.height * 4 <= picH ? 4 : portrait.height * 3 <= picH ? 3 : 2;
       portrait.setScale(sc).setVisible(true);
     };
+    let wiping = false;
+    /** 立ち絵の切り替え：斜めの覆いが立ち絵の範囲を左から右へ走り、隠れた瞬間に絵を替える */
+    const showPortrait = (id: string, animate = false) => {
+      showDetail(id);
+      if (!animate || wiping) { setPortrait(id); return; }
+      wiping = true;
+      const k = 60;
+      const y0 = headerBottom - 10;
+      const h = avail + 10;
+      const g = this.add.graphics().setDepth(5);
+      g.fillStyle(0x060913, 0.96);
+      g.fillPoints([new Phaser.Math.Vector2(k, y0), new Phaser.Math.Vector2(W + k * 2, y0), new Phaser.Math.Vector2(W + k, y0 + h), new Phaser.Math.Vector2(0, y0 + h)], true);
+      g.fillStyle(CHARACTERS[id].color, 1);
+      g.fillPoints([new Phaser.Math.Vector2(k - 8, y0), new Phaser.Math.Vector2(k, y0), new Phaser.Math.Vector2(0, y0 + h), new Phaser.Math.Vector2(-8, y0 + h)], true);
+      g.fillPoints([new Phaser.Math.Vector2(W + k * 2, y0), new Phaser.Math.Vector2(W + k * 2 + 8, y0), new Phaser.Math.Vector2(W + k + 8, y0 + h), new Phaser.Math.Vector2(W + k, y0 + h)], true);
+      g.setX(-(W + k * 2) - 10);
+      this.tweens.add({ targets: g, x: 0, duration: 110, ease: 'Cubic.in', onComplete: () => {
+        setPortrait(id);
+        this.tweens.add({ targets: g, x: W + k * 2 + 10, duration: 150, ease: 'Cubic.out', onComplete: () => { g.destroy(); wiping = false; } });
+      } });
+    };
     // 出現演出がまだの隠しキャラが選択中でも、演出が終わるまでは立ち絵を出さない
-    showPortrait(isSecretPending(selected, save) ? order[0] : selected);
+    let current = isSecretPending(selected, save) ? order[0] : selected;
+    showPortrait(current);
+    const cards = new Map<string, Panel>();
+    const markSelected = () => {
+      for (const [id, p] of cards) {
+        const on = id === current;
+        const def = CHARACTERS[id];
+        const unlocked = isCharacterUnlocked(id, save);
+        p.redraw({ stroke: on ? 0xffffff : unlocked ? def.color : UI.dim, strokeAlpha: on ? 1 : unlocked ? 0.9 : 0.5, strokeWidth: on ? 3 : 2 });
+      }
+    };
 
     order.forEach((id, i) => {
       const def = CHARACTERS[id];
       const unlocked = isCharacterUnlocked(id, save);
       const pending = !!def.secret && isSecretPending(id, save);
       const cont = this.buildCard(def, unlocked, cardW, cardH, compact, hasNewBadge(id, save));
+      cards.set(id, cont.getData('panel') as Panel);
       const hit = cont.getByName('hit') as Phaser.GameObjects.Rectangle;
       let ready = !pending;
       if (pending) {
@@ -89,16 +133,27 @@ export class CharaSelectScene extends Phaser.Scene {
       hit.on('pointerdown', () => {
         if (!ready) return;
         guard.press(hit);
-        if (guard.armed) { cont.setScale(0.98); if (unlocked) showPortrait(id); }
+        if (guard.armed) cont.setScale(0.98);
       });
       hit.on('pointerup', () => {
         cont.setScale(1);
         if (!ready || !guard.release(hit)) return;
-        if (unlocked) this.choose(id);
-        else go(this, 'Shop');
+        if (!unlocked) { go(this, 'Shop'); return; }
+        if (id === current) { this.choose(id); return; }
+        // 1回目：選ぶ（立ち絵が斜めワイプで替わる）。もう一度タップで決定
+        current = id;
+        const sv = loadSave();
+        sv.settings.character = id;
+        writeSave(sv);
+        AudioBus.play('se_item', 60);
+        showPortrait(id, true);
+        markSelected();
       });
       y += cardH + gap;
     });
+
+    markSelected();
+    this.add.text(W / 2, cardsTop + total + 14, '選択中のカードをもう一度タップで決定', { fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.dim }).setOrigin(0.5, 0);
 
     const by = buttonsY;
     makeButton(this, W / 2 - 140, by, 'TITLE', () => go(this, 'Title'), { width: 240, height: 60, fontSize: 24 });
@@ -154,16 +209,19 @@ export class CharaSelectScene extends Phaser.Scene {
     });
   }
 
+  /** カード（1行）：顔／クラス・名前／右に HP・SPD・ATK のゲージ。選択中の枠は create() 側が redraw で白くする */
   private buildCard(def: CharacterDef, unlocked: boolean, cardW: number, cardH: number, compact = false, isNew = false): Phaser.GameObjects.Container {
     const cont = this.add.container(0, 0);
     const color = unlocked ? def.color : 0x3a4a8a;
-    cont.add(panel(this, -cardW / 2, -cardH / 2, cardW, cardH, { color, alpha: 1, strokeAlpha: unlocked ? 0.9 : 0.5, stripe: 10, shadow: true }).gfx);
+    const p = panel(this, -cardW / 2, -cardH / 2, cardW, cardH, { color, alpha: 1, strokeAlpha: unlocked ? 0.9 : 0.5, stripe: 8, shadow: true, wedge: 90 });
+    cont.add(p.gfx);
+    cont.setData('panel', p);
 
     // 顔（円マスク）
     const faceId = PORTRAITS[def.name];
     const key = faceId ? portraitKey(faceId) : '';
-    const r = compact ? 46 : 52;
-    const fx = -cardW / 2 + 28 + 56;
+    const r = compact ? 32 : 36;
+    const fx = -cardW / 2 + 24 + r;
     if (key && this.textures.exists(key)) {
       const face = this.add.image(fx, 0, key).setDisplaySize(r * 2.2, r * 2.2);
       if (!unlocked) face.setTint(0x334466).setAlpha(0.6);
@@ -183,41 +241,50 @@ export class CharaSelectScene extends Phaser.Scene {
     }
 
     const top = -cardH / 2;
-    const tx = -cardW / 2 + 28 + 56 * 2 + 24;
-    const role = this.add.text(tx, top + (compact ? 10 : 16), `${def.role}`, {
-      fontFamily: FONT_JP, fontSize: '16px', color: unlocked ? Phaser.Display.Color.IntegerToColor(def.color).rgba : COLOR_HEX.dim, fontStyle: '700',
+    const tx = fx + r + 16;
+    const role = this.add.text(tx, top + (compact ? 12 : 16), def.role, {
+      fontFamily: FONT_JP, fontSize: '14px', color: unlocked ? Phaser.Display.Color.IntegerToColor(def.color).rgba : COLOR_HEX.dim, fontStyle: '700',
     });
-    const name = this.add.text(tx, top + (compact ? 30 : 38), def.name, {
-      fontFamily: FONT_JP, fontSize: compact ? '28px' : '30px', color: unlocked ? COLOR_HEX.white : '#5A6488', fontStyle: '700',
+    const name = this.add.text(tx, top + (compact ? 32 : 38), def.name, {
+      fontFamily: FONT_JP, fontSize: compact ? '26px' : '28px', color: unlocked ? COLOR_HEX.white : '#5A6488', fontStyle: '700',
     });
     cont.add([role, name]);
 
-    if (unlocked) {
-      const weapon = WEAPONS[def.startWeapon];
-      const lines = [`武器『${weapon.name}』／必殺『${def.special.name}』`, `特性：${def.traits.desc}`];
-      const desc = this.add.text(tx, top + (compact ? 68 : 78), lines, {
-        fontFamily: FONT_JP, fontSize: compact ? '15px' : '16px', color: COLOR_HEX.white, wordWrap: { width: cardW - (tx + cardW / 2) - 20, useAdvancedWrap: true }, lineSpacing: compact ? 3 : 4,
-      });
-      const hpText = this.add.text(cardW / 2 - 18, top + (compact ? 10 : 14), `HP ${Math.round(def.hp * def.traits.maxHpMul)}  SPD ${def.speed}`, {
-        fontFamily: FONT_EN, fontSize: '15px', color: COLOR_HEX.dim, fontStyle: '700',
+    // 右：ゲージ3本（HP／SPD／ATK）。値の幅：HP 60〜140、SPD 110〜160、ATK 0.7〜1.5
+    const gx = cardW / 2 - 18 - 150;
+    const barW = 110;
+    const hp = Math.round(def.hp * def.traits.maxHpMul);
+    const atk = def.traits.damageMul + def.traits.resonanceArtsPower * 0.6 + (def.traits.meleePower - 1) * 0.5;
+    const gauges: [string, number][] = [
+      ['HP', Phaser.Math.Clamp((hp - 60) / 80, 0.08, 1)],
+      ['SPD', Phaser.Math.Clamp((def.speed - 110) / 50, 0.08, 1)],
+      ['ATK', Phaser.Math.Clamp((atk - 0.7) / 0.8, 0.08, 1)],
+    ];
+    const gh = compact ? 22 : 24;
+    const gy0 = -((gauges.length - 1) * gh) / 2;
+    const bars = this.add.graphics();
+    gauges.forEach(([label, ratio], i) => {
+      const y = gy0 + i * gh;
+      cont.add(this.add.text(gx, y, label, { fontFamily: FONT_EN, fontSize: '12px', color: COLOR_HEX.dim, fontStyle: '700', letterSpacing: 1 }).setOrigin(0, 0.5));
+      bars.fillStyle(0x000000, 0.45);
+      bars.fillRect(gx + 36, y - 4, barW, 8);
+      bars.fillStyle(unlocked ? def.color : 0x3a4a8a, unlocked ? 0.95 : 0.5);
+      bars.fillRect(gx + 36, y - 4, Math.round(barW * ratio), 8);
+    });
+    cont.add(bars);
+
+    if (!unlocked) {
+      const icon = this.add.text(cardW / 2 - 18, top + 10, 'LOCKED', {
+        fontFamily: FONT_EN, fontSize: '14px', color: '#5A6488', fontStyle: '700', letterSpacing: 3,
       }).setOrigin(1, 0);
-      cont.add([desc, hpText]);
-      if (isNew) {
-        // 隠しキャラの印は NEW だけ（説明や案内は出さない）
-        const badge = this.add.text(cardW / 2 - 18, top + (compact ? 32 : 38), 'NEW', {
-          fontFamily: FONT_EN, fontSize: '18px', color: '#060913', fontStyle: '700', backgroundColor: '#FFD700', padding: { x: 8, y: 2 }, letterSpacing: 2,
-        }).setOrigin(1, 0);
-        cont.add(badge);
-        this.tweens.add({ targets: badge, alpha: 0.55, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-      }
-    } else {
-      const lock = this.add.text(tx, top + (compact ? 72 : 82), `★ ${def.unlockYell} エールで解放（タップでショップへ）`, {
-        fontFamily: FONT_JP, fontSize: compact ? '17px' : '18px', color: COLOR_HEX.dim,
-      });
-      const icon = this.add.text(cardW / 2 - 18, top + (compact ? 10 : 14), 'LOCKED', {
-        fontFamily: FONT_EN, fontSize: '16px', color: '#5A6488', fontStyle: '700', letterSpacing: 3,
+      cont.add(icon);
+    } else if (isNew) {
+      // 隠しキャラの印は NEW だけ（説明や案内は出さない）
+      const badge = this.add.text(cardW / 2 - 18, top + 8, 'NEW', {
+        fontFamily: FONT_EN, fontSize: '15px', color: '#060913', fontStyle: '700', backgroundColor: '#FFD700', padding: { x: 6, y: 1 }, letterSpacing: 2,
       }).setOrigin(1, 0);
-      cont.add([lock, icon]);
+      cont.add(badge);
+      this.tweens.add({ targets: badge, alpha: 0.55, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
 
     const hit = this.add.rectangle(0, 0, cardW, cardH, 0xffffff, 0.001).setName('hit');

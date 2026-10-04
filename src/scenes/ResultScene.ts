@@ -190,9 +190,9 @@ export class ResultScene extends Phaser.Scene {
       stroke: '#060913', strokeThickness: 8,
     }).setOrigin(0.5).setScale(1.6).setAlpha(0);
     this.tweens.add({ targets: titleT, scale: 1, alpha: 1, duration: 300, delay: 140, ease: 'Back.out' });
-    const rule = this.add.rectangle(W / 2, H * 0.10 + 40, 1, 3, Phaser.Display.Color.HexStringToColor(titleColor).color, 0.9).setOrigin(0.5).setScale(0, 1);
+    const rule = this.add.rectangle(W / 2, H * 0.10 + 44, 1, 3, Phaser.Display.Color.HexStringToColor(titleColor).color, 0.9).setOrigin(0.5).setScale(0, 1);
     this.tweens.add({ targets: rule, scaleX: Math.min(W - 80, titleT.width + 60), duration: 320, delay: 380, ease: 'Cubic.out' });
-    const subT = this.add.text(W / 2, H * 0.10 + 62, sub, {
+    const subT = this.add.text(W / 2, H * 0.10 + (endless || rushTime !== null ? 78 : 70), sub, {
       fontFamily: FONT_JP, fontSize: endless || rushTime !== null ? '32px' : '26px', color: endless || rushTime !== null ? COLOR_HEX.gold : COLOR_HEX.white, fontStyle: endless || rushTime !== null ? '700' : 'normal', stroke: '#060913', strokeThickness: 6,
     }).setOrigin(0.5).setAlpha(0);
     this.tweens.add({ targets: subT, alpha: 1, y: subT.y - 4, duration: 260, delay: 480 });

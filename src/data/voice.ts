@@ -8,6 +8,14 @@ export type VoiceKind =
   | 'start' | 'evolve' | 'special' | 'levelup' | 'hit' | 'gameover' | 'clear'
   | 'title' | 'select' | 'boss' | 'fusion' | 'fullmoon' | 'pinch' | 'idle' | 'best' | 'union';
 
+/** 図鑑のボイス鑑賞での表示名と並び（2026-10-05） */
+export const VOICE_KIND_ORDER: VoiceKind[] = ['title', 'select', 'start', 'levelup', 'evolve', 'special', 'hit', 'pinch', 'boss', 'fullmoon', 'fusion', 'union', 'idle', 'clear', 'gameover', 'best'];
+export const VOICE_KIND_LABEL: Record<VoiceKind, string> = {
+  title: 'タイトルコール', select: 'キャラ選択', start: '出撃', levelup: 'レベルアップ', evolve: '進化', special: '必殺',
+  hit: '被弾', pinch: 'ピンチ', boss: 'ボス出現', fullmoon: '満月', fusion: '合体', union: '専用合体技',
+  idle: '居眠り', clear: 'クリア', gameover: 'ゲームオーバー', best: 'ベスト更新',
+};
+
 /** 優先度（大きいほど強い）。鳴っている途中に別のボイスが来たら、優先度が高い方。同じなら後から来た方を捨てる */
 export const VOICE_PRIORITY: Record<VoiceKind, number> = {
   special: 5,

@@ -230,6 +230,30 @@ class AudioBusImpl {
     return true;
   }
 
+  /**
+   * 鑑賞用の再生（図鑑のボイス一覧）。間引きと優先度を通さず、鳴っている途中でも切り替える。
+   * file は voiceFiles() が返すファイル名。まだ読んでいなければ読んでから鳴らす
+   */
+  previewVoice(characterId: string, file: string, scene: Phaser.Scene): void {
+    if (!this.game || this.volumes.voice <= 0) return;
+    const key = voiceKey(file);
+    this.voiceQueued = null;
+    this.voicePriority = 99;
+    this.voiceGain = VOICE_GAIN[characterId] ?? 1;
+    if (this.has(key)) {
+      this.startVoice(key);
+      return;
+    }
+    if (this.voiceLoading.has(key)) return;
+    this.voiceLoading.add(key);
+    scene.load.audio(key, `assets/audio/voice/${file}`);
+    scene.load.once(`filecomplete-audio-${key}`, () => {
+      this.voiceLoading.delete(key);
+      if (this.voicePriority === 99) this.startVoice(key);
+    });
+    if (!scene.load.isLoading()) scene.load.start();
+  }
+
   private startVoice(key: string): void {
     if (!this.game) return;
     this.stopVoice();

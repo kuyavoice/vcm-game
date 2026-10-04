@@ -16,6 +16,8 @@ import { ensureBestiary } from '../utils/bestiary';
 import { OPTIONAL_IMAGES, hasOptionalImage } from '../utils/optionalAssets';
 import { wrapJa } from '../utils/wrapJa';
 import { makeButton } from '../ui/Button';
+import { voiceFiles, voiceFilesOf, VOICE_KIND_ORDER, VOICE_KIND_LABEL, UNION_FUSION } from '../data/voice';
+import { AudioBus } from '../utils/audio';
 import { go as goScene, wipeIn, panel as uiPanel, UI } from '../ui/theme';
 
 type Tab = 'arts' | 'chara' | 'enemy';
@@ -193,8 +195,64 @@ export class CodexScene extends Phaser.Scene {
     if (known && keys.length > 1) {
       this.add.text(panel.x + panel.w - 18, panel.y + 22, '絵をタップで切り替え', { fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.dim }).setOrigin(1, 0);
     }
+    // ボイス鑑賞（2026-10-05 ユーザー承認）：解放済みで、ボイスのファイルがあるキャラだけ
+    if (known && voiceFilesOf(c.id).length > 0) {
+      makeButton(this, panel.x + panel.w - 18 - 60, panel.y + panel.h - 18 - 22, '♪ VOICE', () => this.openVoiceList(c.id, c.name, def.color, save), { width: 120, height: 44, fontSize: 18 });
+    }
 
     return { found: list.filter((x) => isCharacterOwned(x.id, save)).length, total: list.length, pages };
+  }
+
+  /**
+   * ボイスの一覧（紹介文の上に重ねる）。種類ごとに1行、差分が2つあれば ①② の2つのボタン。ファイルが無い種類は出さない。
+   * 再生は鑑賞用の口（間引き・優先度なし。鳴っている途中に別を押せば切り替わる）。台詞の文字は出さない（台本案と音声がずれているものがあるため）。
+   * 専用合体技の名前は、図鑑で未発見なら「？？？」
+   */
+  private openVoiceList(id: string, name: string, color: number, save: SaveData): void {
+    const cam = this.cameras.main;
+    const W = cam.width;
+    const H = cam.height;
+    const layer = this.add.container(0, cam.scrollY).setDepth(80);
+    const shade = this.add.rectangle(0, 0, W, H, 0x020308, 0.92).setOrigin(0).setInteractive();
+    layer.add(shade);
+    const top = Math.max(H * 0.06, 40);
+    layer.add(this.add.text(W / 2, top, 'VOICE', { fontFamily: FONT_EN, fontSize: '40px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 6 }).setOrigin(0.5));
+    layer.add(this.add.text(W / 2, top + 44, `${name}　のボイス`, { fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim }).setOrigin(0.5));
+    const kinds = VOICE_KIND_ORDER.filter((k) => voiceFiles(id, k).length > 0);
+    const rowW = Math.min(620, W - 40);
+    const left = (W - rowW) / 2;
+    const bottomY = Math.min(H - 70, H * 0.9);
+    const rowH = Math.max(40, Math.min(52, Math.floor((bottomY - 60 - (top + 80)) / Math.max(1, kinds.length))));
+    let y = top + 80;
+    let playing: Phaser.GameObjects.Text | null = null;
+    const close = () => {
+      AudioBus.stopVoice();
+      layer.destroy();
+    };
+    for (const k of kinds) {
+      const files = voiceFiles(id, k);
+      let label = VOICE_KIND_LABEL[k];
+      if (k === 'union') {
+        const artId = UNION_FUSION[id];
+        const art = artId ? WEAPONS[artId] : undefined;
+        label += art ? `『${save.codex.includes(artId) ? art.name : '？？？'}』` : '';
+      }
+      layer.add(uiPanel(this, left, y, rowW, rowH - 6, { color, alpha: 0.95, strokeAlpha: 0.5, cut: 12 }).gfx);
+      layer.add(this.add.text(left + 18, y + (rowH - 6) / 2, label, { fontFamily: FONT_JP, fontSize: rowH < 48 ? '17px' : '19px', color: COLOR_HEX.white, fontStyle: '700' }).setOrigin(0, 0.5));
+      files.forEach((f, i) => {
+        const bx = left + rowW - 14 - 30 - (files.length - 1 - i) * 66;
+        const btn = makeButton(this, bx, y + (rowH - 6) / 2, files.length > 1 ? `▶ ${i + 1}` : '▶', () => {
+          AudioBus.previewVoice(id, f, this);
+          playing?.setColor(COLOR_HEX.white);
+          playing = btn.list[2] as Phaser.GameObjects.Text;
+          playing.setColor(COLOR_HEX.gold);
+        }, { width: 58, height: Math.min(40, rowH - 14), fontSize: 17, armDelayMs: 150 });
+        layer.add(btn);
+      });
+      y += rowH;
+    }
+    layer.add(makeButton(this, W / 2, Math.min(H - 60, y + 44), 'CLOSE', close, { width: 220, height: 56, fontSize: 22, armDelayMs: 200 }));
+    this.input.keyboard?.once('keydown-ESC', close);
   }
 
   // ───────────────────────── ネミノクス ─────────────────────────
