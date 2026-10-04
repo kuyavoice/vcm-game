@@ -17,11 +17,11 @@ const SECTIONS: { en: string; title: string; lines: string[] }[] = [
 ];
 
 const SECTIONS_EN: { en: string; title: string; lines: string[] }[] = [
-  // 人名はローマ字の読みが確定していないので、英語版でも日本語表記のまま
-  { en: 'ORIGINAL', title: 'Original work', lines: ['"Voice Connect Memorial" by 言峰空也 (serialized on Kakuyomu)', 'This is a fan game (a what-if, festival piece).'] },
-  { en: 'PRODUCTION', title: 'Planning / Production / Programming', lines: ['言峰空也', 'Programmed together with Claude (Anthropic).'] },
-  { en: 'VOICE', title: 'Voices', lines: ['言峰空也 / 雪狐 / 瑞浪蓮 / 雛桜律', 'Some voices were generated with ElevenLabs.'] },
-  { en: 'MUSIC', title: 'Music', lines: ['言峰空也', 'All tracks were made with Suno (paid plan). Rights belong to 言峰空也.'] },
+  // 人名のローマ字はユーザー指定（2026-10-05。姓→名の順）
+  { en: 'ORIGINAL', title: 'Original work', lines: ['"Voice Connect Memorial" by Kotomine Kuya (serialized on Kakuyomu)', 'This is a fan game (a what-if, festival piece).'] },
+  { en: 'PRODUCTION', title: 'Planning / Production / Programming', lines: ['Kotomine Kuya', 'Programmed together with Claude (Anthropic).'] },
+  { en: 'VOICE', title: 'Voices', lines: ['Kotomine Kuya / Yukikitsune / Mizunami Ren / Hinasakura Ritsu', 'Some voices were generated with ElevenLabs.'] },
+  { en: 'MUSIC', title: 'Music', lines: ['Kotomine Kuya', 'All tracks were made with Suno (paid plan). Rights belong to Kotomine Kuya.'] },
   { en: 'GRAPHICS', title: 'Illustrations / Pixel art', lines: ['Some images were made with image-generation AI.'] },
 ];
 
@@ -54,7 +54,7 @@ export class CreditsScene extends Phaser.Scene {
       this.add.text(left + 24 + sec.en.length * 11 + 16, y + 8, sec.title, { fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.white, fontStyle: '700' });
       y += h + 12;
     }
-    this.add.text(W / 2, y + 10, '© 2025-2026 言峰空也 / VOICE CONNECT MEMORIAL PROJECT', {
+    this.add.text(W / 2, y + 10, lang() === 'en' ? '© 2025-2026 Kotomine Kuya / VOICE CONNECT MEMORIAL PROJECT' : '© 2025-2026 言峰空也 / VOICE CONNECT MEMORIAL PROJECT', {
       fontFamily: FONT_EN, fontSize: '13px', color: COLOR_HEX.dim, letterSpacing: 1,
     }).setOrigin(0.5, 0);
 
