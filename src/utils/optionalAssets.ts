@@ -19,12 +19,18 @@ export const OPTIONAL_IMAGES: Record<string, string> = {
   portrait_yukihito: 'assets/images/portrait/yukihito_portrait.png',
   portrait_ritsuka: 'assets/images/portrait/ritsuka_portrait.png',
   portrait_shion: 'assets/images/portrait/shion_portrait.png',
-  // 必殺カットイン用の絵（透過・1200×1000程度・バストアップ・左向き）。無ければ立ち絵（standing_）を上半身だけ出す
+  // 必殺カットイン用の絵（2026-10-05 配置。透過。縦＝スマホ縦向け 1024×約1200〜1400／_wide＝横長の画面向け 1536×約1000。元は緑背景の PNG を make_cutin.py で透過）。
+  // 起動時には読まず、ゲーム開始時に操作キャラのぶんだけ読む。無ければ立ち絵（standing_）を上半身だけ出す
   cutin_kuya: 'assets/images/cutin/kuya_cutin.webp',
   cutin_mizuho: 'assets/images/cutin/mizuho_cutin.webp',
   cutin_yukihito: 'assets/images/cutin/yukihito_cutin.webp',
   cutin_ritsuka: 'assets/images/cutin/ritsuka_cutin.webp',
   cutin_shion: 'assets/images/cutin/shion_cutin.webp',
+  cutin_kuya_wide: 'assets/images/cutin/kuya_cutin_wide.webp',
+  cutin_mizuho_wide: 'assets/images/cutin/mizuho_cutin_wide.webp',
+  cutin_yukihito_wide: 'assets/images/cutin/yukihito_cutin_wide.webp',
+  cutin_ritsuka_wide: 'assets/images/cutin/ritsuka_cutin_wide.webp',
+  cutin_shion_wide: 'assets/images/cutin/shion_cutin_wide.webp',
   // クリア時の勝利立ち絵（透過・1024×1536）。起動時には読まず、リザルトで必要な1枚だけ読む。無ければ通常の立ち絵
   victory_kuya: 'assets/images/victory/kuya_victory.webp',
   victory_mizuho: 'assets/images/victory/mizuho_victory.webp',
@@ -46,7 +52,7 @@ for (const g of GALLERY) OPTIONAL_IMAGES[galleryKey(g.id)] = g.file;
 for (const e of CODEX_ENEMIES) if (e.art) OPTIONAL_IMAGES[bestiaryKey(e.id)] = bestiaryFile(e.id);
 
 /** 起動時に読まず、使う場面で読む画像（キーの接頭辞） */
-export const LAZY_IMAGE_PREFIXES = ['victory_', 'gameover_', 'gal_', 'best_'];
+export const LAZY_IMAGE_PREFIXES = ['victory_', 'gameover_', 'gal_', 'best_', 'cutin_'];
 export const isLazyImage = (key: string) => LAZY_IMAGE_PREFIXES.some((p) => key.startsWith(p));
 
 const available = new Set<string>();

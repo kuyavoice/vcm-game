@@ -14,11 +14,14 @@ import { FONT_EN, FONT_JP } from '../utils/fonts';
  * 新しいカットイン用の絵が来たら `cutin_{id}` を優先して使う（1200×1000 程度・バストアップ・左向き）。
  */
 export function playSpecialCutIn(scene: Phaser.Scene, characterId: string, name: string, color: number): boolean {
-  const artKey = scene.textures.exists(`cutin_${characterId}`) ? `cutin_${characterId}` : `standing_${characterId}`;
-  if (!scene.textures.exists(artKey)) return false;
   const cam = scene.cameras.main;
   const W = cam.width;
   const H = cam.height;
+  // 絵：横長の画面（PC）は _wide、縦はふつうの cutin_。どちらも無ければ立ち絵の上半身
+  const wideScreen = W / H > 0.8;
+  const cands = wideScreen ? [`cutin_${characterId}_wide`, `cutin_${characterId}`] : [`cutin_${characterId}`, `cutin_${characterId}_wide`];
+  const artKey = cands.find((k) => scene.textures.exists(k)) ?? `standing_${characterId}`;
+  if (!scene.textures.exists(artKey)) return false;
   const cy = H * 0.42;
   const bh = Math.min(320, H * 0.27);
   const skew = 90;
@@ -94,13 +97,17 @@ export function playSpecialCutIn(scene: Phaser.Scene, characterId: string, name:
   // 4) 立ち絵（右から行き過ぎて戻る）。上半身。頭は帯より少し上へ出す
   const img = scene.add.image(0, 0, artKey).setOrigin(0.5, 0);
   const isCutinArt = artKey.startsWith('cutin_');
-  // 立ち絵は上半分（頭〜腰）を、帯の高さの 1.45 倍に収める（バストアップに寄せる）。幅は画面の 58% まで
+  const isWideArt = artKey.endsWith('_wide');
+  // カットインの絵：縦の絵は画面幅の半分、横の絵は帯の 1.5 倍の高さ（右寄せ。腕は左へ伸びて文字に少しかかる。頭は帯の上にはみ出す）
+  // 立ち絵（絵が無いとき）は上半分（頭〜腰）を、帯の高さの 1.45 倍に収める。幅は画面の 58% まで
   const cropRatio = 0.5;
-  const scale = isCutinArt ? Math.min((W * 0.62) / img.width, (bh * 1.5) / img.height) : Math.min((W * 0.58) / img.width, (bh * 1.45) / (img.height * cropRatio));
+  const scale = isCutinArt
+    ? (isWideArt ? Math.min((W * 0.78) / img.width, (bh * 1.5) / img.height) : Math.min((W * 0.52) / img.width, (bh * 1.9) / img.height))
+    : Math.min((W * 0.58) / img.width, (bh * 1.45) / (img.height * cropRatio));
   img.setScale(scale);
   if (!isCutinArt) img.setCrop(0, 0, img.width, img.height * cropRatio);
   const imgX = W - img.displayWidth / 2 + 10;
-  const imgY = isCutinArt ? top - bh * 0.25 : top - H * 0.05;
+  const imgY = isCutinArt ? top - bh * (isWideArt ? 0.3 : 0.35) : top - H * 0.05;
   img.setPosition(W + img.displayWidth, imgY);
   root.add(img);
   // 入った瞬間の白い輪郭（同じ絵を白で塗りつぶして重ね、すぐ消す）
@@ -132,7 +139,9 @@ export function playSpecialCutIn(scene: Phaser.Scene, characterId: string, name:
     fontFamily: FONT_EN, fontSize: '18px', color: colorStr, fontStyle: '700', letterSpacing: 6,
   }).setOrigin(0, 0.5).setAlpha(0);
   const rule = scene.add.rectangle(textL, bottom - 26, 1, 3, color, 1).setOrigin(0, 0.5).setScale(0, 1);
-  inner.add([title, sub, rule]);
+  // 文字は絵より手前（腕や武器が左へ伸びて技名にかかるため）。帯のマスクの外なので、退場は自分でフェード
+  const textLayer = scene.add.container(0, 0).setDepth(106).setScrollFactor(0);
+  textLayer.add([title, sub, rule]);
 
   // 6) ワイプの先端を走るキャラ色の細い帯
   const edge = scene.add.graphics();
@@ -155,6 +164,7 @@ export function playSpecialCutIn(scene: Phaser.Scene, characterId: string, name:
     alive.v = false;
     scene.events.off(Phaser.Scenes.Events.SHUTDOWN, cleanup);
     root.destroy();
+    textLayer.destroy();
     maskG.destroy();
     imgMaskG.destroy();
   };
@@ -186,6 +196,7 @@ export function playSpecialCutIn(scene: Phaser.Scene, characterId: string, name:
     tw({ targets: edge, x: W + 40, duration: 150, ease: 'Cubic.in' });
     tw({ targets: [img, flashImg], x: W + img.displayWidth, duration: 150, ease: 'Cubic.in' });
     tw({ targets: sparks, alpha: 0, duration: 120 });
+    tw({ targets: textLayer, alpha: 0, x: 40, duration: 130, ease: 'Cubic.in' });
   });
   later(880, cleanup);
   return true;

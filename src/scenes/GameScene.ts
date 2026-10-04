@@ -28,6 +28,7 @@ import { CutIn } from '../ui/CutIn';
 import { Tutorial } from '../ui/Tutorial';
 import { playSpecialCutIn } from '../ui/SpecialCutIn';
 import { VOICE_COOLDOWN_MS } from '../data/voice';
+import { OPTIONAL_IMAGES, hasOptionalImage } from '../utils/optionalAssets';
 import { PASSIVES } from '../data/passives';
 import { SPECIALS, type SpecialHost } from '../systems/specials';
 import { AudioBus } from '../utils/audio';
@@ -374,6 +375,14 @@ export class GameScene extends Phaser.Scene {
     this.customBgm = customBgmKeys(loadSave());
     this.resumeBgm();
     AudioBus.preloadVoices(this.characterId, this);
+    // 必殺カットインの絵（縦・横）：操作キャラのぶんだけ、ここで読む（起動時に全員ぶん読まない）
+    {
+      let queued = false;
+      for (const k of [`cutin_${this.characterId}`, `cutin_${this.characterId}_wide`]) {
+        if (hasOptionalImage(k) && !this.textures.exists(k)) { this.load.image(k, OPTIONAL_IMAGES[k]); queued = true; }
+      }
+      if (queued && !this.load.isLoading()) this.load.start();
+    }
     this.vo('start');
     this.player.onSleep = () => this.vo('idle');
     this.hud.banner(`${this.stage.nameEn} —— ${this.stage.name}`, Phaser.Display.Color.IntegerToColor(this.stage.color).rgba, 32);
