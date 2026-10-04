@@ -148,6 +148,8 @@ export class CharaSelectScene extends Phaser.Scene {
         AudioBus.play('se_item', 60);
         showPortrait(id, true);
         markSelected();
+        // 決定ではないので、ガードを戻して次のタップを受け付ける
+        guard.reset();
       });
       y += cardH + gap;
     });

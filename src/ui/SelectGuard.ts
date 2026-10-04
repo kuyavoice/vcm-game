@@ -56,6 +56,15 @@ export class SelectGuard {
     return ok;
   }
 
+  /**
+   * 決定を取り消して、また受け付ける（「1回目のタップで選ぶ → もう一度で決定」の画面で、1回目のあとに呼ぶ）。
+   * release()/confirm() は一度きり（done）なので、これを呼ばないと以降のタップが効かない（2026-10-05 キャラ選択で発覚）
+   */
+  reset(): void {
+    this.done = false;
+    this.downOn = null;
+  }
+
   /** キー入力など、押下/離脱の対応が不要な決定 */
   confirm(): boolean {
     if (!this.armed) return false;

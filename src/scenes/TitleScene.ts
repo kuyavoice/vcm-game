@@ -64,6 +64,30 @@ export class TitleScene extends Phaser.Scene {
       fontFamily: FONT_EN, fontSize: '40px', color: COLOR_HEX.white, fontStyle: '700', letterSpacing: 4, ...stroke,
     }).setOrigin(0.5);
     this.tweens.add({ targets: tap, alpha: 0.25, duration: 700, yoyo: true, repeat: -1 });
+    // 磨き B（2026-10-05 ユーザー承認）：TAP TO START の下を細い斜めの光が走る。帯の奥には薄いスピード線がゆっくり流れる。絵そのものは動かさない
+    {
+      const ly = tapY + 30;
+      const glow = this.add.graphics().setDepth(1);
+      glow.fillGradientStyle(0x87ceeb, 0x87ceeb, 0x87ceeb, 0x87ceeb, 0, 0.9, 0, 0.9);
+      glow.fillPoints([new Phaser.Math.Vector2(14, ly - 1), new Phaser.Math.Vector2(190, ly - 1), new Phaser.Math.Vector2(176, ly + 2), new Phaser.Math.Vector2(0, ly + 2)], true);
+      glow.setX(-220);
+      this.tweens.add({ targets: glow, x: W + 40, duration: 1400, ease: 'Sine.inOut', repeat: -1, repeatDelay: 1300 });
+      const lines = this.add.graphics().setDepth(0).setAlpha(0.5);
+      const y0 = bandTop + 10;
+      const y1 = H - fb - 30;
+      const seg = W + 240;
+      for (let k = 0; k < 2; k++) {
+        for (let i = 0; i < 18; i++) {
+          const y = y0 + Math.random() * Math.max(10, y1 - y0);
+          const len = 80 + Math.random() * 240;
+          const x = k * seg + Math.random() * seg;
+          lines.lineStyle(1, 0x87ceeb, 0.06 + Math.random() * 0.1);
+          lines.lineBetween(x, y, x + len, y - len * 0.12);
+        }
+      }
+      lines.setX(-120);
+      this.tweens.add({ targets: lines, x: -120 - seg, duration: 9000, repeat: -1 });
+    }
 
     this.add.text(W / 2, tapY + 46, '画面をなぞって移動　／　PC: WASD・矢印キーで移動、スペースで必殺', {
       fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim,
@@ -104,7 +128,16 @@ export class TitleScene extends Phaser.Scene {
     // キービジュアルのときは、ロゴに重ならないよう下の帯に置く
     const menuY = kv ? tapY + 140 : Math.max(H * 0.06, 50);
     menu.forEach((m, i) => {
-      makeButton(this, mLeft + mW / 2 + i * (mW + mGap), menuY, m.label, m.run, { width: mW, height: 52, fontSize: menu.length >= 5 ? 19 : 21 });
+      const bx = mLeft + mW / 2 + i * (mW + mGap);
+      const under = this.add.rectangle(bx - mW / 2, menuY + 26 + 6, mW, 4, 0x87ceeb, 1).setOrigin(0, 0.5).setScale(0, 1).setDepth(2);
+      const btn = makeButton(this, bx, menuY, m.label, () => {
+        // 下の帯が伸びきってから移動（ワイプと重なって、帯が画面を引っ張るように見える）
+        this.tweens.add({ targets: under, scaleX: 1, duration: 140, ease: 'Cubic.out', onComplete: m.run });
+      }, { width: mW, height: 52, fontSize: menu.length >= 5 ? 19 : 21 });
+      // 押している間だけ帯が少し伸びる（離して確定しなければ戻る）
+      const hit = btn.list[3] as Phaser.GameObjects.Rectangle;
+      hit.on('pointerdown', () => this.tweens.add({ targets: under, scaleX: 0.35, duration: 120, ease: 'Cubic.out' }));
+      hit.on('pointerout', () => this.tweens.add({ targets: under, scaleX: 0, duration: 120 }));
     });
 
     // フッター：位置づけ／AI利用の表記（ポータルと同じ文言）／コピーライト。ホームバーなどのセーフエリア分だけ上げる
