@@ -60,6 +60,7 @@ export const AUDIO_MANIFEST: AudioEntry[] = [
   { key: 'se_gem', path: 'assets/audio/se/gem.mp3', category: 'se' },
   { key: 'se_levelup', path: 'assets/audio/se/levelup.mp3', category: 'se' },
   { key: 'se_chest', path: 'assets/audio/se/chest.mp3', category: 'se' },
+  { key: 'se_chest_jackpot', path: 'assets/audio/se/chest_jackpot.mp3', category: 'se' },
   { key: 'se_special', path: 'assets/audio/se/special.mp3', category: 'se' },
   { key: 'se_break', path: 'assets/audio/se/break.mp3', category: 'se' },
   { key: 'se_item', path: 'assets/audio/se/item.mp3', category: 'se' },

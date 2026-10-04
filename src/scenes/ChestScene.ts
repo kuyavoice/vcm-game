@@ -141,7 +141,7 @@ export class ChestScene extends Phaser.Scene {
         header.setText('大当たり！').setColor('#FFD700');
         headerEn.setText('JACKPOT');
         this.cameras.main.shake(200, 0.006);
-        AudioBus.play('se_evolve');
+        AudioBus.play('se_chest_jackpot', 0, 'se_evolve');
         // ルナ：大当たりの2コマを交互に
         if (lunaSprite) {
           const luna = lunaSprite;
