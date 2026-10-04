@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { CONFIG } from '../data/config';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { makeButton } from '../ui/Button';
+import { go as goScene, wipeIn, panel } from '../ui/theme';
 
 interface Page {
   title: string;
@@ -64,7 +65,7 @@ export class HowToScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const W = cam.width;
     const H = cam.height;
-    cam.fadeIn(180, 6, 9, 19);
+    wipeIn(this);
     this.add.tileSprite(0, 0, W, H, 'bg').setOrigin(0).setDepth(-5);
 
     const pg = PAGES[this.page];
@@ -84,8 +85,7 @@ export class HowToScene extends Phaser.Scene {
         fontFamily: FONT_JP, fontSize: '21px', color: COLOR_HEX.white, lineSpacing: 6, wordWrap: { width: panelW - 48, useAdvancedWrap: true },
       });
       const h = 44 + body.height + 20;
-      this.add.rectangle(left, y, panelW, h, 0x111a3a, 0.92).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.4).setDepth(-1);
-      this.add.rectangle(left + 4, y + 10, 6, 28, 0x87ceeb, 1).setOrigin(0);
+      panel(this, left, y, panelW, h, { alpha: 0.92, strokeAlpha: 0.4, depth: -1 });
       this.add.text(left + 24, y + 10, it.head, { fontFamily: FONT_JP, fontSize: '24px', color: COLOR_HEX.accent, fontStyle: '700' });
       y += h + 14;
     }
@@ -98,14 +98,14 @@ export class HowToScene extends Phaser.Scene {
     const by = Math.max(H - Math.max(90, H * 0.08), y + 50);
     const bw = Math.min(200, Math.floor((panelW - 24) / 3));
     if (this.page > 0) makeButton(this, W / 2 - bw - 12, by, '◀ PREV', () => go(-1), { width: bw, height: 60, fontSize: 22, armDelayMs: 150 });
-    makeButton(this, W / 2, by, 'TITLE', () => this.scene.start('Title'), { width: bw, height: 60, fontSize: 22 });
+    makeButton(this, W / 2, by, 'TITLE', () => goScene(this, 'Title'), { width: bw, height: 60, fontSize: 22 });
     if (this.page < PAGES.length - 1) makeButton(this, W / 2 + bw + 12, by, 'NEXT ▶', () => go(1), { width: bw, height: 60, fontSize: 22, primary: true, armDelayMs: 150 });
 
     this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
       if (ev.repeat) return;
       if (ev.key === 'ArrowRight' || ev.key === 'd' || ev.key === 'D') go(1);
       else if (ev.key === 'ArrowLeft' || ev.key === 'a' || ev.key === 'A') go(-1);
-      else if (ev.key === 'Escape') this.scene.start('Title');
+      else if (ev.key === 'Escape') goScene(this, 'Title');
     });
 
     // 縦に長いページは、なぞって送れるようにする（小さい画面向け）

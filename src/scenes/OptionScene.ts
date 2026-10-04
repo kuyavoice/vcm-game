@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { makeButton } from '../ui/Button';
+import { panel, reveal } from '../ui/theme';
 import { loadSave, writeSave } from '../utils/storage';
 import { AudioBus } from '../utils/audio';
 
@@ -34,6 +35,7 @@ export class OptionScene extends Phaser.Scene {
 
     // 下の画面のボタンを押せないように、全面で入力を受ける
     this.add.rectangle(0, 0, W, H, 0x060913, 0.92).setOrigin(0).setInteractive();
+    reveal(this);
 
     const top = Math.max(H * 0.16, 120);
     this.add.text(W / 2, top, 'OPTION', { fontFamily: FONT_EN, fontSize: '56px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 6 }).setOrigin(0.5);
@@ -45,7 +47,7 @@ export class OptionScene extends Phaser.Scene {
 
     ROWS.forEach((row, i) => {
       const y = top + 150 + i * 170;
-      this.add.rectangle(left, y, panelW, 140, 0x111a3a, 0.95).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.5);
+      panel(this, left, y, panelW, 140, { alpha: 0.95, strokeAlpha: 0.5 });
       this.add.text(left + 24, y + 16, row.label, { fontFamily: FONT_EN, fontSize: '32px', color: COLOR_HEX.white, fontStyle: '700', letterSpacing: 3 });
       this.add.text(left + 24 + (row.label.length * 24 + 16), y + 28, row.sub, { fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim });
       const pct = this.add.text(left + panelW - 24, y + 16, '', { fontFamily: FONT_EN, fontSize: '32px', color: COLOR_HEX.accent, fontStyle: '700' }).setOrigin(1, 0);
@@ -100,7 +102,7 @@ export class OptionScene extends Phaser.Scene {
     const toggleRow = (title: string, sub: string, labels: string[], get: (st: Setting) => number, set: (st: Setting, i: number) => void) => {
       const h = 76;
       const x = left + col * (colW + 10);
-      this.add.rectangle(x, ty, colW, h, 0x111a3a, 0.95).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.5);
+      panel(this, x, ty, colW, h, { alpha: 0.95, strokeAlpha: 0.5, cut: 12 });
       this.add.text(x + 14, ty + 8, title, { fontFamily: FONT_EN, fontSize: '19px', color: COLOR_HEX.white, fontStyle: '700', letterSpacing: 2 });
       this.add.text(x + 14, ty + 50, sub, { fontFamily: FONT_JP, fontSize: '12px', color: COLOR_HEX.dim }).setCrop(0, 0, colW - 28, 16);
       let idx = get(save.settings);

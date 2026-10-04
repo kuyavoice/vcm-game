@@ -5,6 +5,7 @@ import { loadSave, writeSave, type SaveData } from '../utils/storage';
 import { hasOptionalImage, OPTIONAL_IMAGES } from '../utils/optionalAssets';
 import { isCharacterUnlocked } from '../utils/unlock';
 import { makeButton } from '../ui/Button';
+import { go, wipeIn, panel } from '../ui/theme';
 import { AudioBus } from '../utils/audio';
 
 /** 置かれている画像のキー（無ければ空文字） */
@@ -41,7 +42,7 @@ export class GalleryScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const W = cam.width;
     const H = cam.height;
-    cam.fadeIn(200, 6, 9, 19);
+    wipeIn(this);
     cam.scrollY = 0;
     const bg = this.add.tileSprite(0, 0, W, H, 'bg').setOrigin(0).setScrollFactor(0);
 
@@ -78,8 +79,8 @@ export class GalleryScene extends Phaser.Scene {
       const cx = W / 2;
       const cy = gridTop;
       const key = galleryThumbKey(g.id);
-      this.add.rectangle(cx + 5, cy + 5 + wideCardH / 2, gridW, wideCardH, 0x000000, 0.5);
-      const frame = this.add.rectangle(cx, cy + wideCardH / 2, gridW, wideCardH, 0x111a3a, 1).setStrokeStyle(2, g.color, 0.9);
+      panel(this, cx - gridW / 2, cy, gridW, wideCardH, { color: g.color, alpha: 1, strokeAlpha: 0.9, stripe: false, shadow: true });
+      const frame = this.add.rectangle(cx, cy + wideCardH / 2, gridW, wideCardH, 0xffffff, 0.001);
       if (this.textures.exists(key)) {
         this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
         const img = this.add.image(cx, cy + 4 + wideImgH / 2, key);
@@ -104,8 +105,8 @@ export class GalleryScene extends Phaser.Scene {
       const cy = gridTop + Math.floor(i / cols) * (cardH + gap);
       const owned = save.gallery.includes(g.id);
       const key = galleryThumbKey(g.id);
-      this.add.rectangle(cx + 5, cy + 5 + cardH / 2, cardW, cardH, 0x000000, 0.5);
-      const frame = this.add.rectangle(cx, cy + cardH / 2, cardW, cardH, 0x111a3a, 1).setStrokeStyle(2, owned ? g.color : 0x3a4a8a, owned ? 0.9 : 0.6);
+      panel(this, cx - cardW / 2, cy, cardW, cardH, { color: owned ? g.color : 0x3a4a8a, alpha: 1, strokeAlpha: owned ? 0.9 : 0.6, stripe: false, shadow: true });
+      const frame = this.add.rectangle(cx, cy + cardH / 2, cardW, cardH, 0xffffff, 0.001);
       if (owned && this.textures.exists(key)) {
         // イラストは滑らかに縮小する（ゲーム全体はドット絵用の設定なので、この絵だけ切り替える）
         this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
@@ -156,7 +157,7 @@ export class GalleryScene extends Phaser.Scene {
 
     const rows = Math.ceil(normals.length / cols);
     const by = Math.max(H - Math.max(90, H * 0.08), gridTop + rows * (cardH + gap) + 50);
-    makeButton(this, W / 2, by, 'TITLE', () => this.scene.start('Title'), { width: 240, height: 60, fontSize: 24 });
+    makeButton(this, W / 2, by, 'TITLE', () => go(this, 'Title'), { width: 240, height: 60, fontSize: 24 });
 
     // 縦スクロール（内容が画面より長い端末向け）
     const maxScroll = Math.max(0, by + 90 - H);

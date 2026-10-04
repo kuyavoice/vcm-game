@@ -7,6 +7,7 @@ import { ensureColorVariant } from '../utils/recolor';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, writeSave } from '../utils/storage';
 import { makeButton } from '../ui/Button';
+import { go, wipeIn, panel } from '../ui/theme';
 import { AudioBus } from '../utils/audio';
 
 /**
@@ -22,7 +23,7 @@ export class ShopScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const W = cam.width;
     const H = cam.height;
-    cam.fadeIn(200, 6, 9, 19);
+    wipeIn(this);
     const bg = this.add.tileSprite(0, 0, W, H, 'bg').setOrigin(0);
     const onResize = () => bg.setSize(this.cameras.main.width, this.cameras.main.height);
     this.scale.on('resize', onResize);
@@ -78,8 +79,7 @@ export class ShopScene extends Phaser.Scene {
       if (def.unlockYell === 0 || def.secret) continue; // 隠しキャラはショップに出さない
       const owned = save.unlockedCharacters.includes(id);
       const rowH = 64;
-      this.add.rectangle(left, y, rowW, rowH, 0x111a3a, 0.9).setOrigin(0).setStrokeStyle(2, owned ? def.color : 0x3a4a8a, 0.7);
-      this.add.rectangle(left + 4, y + 6, 6, rowH - 12, def.color, 1).setOrigin(0);
+      panel(this, left, y, rowW, rowH, { color: def.color, alpha: 0.9, stroke: owned ? def.color : 0x3a4a8a, strokeAlpha: 0.7 });
       this.add.text(left + 22, y + 10, def.name, { fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.white, fontStyle: '700' });
       this.add.text(left + 22, y + 38, `${def.role}　${def.traits.desc}`, { fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.dim });
       if (owned) {
@@ -102,7 +102,7 @@ export class ShopScene extends Phaser.Scene {
       const maxed = lv >= up.maxLevel;
       const cost = maxed ? 0 : up.costs[lv];
       const rowH = 64;
-      this.add.rectangle(left, y, rowW, rowH, 0x111a3a, 0.9).setOrigin(0).setStrokeStyle(2, maxed ? 0xffd700 : 0x3a4a8a, 0.7);
+      panel(this, left, y, rowW, rowH, { color: maxed ? 0xffd700 : 0x3a4a8a, alpha: 0.9, strokeAlpha: 0.7, stripe: false });
       this.add.text(left + 18, y + 9, up.name, { fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.white, fontStyle: '700' });
       this.add.text(left + 18, y + 38, up.desc, { fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.dim });
       // Lvピップ
@@ -128,7 +128,7 @@ export class ShopScene extends Phaser.Scene {
     for (const it of CONSUMABLES) {
       const have = save.consumables[it.id];
       const rowH = 64;
-      this.add.rectangle(left, y, rowW, rowH, 0x111a3a, 0.9).setOrigin(0).setStrokeStyle(2, 0x3a4a8a, 0.7);
+      panel(this, left, y, rowW, rowH, { color: 0x3a4a8a, alpha: 0.9, strokeAlpha: 0.7, stripe: false });
       this.add.text(left + 18, y + 9, `${it.name}　×${have}`, { fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.white, fontStyle: '700' });
       this.add.text(left + 18, y + 38, it.desc, { fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.dim });
       makeButton(this, left + rowW - 16 - 70, y + rowH / 2, `★ ${it.cost}`, () => {
@@ -153,7 +153,7 @@ export class ShopScene extends Phaser.Scene {
     const colorRow = (id: string, name: string, cost: number, key: string) => {
       const rowH = 64;
       const isSel = selected === id;
-      this.add.rectangle(left, y, rowW, rowH, 0x111a3a, 0.9).setOrigin(0).setStrokeStyle(2, isSel ? 0x87ceeb : 0x3a4a8a, 0.8);
+      panel(this, left, y, rowW, rowH, { color: isSel ? 0x87ceeb : 0x3a4a8a, alpha: 0.9, strokeAlpha: 0.8, stripe: false });
       // プレビュー（待機1コマ目・2倍）
       if (this.textures.exists(key)) this.add.image(left + 40, y + rowH / 2 + 6, key, chara.sprite.frames.idle[0]).setScale(1.2).setOrigin(0.5, 0.6);
       this.add.text(left + 80, y + 10, name, { fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.white, fontStyle: '700' });
@@ -181,7 +181,7 @@ export class ShopScene extends Phaser.Scene {
     colorRow('', '標準', 0, chara.sprite.key);
     for (const v of variants) colorRow(v.id, v.name, v.cost, ensureColorVariant(this, chara, v.id));
 
-    makeButton(this, W / 2, y + 60, 'BACK', () => this.scene.start('CharaSelect'), { width: 240, height: 60, fontSize: 24 });
+    makeButton(this, W / 2, y + 60, 'BACK', () => go(this, 'CharaSelect'), { width: 240, height: 60, fontSize: 24 });
     void wallet;
 
     // 縦スクロール（ドラッグ／ホイール）。内容が画面より長い端末向け

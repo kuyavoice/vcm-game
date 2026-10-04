@@ -11,6 +11,7 @@ import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, isStageUnlocked } from '../utils/storage';
 import { SelectGuard } from '../ui/SelectGuard';
 import { makeButton } from '../ui/Button';
+import { go, wipeIn, panel } from '../ui/theme';
 import { AudioBus } from '../utils/audio';
 
 /** ステージ選択（タイトル → ここ → ゲーム）。前ステージのクリアで解放 */
@@ -23,7 +24,7 @@ export class StageSelectScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const W = cam.width;
     const H = cam.height;
-    cam.fadeIn(250, 6, 9, 19);
+    wipeIn(this, { cascade: false });
     AudioBus.leaveGameOver();
 
     const bg = this.add.tileSprite(0, 0, W, H, 'bg').setOrigin(0);
@@ -74,18 +75,15 @@ export class StageSelectScene extends Phaser.Scene {
         hit.on('pointerup', () => {
           cont.setScale(1);
           if (!guard.release(hit)) return;
-          this.cameras.main.fadeOut(250, 6, 9, 19);
-          this.cameras.main.once('camerafadeoutcomplete', () => {
-            // ボスラッシュは、アーツを選ぶ画面を挟む
-            if (st.rush) this.scene.start('RushSetup', { characterId });
-            else this.scene.start('Game', { characterId, stageId: st.id });
-          });
+          // ボスラッシュは、アーツを選ぶ画面を挟む
+          if (st.rush) go(this, 'RushSetup', { characterId });
+          else go(this, 'Game', { characterId, stageId: st.id });
         });
       }
       y += cardH + gap;
     });
 
-    makeButton(this, W / 2, H - Math.max(90, H * 0.08), 'CHARACTER', () => this.scene.start('CharaSelect'), { width: 260, height: 60, fontSize: 24 });
+    makeButton(this, W / 2, H - Math.max(90, H * 0.08), 'CHARACTER', () => go(this, 'CharaSelect'), { width: 260, height: 60, fontSize: 24 });
     this.add.text(W / 2, H * 0.11 + 78, `${CHARACTERS[characterId].name}`, { fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.accent, fontStyle: '700' }).setOrigin(0.5);
 
     // PC：1〜3キー
@@ -94,8 +92,8 @@ export class StageSelectScene extends Phaser.Scene {
       const st = allStages[n - 1];
       const ok = st && isOpen(st);
       if (!ok || !guard.confirm()) return;
-      if (st.rush) this.scene.start('RushSetup', { characterId });
-      else this.scene.start('Game', { characterId, stageId: st.id });
+      if (st.rush) go(this, 'RushSetup', { characterId });
+      else go(this, 'Game', { characterId, stageId: st.id });
     });
   }
 
@@ -103,16 +101,14 @@ export class StageSelectScene extends Phaser.Scene {
     // 6枚のときは、さらに詰める
     const tight = cardH < 150;
     const cont = this.add.container(0, 0);
-    const shadow = this.add.rectangle(6, 6, cardW, cardH, 0x000000, 0.5);
-    const bg = this.add.rectangle(0, 0, cardW, cardH, 0x111a3a, 1).setStrokeStyle(2, unlocked ? st.color : 0x3a4a8a, unlocked ? 0.9 : 0.5);
-    const stripe = this.add.rectangle(-cardW / 2 + 8, 0, 10, cardH - 24, unlocked ? st.color : 0x3a4a8a, 1);
+    const card = panel(this, -cardW / 2, -cardH / 2, cardW, cardH, { color: unlocked ? st.color : 0x3a4a8a, alpha: 1, strokeAlpha: unlocked ? 0.9 : 0.5, stripe: 10, shadow: true }).gfx;
     const nameEn = this.add.text(-cardW / 2 + 32, -cardH / 2 + (tight ? 10 : 18), st.nameEn, {
       fontFamily: FONT_EN, fontSize: tight ? '17px' : '20px', color: unlocked ? Phaser.Display.Color.IntegerToColor(st.color).rgba : COLOR_HEX.dim, fontStyle: '700', letterSpacing: 4,
     });
     const name = this.add.text(-cardW / 2 + 32, -cardH / 2 + (tight ? 32 : 44), st.name, {
       fontFamily: FONT_JP, fontSize: tight ? '28px' : '34px', color: unlocked ? COLOR_HEX.white : '#5A6488', fontStyle: '700',
     });
-    cont.add([shadow, bg, stripe, nameEn, name]);
+    cont.add([card, nameEn, name]);
 
     if (unlocked) {
       const desc = this.add.text(-cardW / 2 + 32, -cardH / 2 + (tight ? 72 : 96), st.desc, {

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { ChestResult } from '../systems/Upgrades';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { SelectGuard } from '../ui/SelectGuard';
+import { panel } from '../ui/theme';
 import { AudioBus } from '../utils/audio';
 import { screenFlash } from '../utils/screenFlash';
 import { PORTRAITS, portraitKey } from '../data/portraits';
@@ -161,8 +162,7 @@ export class ChestScene extends Phaser.Scene {
       let y = H * 0.54;
       result.rewards.forEach((r, i) => {
         const cont = this.add.container(W / 2, y + rowH / 2).setAlpha(0);
-        const bg = this.add.rectangle(0, 0, cardW, rowH - 10, 0x111a3a, 0.95).setStrokeStyle(2, r.color, 0.9);
-        const stripe = this.add.rectangle(-cardW / 2 + 8, 0, 8, rowH - 30, r.color, 1);
+        const bg = panel(this, -cardW / 2, -(rowH - 10) / 2, cardW, rowH - 10, { color: r.color, alpha: 0.95, strokeAlpha: 0.9, stripe: 8 }).gfx;
         const tag = this.add.text(-cardW / 2 + 28, -rowH / 2 + 14, r.kind === 'fusion' ? 'FUSION' : r.kind === 'evolve' ? 'EVOLVE' : r.kind === 'weapon' ? 'ARTS' : r.kind === 'passive' ? 'SUPPORT' : 'YELL', {
           fontFamily: FONT_EN, fontSize: '14px', color: '#060913', backgroundColor: Phaser.Display.Color.IntegerToColor(r.color).rgba, fontStyle: '700', padding: { x: 6, y: 1 },
         });
@@ -172,7 +172,7 @@ export class ChestScene extends Phaser.Scene {
         const sub = this.add.text(cardW / 2 - 20, -rowH / 2 + 40, r.sub, {
           fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim,
         }).setOrigin(1, 0);
-        cont.add([bg, stripe, tag, title, sub]);
+        cont.add([bg, tag, title, sub]);
         // 合体：素材2人の顔を並べる
         if (r.kind === 'fusion' && r.owners) {
           r.owners.forEach((owner, k) => {

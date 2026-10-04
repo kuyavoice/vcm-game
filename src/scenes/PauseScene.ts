@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { makeButton } from '../ui/Button';
+import { panel, reveal } from '../ui/theme';
 
 export interface LoadoutRow {
   name: string;
@@ -30,6 +31,7 @@ export class PauseScene extends Phaser.Scene {
     const W = cam.width;
     const H = cam.height;
     this.add.rectangle(0, 0, W, H, 0x060913, 0.86).setOrigin(0);
+    reveal(this);
 
     const top = Math.max(H * 0.07, 60);
     this.add.text(W / 2, top, 'PAUSED', {
@@ -52,8 +54,7 @@ export class PauseScene extends Phaser.Scene {
     };
     const row = (r: LoadoutRow) => {
       const h = 50;
-      this.add.rectangle(left, y, rowW, h - 6, 0x111a3a, 0.9).setOrigin(0).setStrokeStyle(1, r.color, 0.6);
-      this.add.rectangle(left + 3, y + 5, 6, h - 16, r.color, 1).setOrigin(0);
+      panel(this, left, y, rowW, h - 6, { color: r.color, alpha: 0.9, strokeWidth: 1, strokeAlpha: 0.6, cut: 12 });
       this.add.text(left + 20, y + 6, r.name, { fontFamily: FONT_JP, fontSize: '20px', color: r.evolved || r.fusion ? COLOR_HEX.gold : COLOR_HEX.white, fontStyle: '700' });
       this.add.text(left + 20, y + 30, r.owner, { fontFamily: FONT_JP, fontSize: '12px', color: COLOR_HEX.dim });
       // Lvピップ

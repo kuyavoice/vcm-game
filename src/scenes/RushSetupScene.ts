@@ -7,6 +7,7 @@ import { PORTRAITS, portraitKey } from '../data/portraits';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, writeSave } from '../utils/storage';
 import { makeButton } from '../ui/Button';
+import { go, wipeIn, panel, type Panel } from '../ui/theme';
 import { AudioBus } from '../utils/audio';
 
 /**
@@ -22,7 +23,7 @@ export class RushSetupScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const W = cam.width;
     const H = cam.height;
-    cam.fadeIn(200, 6, 9, 19);
+    wipeIn(this);
     cam.scrollY = 0;
     const bg = this.add.tileSprite(0, 0, W, H, 'bg').setOrigin(0).setScrollFactor(0);
 
@@ -45,28 +46,28 @@ export class RushSetupScene extends Phaser.Scene {
     const left = (W - rowW) / 2;
     const rowH = 64;
     let y = top + 130;
-    const frames = new Map<string, Phaser.GameObjects.Rectangle>();
+    const frames = new Map<string, Panel>();
     const marks = new Map<string, Phaser.GameObjects.Text>();
-    const supFrames = new Map<string, Phaser.GameObjects.Rectangle>();
+    const supFrames = new Map<string, Panel>();
     const supMarks = new Map<string, Phaser.GameObjects.Text>();
     let startBtn: Phaser.GameObjects.Container | null = null;
 
     const refresh = () => {
       for (const id of pool) {
         const on = picked.has(id);
-        frames.get(id)?.setStrokeStyle(2, on ? 0xffd700 : WEAPONS[id].color, on ? 1 : 0.5).setFillStyle(0x111a3a, on ? 1 : 0.85);
+        frames.get(id)?.redraw({ stroke: on ? 0xffd700 : WEAPONS[id].color, strokeAlpha: on ? 1 : 0.5, alpha: on ? 1 : 0.85 });
         marks.get(id)?.setText(on ? '✓' : '').setVisible(on);
       }
       for (const id of supPool) {
         const on = pickedSup.has(id);
-        supFrames.get(id)?.setStrokeStyle(2, on ? 0xffd700 : PASSIVES[id].color, on ? 1 : 0.5).setFillStyle(0x111a3a, on ? 1 : 0.85);
+        supFrames.get(id)?.redraw({ stroke: on ? 0xffd700 : PASSIVES[id].color, strokeAlpha: on ? 1 : 0.5, alpha: on ? 1 : 0.85 });
         supMarks.get(id)?.setVisible(on);
       }
       count.setText(`ARTS ${picked.size} / ${RUSH.pickCount}　　SUPPORT ${pickedSup.size} / ${RUSH.supportCount}`);
       if (startBtn) {
         const ok = picked.size === RUSH.pickCount;
+        // 揃うまでは薄く（ボタンの中身は Graphics なので、塗りは触らない）
         startBtn.setAlpha(ok ? 1 : 0.4);
-        (startBtn.list[1] as Phaser.GameObjects.Rectangle).setFillStyle(ok ? 0x87ceeb : 0x111a3a, 1);
         (startBtn.list[2] as Phaser.GameObjects.Text).setColor(ok ? '#060913' : COLOR_HEX.dim);
       }
     };
@@ -85,9 +86,8 @@ export class RushSetupScene extends Phaser.Scene {
     section('ARTS');
     for (const id of pool) {
       const def = WEAPONS[id];
-      const frame = this.add.rectangle(left, y, rowW, rowH - 8, 0x111a3a, 0.85).setOrigin(0).setStrokeStyle(2, def.color, 0.5).setInteractive({ useHandCursor: true });
-      frames.set(id, frame);
-      this.add.rectangle(left + 4, y + 8, 6, rowH - 24, def.color, 1).setOrigin(0);
+      frames.set(id, panel(this, left, y, rowW, rowH - 8, { color: def.color, alpha: 0.85, strokeAlpha: 0.5 }));
+      const frame = this.add.rectangle(left, y, rowW, rowH - 8, 0xffffff, 0.001).setOrigin(0).setInteractive({ useHandCursor: true });
       // 顔
       let tx = left + 22;
       const pid = PORTRAITS[def.owner.split('・')[0].trim()];
@@ -126,9 +126,8 @@ export class RushSetupScene extends Phaser.Scene {
       const sh = 56;
       for (const id of supPool) {
         const def = PASSIVES[id];
-        const frame = this.add.rectangle(left, y, rowW, sh - 8, 0x111a3a, 0.85).setOrigin(0).setStrokeStyle(2, def.color, 0.5).setInteractive({ useHandCursor: true });
-        supFrames.set(id, frame);
-        this.add.rectangle(left + 4, y + 8, 6, sh - 24, def.color, 1).setOrigin(0);
+        supFrames.set(id, panel(this, left, y, rowW, sh - 8, { color: def.color, alpha: 0.85, strokeAlpha: 0.5, cut: 12 }));
+        const frame = this.add.rectangle(left, y, rowW, sh - 8, 0xffffff, 0.001).setOrigin(0).setInteractive({ useHandCursor: true });
         this.add.text(left + 22, y + 6, def.name, { fontFamily: FONT_JP, fontSize: '19px', color: COLOR_HEX.white, fontStyle: '700' });
         this.add.text(left + 22, y + 30, `${def.owner}　${def.desc}`, { fontFamily: FONT_JP, fontSize: '12px', color: COLOR_HEX.dim }).setCrop(0, 0, rowW - 92, 16);
         const mark = this.add.text(left + rowW - 22, y + (sh - 8) / 2, '✓', { fontFamily: FONT_EN, fontSize: '28px', color: COLOR_HEX.gold, fontStyle: '700' }).setOrigin(1, 0.5);
@@ -149,7 +148,7 @@ export class RushSetupScene extends Phaser.Scene {
     }
 
     const by = Math.max(H - Math.max(90, H * 0.08), y + 60);
-    makeButton(this, W / 2 - 150, by, 'BACK', () => this.scene.start('StageSelect'), { width: 240, height: 60, fontSize: 22 });
+    makeButton(this, W / 2 - 150, by, 'BACK', () => go(this, 'StageSelect'), { width: 240, height: 60, fontSize: 22 });
     startBtn = makeButton(this, W / 2 + 150, by, 'START', () => {
       if (picked.size !== RUSH.pickCount) return;
       const arts = pool.filter((id) => picked.has(id));
@@ -159,8 +158,7 @@ export class RushSetupScene extends Phaser.Scene {
       sv.lastRushSupports = supports;
       writeSave(sv);
       AudioBus.playBgm('bgm_title');
-      this.cameras.main.fadeOut(250, 6, 9, 19);
-      this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('Game', { characterId: chara.id, stageId: RUSH_STAGE.id, rushArts: arts, rushSupports: supports }));
+      go(this, 'Game', { characterId: chara.id, stageId: RUSH_STAGE.id, rushArts: arts, rushSupports: supports });
     }, { width: 240, height: 60, fontSize: 24, primary: true });
     refresh();
 

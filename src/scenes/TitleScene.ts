@@ -6,6 +6,7 @@ import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave } from '../utils/storage';
 import { AudioBus } from '../utils/audio';
 import { makeButton } from '../ui/Button';
+import { go } from '../ui/theme';
 import { visibleCharacters } from '../utils/unlock';
 
 /** タイトルコールは起動ごとに1回 */
@@ -92,11 +93,11 @@ export class TitleScene extends Phaser.Scene {
     // ギャラリーとミュージックは、中身が1つも無ければ入口ごと出さない
     const menu: { label: string; run: () => void }[] = [
       { label: 'OPTION', run: () => this.scene.launch('Option', { from: 'Title' }) },
-      { label: '遊び方', run: () => this.scene.start('HowTo') },
+      { label: '遊び方', run: () => go(this, 'HowTo') },
     ];
-    if (visibleMusic(sv).length > 0) menu.push({ label: 'MUSIC', run: () => this.scene.start('Music') });
-    if (visibleGallery(sv).length > 0) menu.push({ label: 'GALLERY', run: () => this.scene.start('Gallery') });
-    menu.push({ label: '図鑑', run: () => this.scene.start('Codex') });
+    if (visibleMusic(sv).length > 0) menu.push({ label: 'MUSIC', run: () => go(this, 'Music') });
+    if (visibleGallery(sv).length > 0) menu.push({ label: 'GALLERY', run: () => go(this, 'Gallery') });
+    menu.push({ label: '図鑑', run: () => go(this, 'Codex') });
     const mGap = 10;
     const mW = Math.min(160, Math.floor((W - 32 - mGap * (menu.length - 1)) / menu.length));
     const mLeft = (W - (mW * menu.length + mGap * (menu.length - 1))) / 2;
@@ -128,10 +129,7 @@ export class TitleScene extends Phaser.Scene {
       if (started) return;
       started = true;
       AudioBus.playBgm('bgm_title');
-      this.cameras.main.fadeOut(250, 6, 9, 19);
-      this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('CharaSelect');
-      });
+      go(this, 'CharaSelect');
     };
     this.input.once('pointerdown', start);
     this.input.keyboard?.once('keydown', start);

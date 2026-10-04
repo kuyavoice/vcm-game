@@ -5,6 +5,7 @@ import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, writeSave } from '../utils/storage';
 import { SelectGuard } from '../ui/SelectGuard';
 import { makeButton } from '../ui/Button';
+import { go, wipeIn, panel } from '../ui/theme';
 import { portraitKey, PORTRAITS } from '../data/portraits';
 import { AudioBus } from '../utils/audio';
 import { clearNewBadge, hasNewBadge, isCharacterUnlocked, isSecretPending, markSecretShown, resolveCharacter, visibleCharacters } from '../utils/unlock';
@@ -22,7 +23,7 @@ export class CharaSelectScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const W = cam.width;
     const H = cam.height;
-    cam.fadeIn(250, 6, 9, 19);
+    wipeIn(this, { cascade: false });
     AudioBus.leaveGameOver();
 
     const bg = this.add.tileSprite(0, 0, W, H, 'bg').setOrigin(0);
@@ -94,14 +95,14 @@ export class CharaSelectScene extends Phaser.Scene {
         cont.setScale(1);
         if (!ready || !guard.release(hit)) return;
         if (unlocked) this.choose(id);
-        else this.scene.start('Shop');
+        else go(this, 'Shop');
       });
       y += cardH + gap;
     });
 
     const by = buttonsY;
-    makeButton(this, W / 2 - 140, by, 'TITLE', () => this.scene.start('Title'), { width: 240, height: 60, fontSize: 24 });
-    makeButton(this, W / 2 + 140, by, `★ SHOP  ${save.totalYell}`, () => this.scene.start('Shop'), { width: 240, height: 60, fontSize: 22, primary: true });
+    makeButton(this, W / 2 - 140, by, 'TITLE', () => go(this, 'Title'), { width: 240, height: 60, fontSize: 24 });
+    makeButton(this, W / 2 + 140, by, `★ SHOP  ${save.totalYell}`, () => go(this, 'Shop'), { width: 240, height: 60, fontSize: 22, primary: true });
 
     this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
       const n = parseInt(ev.key, 10);
@@ -118,8 +119,7 @@ export class CharaSelectScene extends Phaser.Scene {
     save.settings.character = id;
     writeSave(save);
     clearNewBadge(id);
-    this.cameras.main.fadeOut(200, 6, 9, 19);
-    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start('StageSelect'));
+    go(this, 'StageSelect');
   }
 
   /** 隠しキャラの出現：画面のあちこちから星の粒が枠の位置へ集まり、光とともに枠が現れる */
@@ -157,10 +157,7 @@ export class CharaSelectScene extends Phaser.Scene {
   private buildCard(def: CharacterDef, unlocked: boolean, cardW: number, cardH: number, compact = false, isNew = false): Phaser.GameObjects.Container {
     const cont = this.add.container(0, 0);
     const color = unlocked ? def.color : 0x3a4a8a;
-    const shadow = this.add.rectangle(6, 6, cardW, cardH, 0x000000, 0.5);
-    const bg = this.add.rectangle(0, 0, cardW, cardH, 0x111a3a, 1).setStrokeStyle(2, color, unlocked ? 0.9 : 0.5);
-    const stripe = this.add.rectangle(-cardW / 2 + 8, 0, 10, cardH - 24, color, 1);
-    cont.add([shadow, bg, stripe]);
+    cont.add(panel(this, -cardW / 2, -cardH / 2, cardW, cardH, { color, alpha: 1, strokeAlpha: unlocked ? 0.9 : 0.5, stripe: 10, shadow: true }).gfx);
 
     // 顔（円マスク）
     const faceId = PORTRAITS[def.name];

@@ -16,6 +16,7 @@ import { ensureBestiary } from '../utils/bestiary';
 import { OPTIONAL_IMAGES, hasOptionalImage } from '../utils/optionalAssets';
 import { wrapJa } from '../utils/wrapJa';
 import { makeButton } from '../ui/Button';
+import { go as goScene, wipeIn, panel as uiPanel, UI } from '../ui/theme';
 
 type Tab = 'arts' | 'chara' | 'enemy';
 const TABS: { id: Tab; label: string }[] = [
@@ -52,7 +53,7 @@ export class CodexScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const W = cam.width;
     const H = cam.height;
-    cam.fadeIn(200, 6, 9, 19);
+    wipeIn(this);
     this.add.tileSprite(0, 0, W, H, 'bg').setOrigin(0).setDepth(-5);
 
     const save = loadSave();
@@ -72,14 +73,14 @@ export class CodexScene extends Phaser.Scene {
       if (next !== this.page) this.scene.restart({ tab: this.tab, page: next });
     };
     makeButton(this, W / 2 - 200, by, '◀', () => go(-1), { width: 100, height: 60, fontSize: 26 });
-    makeButton(this, W / 2, by, 'TITLE', () => this.scene.start('Title'), { width: 200, height: 60, fontSize: 24 });
+    makeButton(this, W / 2, by, 'TITLE', () => goScene(this, 'Title'), { width: 200, height: 60, fontSize: 24 });
     makeButton(this, W / 2 + 200, by, '▶', () => go(1), { width: 100, height: 60, fontSize: 26 });
 
     this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
       if (ev.repeat) return;
       if (ev.key === 'ArrowRight' || ev.key === 'd' || ev.key === 'D') go(1);
       else if (ev.key === 'ArrowLeft' || ev.key === 'a' || ev.key === 'A') go(-1);
-      else if (ev.key === 'Escape') this.scene.start('Title');
+      else if (ev.key === 'Escape') goScene(this, 'Title');
     });
   }
 
@@ -109,7 +110,7 @@ export class CodexScene extends Phaser.Scene {
     TABS.forEach((t, i) => {
       const on = t.id === this.tab;
       const x = x0 + i * (tw + gap);
-      this.add.rectangle(x, cy - th / 2, tw, th, on ? 0x87ceeb : 0x111a3a, on ? 1 : 0.92).setOrigin(0).setStrokeStyle(2, 0x87ceeb, on ? 1 : 0.5);
+      uiPanel(this, x, cy - th / 2, tw, th, { fill: on ? 0x87ceeb : UI.fill, alpha: on ? 1 : 0.92, strokeAlpha: on ? 1 : 0.5, stripe: false, cut: 10 });
       this.add.text(x + tw / 2, cy, t.label, { fontFamily: FONT_JP, fontSize: '20px', color: on ? '#060913' : COLOR_HEX.white, fontStyle: '700' }).setOrigin(0.5);
       if (!on) this.tapZone(x, cy - th / 2, tw, th, () => this.scene.restart({ tab: t.id, page: 0 }));
     });
@@ -139,8 +140,7 @@ export class CodexScene extends Phaser.Scene {
 
   /** 名前・分類・紹介文の枠 */
   private infoPanel(a: Area, o: { name: string; reading?: string; tag: string; tagColor: string; text: string; known: boolean; color: number }): void {
-    this.add.rectangle(a.x, a.y, a.w, a.h, 0x111a3a, 0.96).setOrigin(0).setStrokeStyle(2, o.known ? o.color : 0x3a4a8a, o.known ? 0.8 : 0.4);
-    this.add.rectangle(a.x + 4, a.y + 10, 6, a.h - 20, o.known ? o.color : 0x3a4a8a, 1).setOrigin(0);
+    uiPanel(this, a.x, a.y, a.w, a.h, { color: o.known ? o.color : 0x3a4a8a, alpha: 0.96, strokeAlpha: o.known ? 0.8 : 0.4 });
     const tx = a.x + 26;
     const name = this.add.text(tx, a.y + 14, o.name, { fontFamily: FONT_JP, fontSize: '30px', color: o.known ? COLOR_HEX.white : '#5A6488', fontStyle: '700' });
     if (o.reading) this.add.text(name.x + name.width + 14, a.y + 30, o.reading, { fontFamily: FONT_JP, fontSize: '16px', color: COLOR_HEX.dim });
@@ -224,8 +224,7 @@ export class CodexScene extends Phaser.Scene {
         fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.white, lineSpacing: 7, wordWrap: { width: area.w - 52, callback: wrapJa },
       });
       const introH = 58 + body.height + 22;
-      this.add.rectangle(area.x, area.y, area.w, introH, 0x111a3a, 0.94).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.6).setDepth(-1);
-      this.add.rectangle(area.x + 4, area.y + 10, 6, introH - 20, 0x87ceeb, 1).setOrigin(0);
+      uiPanel(this, area.x, area.y, area.w, introH, { alpha: 0.94, strokeAlpha: 0.6, depth: -1 });
       this.add.text(area.x + 26, area.y + 14, BESTIARY_INTRO.title, { fontFamily: FONT_JP, fontSize: '28px', color: COLOR_HEX.accent, fontStyle: '700' });
 
       const gap = 12;
@@ -238,7 +237,7 @@ export class CodexScene extends Phaser.Scene {
         const x = area.x + (i % cols) * (cw + gap);
         const y = gy + Math.floor(i / cols) * (ch + gap);
         const known = isKnown(e);
-        this.add.rectangle(x, y, cw, ch, 0x111a3a, 0.92).setOrigin(0).setStrokeStyle(2, known ? 0x87ceeb : 0x3a4a8a, known ? 0.8 : 0.4);
+        uiPanel(this, x, y, cw, ch, { color: known ? 0x87ceeb : 0x3a4a8a, alpha: 0.92, strokeAlpha: known ? 0.8 : 0.4, stripe: false, cut: 12 });
         const iconH = ch - 50;
         if (known && e.enemyId) {
           const size = ENEMIES[e.enemyId].sheet?.frameHeight ?? ENEMIES[e.enemyId].size;
@@ -275,7 +274,7 @@ export class CodexScene extends Phaser.Scene {
         const bw = Math.max(150, size * s + 40);
         const bx = pic.x + pic.w - bw;
         const byy = pic.y + pic.h - bw;
-        this.add.rectangle(bx, byy, bw, bw, 0x0b1026, 0.85).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.5);
+        uiPanel(this, bx, byy, bw, bw, { fill: 0x0b1026, alpha: 0.85, strokeAlpha: 0.5, stripe: false, cut: 10 });
         this.add.text(bx + bw / 2, byy + 16, 'IN GAME', { fontFamily: FONT_EN, fontSize: '14px', color: COLOR_HEX.dim, fontStyle: '700', letterSpacing: 2 }).setOrigin(0.5);
         this.enemyDot(e, bx + bw / 2, byy + 28 + (bw - 36 + size * s) / 2, s, true);
       }
@@ -322,8 +321,7 @@ export class CodexScene extends Phaser.Scene {
       const known = found.has(def.id);
       const evoKnown = found.has(`${def.id}:evo`);
       const color = known ? def.color : 0x3a4a8a;
-      this.add.rectangle(left, y, rowW, rowH - 10, 0x111a3a, 0.92).setOrigin(0).setStrokeStyle(2, color, known ? 0.8 : 0.4);
-      this.add.rectangle(left + 4, y + 8, 6, rowH - 26, color, 1).setOrigin(0);
+      uiPanel(this, left, y, rowW, rowH - 10, { color, alpha: 0.92, strokeAlpha: known ? 0.8 : 0.4 });
 
       // 顔（発見済みのみ）
       let tx = left + 22;

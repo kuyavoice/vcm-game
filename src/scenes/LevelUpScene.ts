@@ -4,6 +4,7 @@ import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { SelectGuard } from '../ui/SelectGuard';
 import { loadSave, writeSave } from '../utils/storage';
 import { makeButton } from '../ui/Button';
+import { panel, type Panel } from '../ui/theme';
 import { PORTRAITS, portraitKey } from '../data/portraits';
 
 export interface LevelUpData {
@@ -47,16 +48,17 @@ export class LevelUpScene extends Phaser.Scene {
     // 誤タップ対策：全指が離れる＋0.3秒待ち＋押し始めと離した位置が同じカード
     const guard = new SelectGuard(this);
     let picked = false;
-    const cards: Phaser.GameObjects.Rectangle[] = [];
+    const cards: Panel[] = [];
+    const hits: Phaser.GameObjects.Rectangle[] = [];
     const conts: Phaser.GameObjects.Container[] = [];
     // キーボードのカーソル（−1＝まだ選んでいない。移動キーを押すまで、決定キーは効かない）
     let cursor = -1;
     let hover = -1;
     const paint = () => {
-      cards.forEach((bg, i) => {
-        if (i === cursor) bg.setStrokeStyle(4, 0xffffff, 1);
-        else if (i === hover) bg.setStrokeStyle(3, 0xffffff, 1);
-        else bg.setStrokeStyle(2, 0x87ceeb, 0.5);
+      cards.forEach((card, i) => {
+        if (i === cursor) card.redraw({ stroke: 0xffffff, strokeWidth: 4, strokeAlpha: 1 });
+        else if (i === hover) card.redraw({ stroke: 0xffffff, strokeWidth: 3, strokeAlpha: 1 });
+        else card.redraw({ stroke: 0x87ceeb, strokeWidth: 2, strokeAlpha: 0.5 });
         conts[i].setScale(i === cursor ? 1.02 : 1);
       });
     };
@@ -75,9 +77,8 @@ export class LevelUpScene extends Phaser.Scene {
 
     data.choices.forEach((c, i) => {
       const cont = this.add.container(W / 2, y);
-      const shadow = this.add.rectangle(6, 6, cardW, cardH, 0x000000, 0.5);
-      const bg = this.add.rectangle(0, 0, cardW, cardH, 0x111a3a, 1).setStrokeStyle(2, 0x87ceeb, 0.5);
-      const stripe = this.add.rectangle(-cardW / 2 + 8, 0, 10, cardH - 24, c.color, 1);
+      const card = panel(this, -cardW / 2, -cardH / 2, cardW, cardH, { color: c.color, alpha: 1, stroke: 0x87ceeb, strokeAlpha: 0.5, stripe: 10, shadow: true });
+      const bg = this.add.rectangle(0, 0, cardW, cardH, 0xffffff, 0.001);
       const tag = this.add.text(cardW / 2 - 20, -cardH / 2 + 16, c.tag, {
         fontFamily: FONT_EN, fontSize: '22px', color: c.tag === 'NEW' ? '#060913' : COLOR_HEX.accent, fontStyle: '700',
         backgroundColor: c.tag === 'NEW' ? '#87CEEB' : undefined, padding: { x: 8, y: 2 },
@@ -98,7 +99,7 @@ export class LevelUpScene extends Phaser.Scene {
       const desc = this.add.text(tx, -cardH / 2 + (compact ? 92 : 100), c.desc, {
         fontFamily: FONT_JP, fontSize: compact ? '20px' : '22px', color: COLOR_HEX.white, wordWrap: { width: cardW / 2 - 24 - tx, useAdvancedWrap: true },
       }).setOrigin(0, 0);
-      cont.add([shadow, bg, stripe, tag, title, owner, desc]);
+      cont.add([card.gfx, bg, tag, title, owner, desc]);
       if (hasFace) {
         const face = this.add.image(fx, 0, faceKey).setDisplaySize(fr * 2.2, fr * 2.2);
         const maskG = this.make.graphics({ x: 0, y: 0 }, false);
@@ -118,7 +119,8 @@ export class LevelUpScene extends Phaser.Scene {
       cont.setAlpha(0).setX(W / 2 + 40);
       this.tweens.add({ targets: cont, alpha: 1, x: W / 2, duration: 220, delay: 60 * i, ease: 'Cubic.out' });
 
-      cards.push(bg);
+      cards.push(card);
+      hits.push(bg);
       conts.push(cont);
       bg.setInteractive({ useHandCursor: true });
       bg.on('pointerover', () => { hover = i; paint(); });
@@ -178,7 +180,7 @@ export class LevelUpScene extends Phaser.Scene {
       this.scene.restart({ ...data, choices: data.ban!(data.choices[idx]) });
     };
     this.input.on('gameobjectup', (_p: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
-      banAt(cards.indexOf(obj as Phaser.GameObjects.Rectangle));
+      banAt(hits.indexOf(obj as Phaser.GameObjects.Rectangle));
     });
 
     // PC：移動キー（W／S・↑／↓）でカーソルを動かし、スペースか Enter で決定。

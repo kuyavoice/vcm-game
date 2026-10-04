@@ -4,6 +4,7 @@ import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, writeSave, type SaveData } from '../utils/storage';
 import { isCharacterUnlocked } from '../utils/unlock';
 import { makeButton } from '../ui/Button';
+import { go, wipeIn, panel, type Panel } from '../ui/theme';
 import { AudioBus } from '../utils/audio';
 import { BGM_SLOTS, assignableMusic } from '../utils/bgmCustom';
 
@@ -27,7 +28,7 @@ export class MusicScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const W = cam.width;
     const H = cam.height;
-    cam.fadeIn(200, 6, 9, 19);
+    wipeIn(this);
     cam.scrollY = 0;
     const bg = this.add.tileSprite(0, 0, W, H, 'bg').setOrigin(0).setScrollFactor(0);
 
@@ -45,7 +46,7 @@ export class MusicScene extends Phaser.Scene {
     let buying = false;
     let playing = '';
     y = this.drawCustomSlots(save, left, rowW, y);
-    const frames = new Map<string, Phaser.GameObjects.Rectangle>();
+    const frames = new Map<string, Panel>();
     const labels = new Map<string, Phaser.GameObjects.Text>();
     const bars = new Map<string, Phaser.GameObjects.Rectangle[]>();
 
@@ -56,7 +57,7 @@ export class MusicScene extends Phaser.Scene {
     const refresh = () => {
       for (const m of items) {
         const on = playing === m.id;
-        frames.get(m.id)?.setStrokeStyle(2, on ? 0xffffff : m.color, on ? 1 : 0.6);
+        frames.get(m.id)?.redraw({ stroke: on ? 0xffffff : m.color, strokeAlpha: on ? 1 : 0.6 });
         labels.get(m.id)?.setText(on ? '■ STOP' : '▶ PLAY');
         bars.get(m.id)?.forEach((b) => b.setVisible(on));
       }
@@ -75,9 +76,8 @@ export class MusicScene extends Phaser.Scene {
 
     items.forEach((m) => {
       const owned = isOwned(m, save);
-      const frame = this.add.rectangle(left, y, rowW, rowH - 10, 0x111a3a, 0.92).setOrigin(0).setStrokeStyle(2, owned ? m.color : 0x3a4a8a, owned ? 0.6 : 0.5);
+      const frame = panel(this, left, y, rowW, rowH - 10, { color: owned ? m.color : 0x3a4a8a, alpha: 0.92, strokeAlpha: owned ? 0.6 : 0.5 });
       frames.set(m.id, frame);
-      this.add.rectangle(left + 4, y + 8, 6, rowH - 26, owned ? m.color : 0x3a4a8a, 1).setOrigin(0);
       // 長い曲名（英題つき）は、ボタンにかからないよう小さく
       this.add.text(left + 22, y + 8, m.title, { fontFamily: FONT_JP, fontSize: m.title.length > 20 ? '19px' : '24px', color: owned ? COLOR_HEX.white : '#5A6488', fontStyle: '700' });
       this.add.text(left + 22, y + 40, m.sub, { fontFamily: FONT_JP, fontSize: '15px', color: COLOR_HEX.dim });
@@ -127,7 +127,7 @@ export class MusicScene extends Phaser.Scene {
       // 聴いていた曲は止めて、タイトルの曲に戻す
       AudioBus.stopBgm();
       AudioBus.playBgm('bgm_title');
-      this.scene.start('Title');
+      go(this, 'Title');
     };
     const backY = Math.max(H - Math.max(90, H * 0.08), y + 50);
     makeButton(this, W / 2, backY, 'TITLE', leave, { width: 240, height: 60, fontSize: 24 });
@@ -177,8 +177,8 @@ export class MusicScene extends Phaser.Scene {
     const rowH = 46;
     for (const slot of BGM_SLOTS) {
       const assigned = nameOf(save.settings.bgmCustom[slot.id]);
-      const frame = this.add.rectangle(left, y, rowW, rowH - 6, 0x111a3a, 0.92).setOrigin(0).setStrokeStyle(2, assigned ? 0xffd700 : 0x3a4a8a, assigned ? 0.7 : 0.5).setInteractive({ useHandCursor: true });
-      this.add.rectangle(left + 4, y + 7, 6, rowH - 20, assigned ? 0xffd700 : 0x3a4a8a, 1).setOrigin(0);
+      panel(this, left, y, rowW, rowH - 6, { color: assigned ? 0xffd700 : 0x3a4a8a, alpha: 0.92, strokeAlpha: assigned ? 0.7 : 0.5, cut: 12 });
+      const frame = this.add.rectangle(left, y, rowW, rowH - 6, 0xffffff, 0.001).setOrigin(0).setInteractive({ useHandCursor: true });
       this.add.text(left + 20, y + 9, slot.name, { fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.white, fontStyle: '700' });
       const t = this.add.text(left + rowW - 16, y + 10, assigned || '既定', { fontFamily: FONT_JP, fontSize: '16px', color: assigned ? COLOR_HEX.gold : COLOR_HEX.dim });
       t.setOrigin(1, 0);
@@ -227,10 +227,11 @@ export class MusicScene extends Phaser.Scene {
       this.scene.restart();
     };
     const row = (label: string, sub: string, color: number, on: boolean, onPick: () => void) => {
-      const f = this.add.rectangle(left, y, rowW, rowH - 6, 0x111a3a, 0.96).setOrigin(0).setStrokeStyle(2, on ? 0xffffff : color, on ? 1 : 0.6).setInteractive({ useHandCursor: true });
+      const pg = panel(this, left, y, rowW, rowH - 6, { color, alpha: 0.96, stroke: on ? 0xffffff : color, strokeAlpha: on ? 1 : 0.6, cut: 12 }).gfx;
+      const f = this.add.rectangle(left, y, rowW, rowH - 6, 0xffffff, 0.001).setOrigin(0).setInteractive({ useHandCursor: true });
       const tx = this.add.text(left + 18, y + 6, label, { fontFamily: FONT_JP, fontSize: label.length > 20 ? '16px' : '19px', color: COLOR_HEX.white, fontStyle: '700' });
       const sb = this.add.text(left + rowW - 14, y + 10, sub, { fontFamily: FONT_JP, fontSize: '13px', color: COLOR_HEX.dim }).setOrigin(1, 0);
-      layer.add([f, tx, sb]);
+      layer.add([pg, f, tx, sb]);
       let armed = false;
       f.on('pointerdown', () => { armed = true; });
       f.on('pointerup', () => { if (armed) onPick(); armed = false; });

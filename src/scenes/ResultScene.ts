@@ -3,6 +3,7 @@ import { CHARACTERS } from '../data/characters';
 import { STAGES, stageById } from '../data/stages';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { makeButton } from '../ui/Button';
+import { go, wipeIn, panel as uiPanel } from '../ui/theme';
 import { loadSave, writeSave } from '../utils/storage';
 import { AudioBus } from '../utils/audio';
 import { renderShareCard, shareOrDownload, buildPostText, openXPost } from '../utils/shareCard';
@@ -95,7 +96,7 @@ export class ResultScene extends Phaser.Scene {
     const cam = this.cameras.main;
     const W = cam.width;
     const H = cam.height;
-    cam.fadeIn(300, 6, 9, 19);
+    wipeIn(this, { cascade: false });
     // クリア時は操作キャラ別の曲、それ以外はゲームオーバーの曲（未配置なら result → title）
     const endless = r.stageId === ENDLESS_STAGE.id;
     const rush = r.stageId === RUSH_STAGE.id;
@@ -214,7 +215,8 @@ export class ResultScene extends Phaser.Scene {
     // ボスラッシュは、下にボスごとの撃破時刻を1行足すので、行の間隔を詰める
     const pitch = rowCount >= 8 || rush ? 48 : 52;
     const panelH = 20 + rowCount * pitch;
-    const panel = this.add.rectangle(px, py, W * 0.40, panelH, 0x0b1026, 0.88).setOrigin(0, 0).setStrokeStyle(2, 0x87ceeb, 0.6);
+    uiPanel(this, px, py, W * 0.40, panelH, { fill: 0x0b1026, alpha: 0.88, stripe: false });
+    const panel = { x: px, width: W * 0.40 };
     const mm = Math.floor(r.timeSec / 60).toString().padStart(2, '0');
     const ss = Math.floor(r.timeSec % 60).toString().padStart(2, '0');
     // エンドレスは、生存時間を一番上に大きく。順位は生存時間で決まる
@@ -270,7 +272,7 @@ export class ResultScene extends Phaser.Scene {
       }
       const lines = Math.max(artRows.length, supRows.length, 1);
       const rowH = 24;
-      this.add.rectangle(bx, by0, bw, 38 + lines * rowH + 10, 0x0b1026, 0.9).setOrigin(0).setStrokeStyle(2, 0x87ceeb, 0.6);
+      uiPanel(this, bx, by0, bw, 38 + lines * rowH + 10, { fill: 0x0b1026, alpha: 0.9, stripe: false });
       const col = (x: number, head: string, list: typeof artRows) => {
         this.add.text(x, by0 + 8, head, { fontFamily: FONT_EN, fontSize: '16px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 2 });
         list.forEach((it, i) => {
@@ -308,10 +310,10 @@ export class ResultScene extends Phaser.Scene {
 
     makeButton(this, W / 2, H * 0.80 + 130, 'RETRY', () => {
       // ボスラッシュは、アーツを選び直す画面へ
-      if (rush) this.scene.start('RushSetup', { characterId: r.characterId });
-      else this.scene.start('Game', { characterId: r.characterId, stageId: stage.id });
+      if (rush) go(this, 'RushSetup', { characterId: r.characterId });
+      else go(this, 'Game', { characterId: r.characterId, stageId: stage.id });
     }, { primary: true });
-    makeButton(this, W / 2, H * 0.80 + 222, 'STAGE SELECT', () => this.scene.start('StageSelect'));
+    makeButton(this, W / 2, H * 0.80 + 222, 'STAGE SELECT', () => go(this, 'StageSelect'));
 
     // 悪夢をクリアしたとき：結果の前に、祝いの絵を大きく見せる（タップで閉じる）
     if (this.congratsKey && this.textures.exists(this.congratsKey)) {
