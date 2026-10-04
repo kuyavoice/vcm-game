@@ -25,6 +25,8 @@ import { UpgradeState, type Choice, type ChestResult } from '../systems/Upgrades
 import { Hud } from '../ui/Hud';
 import { Joystick } from '../ui/Joystick';
 import { CutIn } from '../ui/CutIn';
+import { Tutorial } from '../ui/Tutorial';
+import { playSpecialCutIn } from '../ui/SpecialCutIn';
 import { PASSIVES } from '../data/passives';
 import { SPECIALS, type SpecialHost } from '../systems/specials';
 import { AudioBus } from '../utils/audio';
@@ -50,6 +52,19 @@ export class GameScene extends Phaser.Scene {
   private joystick!: Joystick;
   private hud!: Hud;
   private cutIn!: CutIn;
+  /** 初回プレイの案内（ルナの吹き出し）。null＝出さない */
+  private tutorial: Tutorial | null = null;
+  /** 案内の段階：0 出す前／1 移動／2 攻撃／3 欠片／4 必殺／5 終わり */
+  private tutStep = 0;
+  private tutAt = 0;
+  private tutMoved = 0;
+  private tutLastX = 0;
+  private tutLastY = 0;
+  /** ボス撃破の溜め：この実時間までスローモーション（dt を slowMoMul 倍に） */
+  private slowMoUntil = 0;
+  private realNow = 0;
+  /** 最後のボスを倒したあと、リザルトへ行く実時間（撃破の余韻を見せてから） */
+  private finishAt = 0;
   private spawner!: Spawner;
   private xp!: XpSystem;
   private up!: UpgradeState;
@@ -150,6 +165,10 @@ export class GameScene extends Phaser.Scene {
     this.rush = { loop: 1, wave: 0, nextAt: 0, loopStartSec: 0, loopTimes: [], bossTimes: [], rewards: [], bossesDefeated: 0 };
     this.voiceCount = {};
     this.elapsed = 0;
+    this.slowMoUntil = 0;
+    this.finishAt = 0;
+    this.tutStep = 0;
+    this.tutMoved = 0;
     this.kills = 0;
     this.over = false;
     this.zones = [];
@@ -299,6 +318,23 @@ export class GameScene extends Phaser.Scene {
     const savedSpeed = loadSave().settings.speed;
     this.setSpeed(CONFIG.speedModes.includes(savedSpeed) ? savedSpeed : 1);
     this.cutIn = new CutIn(this);
+    // 初回プレイの案内：まだ見ていない人が STAGE 1 を遊ぶとき（?tutorial で毎回）。始めた時点で「見た」ことにする
+    this.tutorial?.destroy();
+    this.tutorial = null;
+    {
+      const sv = loadSave();
+      const force = typeof location !== 'undefined' && /[?&]tutorial(?:[&=]|$)/.test(location.search);
+      if ((force || !sv.tutorialDone) && this.stage.id === 1 && !this.stage.rush && !this.stage.endless && !this.stage.scoreMode) {
+        this.tutorial = new Tutorial(this, this.hud.topY + 170);
+        this.tutStep = 0;
+        this.tutLastX = this.player.x;
+        this.tutLastY = this.player.y;
+        if (!sv.tutorialDone) {
+          sv.tutorialDone = true;
+          writeSave(sv);
+        }
+      }
+    }
 
     this.ctx = {
       scene: this,
@@ -536,6 +572,7 @@ export class GameScene extends Phaser.Scene {
   update(_time: number, deltaMs: number): void {
     if (this.over) return;
     this.haltFrame = false;
+    this.realNow = _time;
 
     // 入力（フレームに1回）
     this.joystick.update();
@@ -549,7 +586,9 @@ export class GameScene extends Phaser.Scene {
 
     // ゲーム速度：倍率分だけ内部更新を分割し、1ステップの移動量を等速時と同程度に保つ
     const steps = Math.max(1, Math.ceil(this.speed));
-    const dtStep = ((Math.min(deltaMs, 50) / 1000) * this.speed) / steps;
+    // ボス撃破の溜め：短いスローモーション（実時間で数百ms。テンポを損なわない長さ）
+    const slow = this.realNow < this.slowMoUntil ? CONFIG.bossDefeat.slowMoMul : 1;
+    const dtStep = ((Math.min(deltaMs, 50) / 1000) * this.speed * slow) / steps;
     if (this.hitStopMs > 0) {
       // ヒットストップ中は、戦場の時間を進めない（描画と演出は続く）
       this.hitStopMs -= deltaMs;
@@ -625,8 +664,68 @@ export class GameScene extends Phaser.Scene {
 
     // 終了判定
     if (p.hp <= 0) this.finish(false);
-    else if (this.bossDefeated) this.finish(true);
+    else if (this.bossDefeated && this.realNow >= this.finishAt) this.finish(true);
     else if (this.timeUp) this.finish(false);
+
+    if (this.tutorial) this.updateTutorial();
+  }
+
+  /**
+   * 初回プレイの案内（2026-10-04）。ゲームは止めず、ルナの吹き出しで4つだけ：移動 → 攻撃は自動 → 欠片でレベルアップ → 必殺。
+   * 必殺のゲージが先に満ちたら、そこへ飛ぶ
+   */
+  private updateTutorial(): void {
+    const t = this.tutorial!;
+    const p = this.player;
+    const desktop = this.sys.game.device.os.desktop;
+    const el = this.elapsed;
+    const soulFull = this.soulGauge >= 1 && this.ctx.now >= this.soulUntil;
+    if (this.tutStep < 4 && soulFull) {
+      this.tutStep = 4;
+      this.tutAt = el;
+      const side = loadSave().settings.specialSide === 'left' ? '左下' : '右下';
+      t.say(desktop ? `ゲージが満ちたな！ スペースキー（か${side}のボタン）で必殺じゃ` : `ゲージが満ちたな！ ${side}のボタンで必殺じゃ`);
+      return;
+    }
+    switch (this.tutStep) {
+      case 0:
+        if (el >= 0.6) {
+          this.tutStep = 1;
+          this.tutAt = el;
+          t.say(desktop ? 'まずは動いてみよ。W・A・S・D か矢印キーじゃ' : 'まずは動いてみよ。画面をなぞるのじゃ');
+        }
+        break;
+      case 1: {
+        this.tutMoved += Math.hypot(p.x - this.tutLastX, p.y - this.tutLastY);
+        this.tutLastX = p.x;
+        this.tutLastY = p.y;
+        if (this.tutMoved >= 140 || el - this.tutAt >= 15) {
+          this.tutStep = 2;
+          this.tutAt = el;
+          t.say('よいぞ。攻撃は勝手に出る。群れに飲まれぬよう、間合いを取るのじゃ', 4500);
+        }
+        break;
+      }
+      case 2:
+        if (el - this.tutAt >= 5 && (this.xp.xp > 0 || this.xp.level > 1 || el - this.tutAt >= 12)) {
+          this.tutStep = 3;
+          this.tutAt = el;
+          t.say('倒した敵が落とす欠片を拾え。溜まればレベルが上がり、強化を1つ選べるぞ', 5000);
+        }
+        break;
+      case 3:
+        // 必殺のゲージが満ちるのを待つ（上の分岐で 4 へ）。長く待たせない
+        if (el - this.tutAt >= 90) this.tutStep = 5;
+        break;
+      case 4:
+        if (this.ctx.now < this.soulUntil || el - this.tutAt >= 20) {
+          this.tutStep = 5;
+          t.hide();
+        }
+        break;
+      default:
+        break;
+    }
   }
 
   /** 内部更新1ステップ（dt はゲーム内秒。ゲーム速度の分割後） */
@@ -3250,8 +3349,9 @@ export class GameScene extends Phaser.Scene {
       const finalBoss = this.stage.finalBoss ?? (this.stage.scoreMode ? 'blackknight' : undefined);
       // エンドレスは、どのボスを倒しても続く
       if (this.stage.endless || this.stage.rush || (finalBoss && def.id !== finalBoss)) {
-        // 一瞬止めてから弾ける
-        this.hitStopMs = 140;
+        // 一瞬止めてから弾け、短いスローモーションで余韻
+        this.hitStopMs = CONFIG.bossDefeat.hitStopMs;
+        this.slowMoUntil = this.realNow + CONFIG.bossDefeat.slowMoMs;
         this.bossBurst(e.x, e.y - 60, def.eyeColor, 3);
         this.cameras.main.shake(260, 0.008);
         this.hud.banner(this.stage.scoreMode ? `${def.name} 撃破　+${SCORE.points[def.id]}` : `${def.name} 撃破`, '#FFD700', 34);
@@ -3263,7 +3363,12 @@ export class GameScene extends Phaser.Scene {
       this.bossGfx?.clear();
       this.cavalryWarnings.length = 0;
       this.hazards.length = 0;
+      // 最後のボス：止めて → スローモーションで弾けるのを見せてから、リザルトへ（その間は無敵）
       this.bossDefeated = true;
+      this.hitStopMs = CONFIG.bossDefeat.finalHitStopMs;
+      this.slowMoUntil = this.realNow + CONFIG.bossDefeat.finalBeatMs;
+      this.finishAt = this.realNow + CONFIG.bossDefeat.finalBeatMs;
+      this.player.invulnUntil = this.gameNow + 60000;
       this.bossBurst(e.x, e.y - 60, def.eyeColor, 7);
       this.cameras.main.shake(400, 0.01);
       screenFlash(this, 500);
@@ -3596,7 +3701,8 @@ export class GameScene extends Phaser.Scene {
       this.rumbleUntil = this.ctx.now + CONFIG.rumble.buffSec * 1000;
       this.fxText(this.player.x, this.player.y - 130, `攻撃力 +${Math.round((CONFIG.rumble.buffMul - 1) * 100)}%`, '#FF4500');
     }
-    this.hud.banner(def.special.name, Phaser.Display.Color.IntegerToColor(def.color).rgba, 36);
+    // カットイン（立ち絵が無いキャラは従来の字幕）。ゲームは止めない
+    if (!playSpecialCutIn(this, this.characterId, def.special.name, def.color)) this.hud.banner(def.special.name, Phaser.Display.Color.IntegerToColor(def.color).rgba, 36);
     screenFlash(this, 300, 135, 206, 235);
     AudioBus.play('se_special');
     this.vo('special');
@@ -3712,6 +3818,8 @@ export class GameScene extends Phaser.Scene {
     this.over = true;
     this.haltFrame = true;
     this.joystick.reset();
+    this.tutorial?.destroy();
+    this.tutorial = null;
     for (const key of ['LevelUp', 'Chest', 'Pause']) if (this.scene.isActive(key)) this.scene.stop(key);
     if (this.specialRunning) {
       SPECIALS[this.player.def.special.id].end?.(this.ctx, this.specialHost);

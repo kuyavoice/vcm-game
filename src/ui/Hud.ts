@@ -106,6 +106,11 @@ export class Hud {
     scene.scale.on('resize', this.layout, this);
   }
 
+  /** 上の余白（セーフエリア込み）。案内の吹き出しの位置に使う */
+  get topY(): number {
+    return this.top;
+  }
+
   layout(): void {
     const cam = this.scene.cameras.main;
     this.w = cam.width;

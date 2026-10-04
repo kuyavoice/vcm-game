@@ -45,6 +45,8 @@ export interface SaveData {
   music: string[];
   /** 図鑑：遭遇した敵のID。null は、まだ一度も作っていない（これまでの記録から作る。utils/bestiary.ts） */
   bestiary: string[] | null;
+  /** 初回プレイの案内を見た（STAGE 1 を一度でも始めたら true） */
+  tutorialDone: boolean;
 }
 
 const DEFAULT: SaveData = {
@@ -68,6 +70,7 @@ const DEFAULT: SaveData = {
   gallery: [],
   music: [],
   bestiary: null,
+  tutorialDone: false,
 };
 
 export function loadSave(): SaveData {

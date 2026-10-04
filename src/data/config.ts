@@ -15,6 +15,8 @@ export const CONFIG = {
   maxEnemyBullets: 160,
   // 設置物（鉄柵・重力場など）の同時数の上限。超えたら同じ出所の古いものから消す
   zoneCaps: { shuraba: 12, honjin: 1, chahan: 12, default: 8 } as Readonly<Record<string, number>>,
+  /** ボス撃破の演出（2026-10-04）：止める時間（実時間ms）と、そのあとのスローモーション（実時間ms・倍率）。テンポを損なわない短さ */
+  bossDefeat: { hitStopMs: 160, slowMoMs: 420, slowMoMul: 0.3, finalHitStopMs: 220, finalBeatMs: 900 },
   /** 『貫通チャーハン』の「受けるダメージ増加」が、ボスに効く割合（半分） */
   vulnBossMul: 0.5,
   maxZones: 40,
