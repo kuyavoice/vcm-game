@@ -122,6 +122,8 @@ export class OptionScene extends Phaser.Scene {
     toggleRow('HIT FLASH', '敵に当たったときの光り方', ['STRONG', 'SOFT', 'OFF'], (st) => (st.hitFlash === 'soft' ? 1 : st.hitFlash === 'off' ? 2 : 0), (st, i) => { st.hitFlash = i === 1 ? 'soft' : i === 2 ? 'off' : 'strong'; });
     // 画面全体の光：必殺・ボス撃破・十字架・大当たり
     toggleRow('SCREEN FLASH', '必殺・撃破のときの画面の光', ['ON', 'SOFT', 'OFF'], (st) => (st.screenFlash === 'soft' ? 1 : st.screenFlash === 'off' ? 2 : 0), (st, i) => { st.screenFlash = i === 1 ? 'soft' : i === 2 ? 'off' : 'on'; });
+    // 必殺のカットイン：連打するとうるさいので、既定は1プレイで最初の1回だけ（2026-10-04 ユーザー指定）。時々＝ボイスの必殺と同じ間隔
+    toggleRow('CUT-IN', '必殺のカットイン（初回だけ／毎回／時々）', ['FIRST', 'ALWAYS', 'SOMETIMES'], (st) => (st.cutIn === 'always' ? 1 : st.cutIn === 'sometimes' ? 2 : 0), (st, i) => { st.cutIn = i === 1 ? 'always' : i === 2 ? 'sometimes' : 'first'; });
 
     const close = () => {
       this.scene.stop();

@@ -12,9 +12,11 @@ export class Tutorial {
   private panel: Phaser.GameObjects.Graphics | null = null;
   private hideTimer: Phaser.Time.TimerEvent | null = null;
   private readonly panelW: number;
+  /** ルナの表示の高さ */
+  private readonly lunaH = 150;
 
   constructor(private scene: Phaser.Scene, private y: number) {
-    this.panelW = Math.min(560, scene.cameras.main.width - 40);
+    this.panelW = Math.min(640, scene.cameras.main.width - 32);
   }
 
   /** 吹き出しを出す（出ていれば文だけ差し替える）。ms を渡すと、その時間で消える */
@@ -25,22 +27,43 @@ export class Tutorial {
     if (!this.box) {
       const W = s.cameras.main.width;
       const c = s.add.container(W / 2, this.y).setDepth(103).setScrollFactor(0).setAlpha(0);
-      const hasLuna = s.textures.exists('luna_chibi');
-      const lunaW = hasLuna ? 92 : 0;
       const pw = this.panelW;
       const left = -pw / 2;
       this.panel = s.add.graphics();
       c.add(this.panel);
-      if (hasLuna) {
-        const luna = s.add.image(left + 8, 0, 'luna_chibi').setOrigin(0, 0.5);
-        luna.setScale(96 / luna.height);
+      // ルナ：宝箱の画面と同じドット絵（4コマ：0 通常／1 瞬き）。無ければ小さいチビ絵
+      let lunaW = 0;
+      let luna: Phaser.GameObjects.Image | null = null;
+      if (s.textures.exists('luna_chest')) {
+        const tex = s.textures.get('luna_chest');
+        if (!tex.has('f0')) {
+          const src = tex.getSourceImage() as HTMLImageElement;
+          const fw = Math.floor(src.width / 4);
+          for (let i = 0; i < 4; i++) tex.add(`f${i}`, 0, i * fw, 0, fw, src.height);
+          tex.setFilter(Phaser.Textures.FilterMode.LINEAR);
+        }
+        luna = s.add.image(left + 6, 0, 'luna_chest', 'f0').setOrigin(0, 0.5);
+        luna.setScale(this.lunaH / luna.height);
+        const blink = () => {
+          if (!luna || !luna.active) return;
+          luna.setFrame('f1');
+          s.time.delayedCall(130, () => { if (luna && luna.active) luna.setFrame('f0'); });
+          s.time.delayedCall(Phaser.Math.Between(2200, 4200), blink);
+        };
+        s.time.delayedCall(1200, blink);
+      } else if (s.textures.exists('luna_chibi')) {
+        luna = s.add.image(left + 8, 0, 'luna_chibi').setOrigin(0, 0.5);
+        luna.setScale(this.lunaH / luna.height);
+      }
+      if (luna) {
+        lunaW = luna.displayWidth + 8;
         c.add(luna);
         // ちょこんと揺れる
         s.tweens.add({ targets: luna, y: -5, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       }
-      this.text = s.add.text(left + lunaW + 20, 0, '', {
-        fontFamily: FONT_JP, fontSize: '21px', color: COLOR_HEX.white, fontStyle: '700', lineSpacing: 6,
-        wordWrap: { width: pw - lunaW - 40, useAdvancedWrap: true },
+      this.text = s.add.text(left + lunaW + 18, 0, '', {
+        fontFamily: FONT_JP, fontSize: '25px', color: COLOR_HEX.white, fontStyle: '700', lineSpacing: 8,
+        wordWrap: { width: pw - lunaW - 36, useAdvancedWrap: true },
       }).setOrigin(0, 0.5);
       c.add(this.text);
       this.box = c;
@@ -71,7 +94,7 @@ export class Tutorial {
     const t = this.text;
     if (!g || !t) return;
     const pw = this.panelW;
-    const h = Math.max(96, t.height + 28);
+    const h = Math.max(this.lunaH + 16, t.height + 32);
     const left = -pw / 2;
     g.clear();
     g.fillStyle(0x060913, 0.88);

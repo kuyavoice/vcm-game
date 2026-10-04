@@ -27,6 +27,7 @@ import { Joystick } from '../ui/Joystick';
 import { CutIn } from '../ui/CutIn';
 import { Tutorial } from '../ui/Tutorial';
 import { playSpecialCutIn } from '../ui/SpecialCutIn';
+import { VOICE_COOLDOWN_MS } from '../data/voice';
 import { PASSIVES } from '../data/passives';
 import { SPECIALS, type SpecialHost } from '../systems/specials';
 import { AudioBus } from '../utils/audio';
@@ -65,6 +66,8 @@ export class GameScene extends Phaser.Scene {
   private realNow = 0;
   /** 最後のボスを倒したあと、リザルトへ行く実時間（撃破の余韻を見せてから） */
   private finishAt = 0;
+  /** 必殺のカットインを最後に出した実時間（0＝このプレイではまだ）。オプション CUT-IN の判定に使う */
+  private cutInLastAt = 0;
   private spawner!: Spawner;
   private xp!: XpSystem;
   private up!: UpgradeState;
@@ -167,6 +170,7 @@ export class GameScene extends Phaser.Scene {
     this.elapsed = 0;
     this.slowMoUntil = 0;
     this.finishAt = 0;
+    this.cutInLastAt = 0;
     this.tutStep = 0;
     this.tutMoved = 0;
     this.kills = 0;
@@ -325,7 +329,7 @@ export class GameScene extends Phaser.Scene {
       const sv = loadSave();
       const force = typeof location !== 'undefined' && /[?&]tutorial(?:[&=]|$)/.test(location.search);
       if ((force || !sv.tutorialDone) && this.stage.id === 1 && !this.stage.rush && !this.stage.endless && !this.stage.scoreMode) {
-        this.tutorial = new Tutorial(this, this.hud.topY + 170);
+        this.tutorial = new Tutorial(this, this.hud.topY + 200);
         this.tutStep = 0;
         this.tutLastX = this.player.x;
         this.tutLastY = this.player.y;
@@ -3701,8 +3705,15 @@ export class GameScene extends Phaser.Scene {
       this.rumbleUntil = this.ctx.now + CONFIG.rumble.buffSec * 1000;
       this.fxText(this.player.x, this.player.y - 130, `攻撃力 +${Math.round((CONFIG.rumble.buffMul - 1) * 100)}%`, '#FF4500');
     }
-    // カットイン（立ち絵が無いキャラは従来の字幕）。ゲームは止めない
-    if (!playSpecialCutIn(this, this.characterId, def.special.name, def.color)) this.hud.banner(def.special.name, Phaser.Display.Color.IntegerToColor(def.color).rgba, 36);
+    // カットイン（立ち絵が無いキャラは従来の字幕）。ゲームは止めない。出す頻度はオプション CUT-IN（既定は1プレイで最初の1回）
+    const mode = loadSave().settings.cutIn;
+    const wantCutIn = mode === 'always' || this.cutInLastAt === 0 || (mode === 'sometimes' && this.realNow - this.cutInLastAt >= (VOICE_COOLDOWN_MS.special ?? 120000));
+    let shown = false;
+    if (wantCutIn) {
+      shown = playSpecialCutIn(this, this.characterId, def.special.name, def.color);
+      if (shown) this.cutInLastAt = Math.max(1, this.realNow);
+    }
+    if (!shown) this.hud.banner(def.special.name, Phaser.Display.Color.IntegerToColor(def.color).rgba, 36);
     screenFlash(this, 300, 135, 206, 235);
     AudioBus.play('se_special');
     this.vo('special');

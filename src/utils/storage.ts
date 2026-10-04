@@ -15,7 +15,7 @@ export interface SaveData {
   bests: Record<string, BestRecord>;
   /** クリア済みステージID */
   cleared: number[];
-  settings: { bgm: number; se: number; voice: number; speed: number; character: string; /** ダメージの数字を出す */ damageNumbers: boolean; /** 必殺ボタンの位置（既定は右下） */ specialSide: 'right' | 'left'; /** 戦闘中の曲：normal＝今までどおり／custom＝場面ごとに割り当てた曲 */ bgmMode: 'normal' | 'custom'; /** 場面 → 曲ID（music.ts）。utils/bgmCustom.ts */ bgmCustom: Record<string, string>; /** 敵に当たったときの光り方：strong＝白く光る（既定）／soft＝淡く／off＝光らない */ hitFlash: 'strong' | 'soft' | 'off'; /** 画面全体の光（必殺・撃破など）：on／soft／off */ screenFlash: 'on' | 'soft' | 'off' };
+  settings: { bgm: number; se: number; voice: number; speed: number; character: string; /** ダメージの数字を出す */ damageNumbers: boolean; /** 必殺ボタンの位置（既定は右下） */ specialSide: 'right' | 'left'; /** 戦闘中の曲：normal＝今までどおり／custom＝場面ごとに割り当てた曲 */ bgmMode: 'normal' | 'custom'; /** 場面 → 曲ID（music.ts）。utils/bgmCustom.ts */ bgmCustom: Record<string, string>; /** 敵に当たったときの光り方：strong＝白く光る（既定）／soft＝淡く／off＝光らない */ hitFlash: 'strong' | 'soft' | 'off'; /** 画面全体の光（必殺・撃破など）：on／soft／off */ screenFlash: 'on' | 'soft' | 'off'; /** 必殺のカットイン：first＝1プレイで最初の1回だけ（既定）／always＝毎回／sometimes＝時々（ボイスの必殺と同じ間隔） */ cutIn: 'first' | 'always' | 'sometimes' };
   totalYell: number;
   /** 解放済みキャラID（空夜は常に使える） */
   unlockedCharacters: string[];
@@ -53,7 +53,7 @@ const DEFAULT: SaveData = {
   best: null,
   bests: {},
   cleared: [],
-  settings: { bgm: 0.7, se: 0.8, voice: 1, speed: 1, character: 'kuya', damageNumbers: true, specialSide: 'right', bgmMode: 'normal', bgmCustom: {}, hitFlash: 'strong', screenFlash: 'on' },
+  settings: { bgm: 0.7, se: 0.8, voice: 1, speed: 1, character: 'kuya', damageNumbers: true, specialSide: 'right', bgmMode: 'normal', bgmCustom: {}, hitFlash: 'strong', screenFlash: 'on', cutIn: 'first' },
   totalYell: 0,
   unlockedCharacters: [],
   permanent: {},
