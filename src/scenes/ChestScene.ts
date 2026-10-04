@@ -162,7 +162,7 @@ export class ChestScene extends Phaser.Scene {
       let y = H * 0.54;
       result.rewards.forEach((r, i) => {
         const cont = this.add.container(W / 2, y + rowH / 2).setAlpha(0);
-        const bg = panel(this, -cardW / 2, -(rowH - 10) / 2, cardW, rowH - 10, { color: r.color, alpha: 0.95, strokeAlpha: 0.9, stripe: 8 }).gfx;
+        const bg = panel(this, -cardW / 2, -(rowH - 10) / 2, cardW, rowH - 10, { color: r.color, alpha: 0.95, strokeAlpha: 0.9, stripe: 8, wedge: 90 }).gfx;
         const tag = this.add.text(-cardW / 2 + 28, -rowH / 2 + 14, r.kind === 'fusion' ? 'FUSION' : r.kind === 'evolve' ? 'EVOLVE' : r.kind === 'weapon' ? 'ARTS' : r.kind === 'passive' ? 'SUPPORT' : 'YELL', {
           fontFamily: FONT_EN, fontSize: '14px', color: '#060913', backgroundColor: Phaser.Display.Color.IntegerToColor(r.color).rgba, fontStyle: '700', padding: { x: 6, y: 1 },
         });

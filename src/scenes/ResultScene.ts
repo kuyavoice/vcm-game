@@ -3,7 +3,7 @@ import { CHARACTERS } from '../data/characters';
 import { STAGES, stageById } from '../data/stages';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { makeButton } from '../ui/Button';
-import { go, wipeIn, panel as uiPanel } from '../ui/theme';
+import { go, wipeIn, panel as uiPanel, stagger } from '../ui/theme';
 import { loadSave, writeSave } from '../utils/storage';
 import { AudioBus } from '../utils/audio';
 import { renderShareCard, shareOrDownload, buildPostText, openXPost } from '../utils/shareCard';
@@ -172,9 +172,10 @@ export class ResultScene extends Phaser.Scene {
     const stKey = useVictory ? this.fadedTexture(this.victoryKey) : `standing_${r.characterId}`;
     if (this.textures.exists(stKey)) {
       // ボタン帯（H*0.78〜）の上に足元が来るように収める
-      const img = this.add.image(W * 0.30, H * 0.75, stKey).setOrigin(0.5, 1);
+      const img = this.add.image(W * 0.30 - 30, H * 0.75, stKey).setOrigin(0.5, 1);
       const scale = (H * 0.56) / img.height;
-      img.setScale(scale).setAlpha(0.95);
+      img.setScale(scale).setAlpha(0);
+      this.tweens.add({ targets: img, x: W * 0.30, alpha: 0.95, duration: 420, delay: 80, ease: 'Cubic.out' });
     }
 
     // 見出し（「死」を使わない）
@@ -182,13 +183,20 @@ export class ResultScene extends Phaser.Scene {
     const rankTitle = endless ? endlessTitle(r.timeSec) : null;
     const title = rush ? 'BOSS RUSH' : endless ? 'ENDLESS' : r.cleared ? 'SIGNAL CLEAR' : r.timeUp ? 'TIME UP' : 'SIGNAL LOST';
     const sub = rush ? (rushTime !== null ? `称号　「${rushTitle(rushTime)}」` : '声が、途切れた……') : rankTitle ? `称号　「${rankTitle.name}」` : r.cleared ? '声は、届いた。' : r.timeUp ? '長い夜が、明けた。' : '声が、途切れた……';
-    this.add.text(W / 2, H * 0.10, title, {
-      fontFamily: FONT_EN, fontSize: '76px', color: rush ? (rushTime !== null ? '#FF8C42' : COLOR_HEX.danger) : endless ? COLOR_HEX.gold : r.cleared ? COLOR_HEX.accent : COLOR_HEX.danger, fontStyle: '700', letterSpacing: endless || rush ? 10 : 4,
+    // 見出しは大きく出てきて「ドン」と収まる。すぐ下にキャラ色の線が伸びる（2026-10-04 磨き B）
+    const titleColor = rush ? (rushTime !== null ? '#FF8C42' : COLOR_HEX.danger) : endless ? COLOR_HEX.gold : r.cleared ? COLOR_HEX.accent : COLOR_HEX.danger;
+    const titleT = this.add.text(W / 2, H * 0.10, title, {
+      fontFamily: FONT_EN, fontSize: '76px', color: titleColor, fontStyle: '700', letterSpacing: endless || rush ? 10 : 4,
       stroke: '#060913', strokeThickness: 8,
-    }).setOrigin(0.5);
-    this.add.text(W / 2, H * 0.10 + 62, sub, {
+    }).setOrigin(0.5).setScale(1.6).setAlpha(0);
+    this.tweens.add({ targets: titleT, scale: 1, alpha: 1, duration: 300, delay: 140, ease: 'Back.out' });
+    const rule = this.add.rectangle(W / 2, H * 0.10 + 40, 1, 3, Phaser.Display.Color.HexStringToColor(titleColor).color, 0.9).setOrigin(0.5).setScale(0, 1);
+    this.tweens.add({ targets: rule, scaleX: Math.min(W - 80, titleT.width + 60), duration: 320, delay: 380, ease: 'Cubic.out' });
+    const subT = this.add.text(W / 2, H * 0.10 + 62, sub, {
       fontFamily: FONT_JP, fontSize: endless || rushTime !== null ? '32px' : '26px', color: endless || rushTime !== null ? COLOR_HEX.gold : COLOR_HEX.white, fontStyle: endless || rushTime !== null ? '700' : 'normal', stroke: '#060913', strokeThickness: 6,
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setAlpha(0);
+    this.tweens.add({ targets: subT, alpha: 1, y: subT.y - 4, duration: 260, delay: 480 });
+    if (r.cleared && !r.debug) this.cameras.main.shake(180, 0.004);
     if (rankTitle?.next && !r.debug) {
       const left = rankTitle.next.inSec;
       this.add.text(W / 2, H * 0.10 + 106, `次の称号「${rankTitle.next.name}」まで　あと ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, {
@@ -249,10 +257,17 @@ export class ResultScene extends Phaser.Scene {
     ];
     rows.forEach(([k, v], i) => {
       const y = py + 14 + i * pitch;
-      this.add.text(px + 18, y, k, { fontFamily: FONT_EN, fontSize: '16px', color: COLOR_HEX.dim, fontStyle: '700' });
+      const kt = this.add.text(px + 18, y, k, { fontFamily: FONT_EN, fontSize: '16px', color: COLOR_HEX.dim, fontStyle: '700' });
       const jp = k === 'CHARACTER' || k === 'STAGE' || k === 'LOOP' || k === 'LOOPS';
       const main = (endless || rush) && k === 'TIME';
-      this.add.text(px + 18, y + (main ? 15 : 17), v, { fontFamily: jp ? FONT_JP : FONT_EN, fontSize: main ? '30px' : jp ? '22px' : '26px', color: main ? COLOR_HEX.gold : COLOR_HEX.white, fontStyle: '700' });
+      const vt = this.add.text(px + 18, y + (main ? 15 : 17), v, { fontFamily: jp ? FONT_JP : FONT_EN, fontSize: main ? '30px' : jp ? '22px' : '26px', color: main ? COLOR_HEX.gold : COLOR_HEX.white, fontStyle: '700' });
+      // 上から順に出す。数字（時間・撃破数・Lv・エール・スコア）は 0 から数え上げる
+      const delay = 420 + i * 70;
+      for (const t of [kt, vt]) {
+        t.setAlpha(0).setX(t.x + 18);
+        this.tweens.add({ targets: t, alpha: 1, x: t.x - 18, duration: 220, delay, ease: 'Cubic.out' });
+      }
+      this.countUp(vt, v, delay);
     });
 
     // ビルド：初期武器・共鳴アーツ（左の列）と、サポート（右の列）
@@ -288,15 +303,17 @@ export class ResultScene extends Phaser.Scene {
     if (isBest) {
       // ベスト更新のボイス（クリア・ゲームオーバーのボイスが鳴っていれば、その後に）
       AudioBus.voice(r.characterId, 'best', { queue: true });
-      this.add.text(panel.x + panel.width - 14, py - 14, 'NEW BEST', {
+      // 押印：大きい状態から一気に縮んで「バン」。着いた瞬間に少し揺れる
+      const stamp = this.add.text(panel.x + panel.width - 14, py - 14, 'NEW BEST', {
         fontFamily: FONT_EN, fontSize: '20px', color: '#060913', backgroundColor: '#FFD700', fontStyle: '700', padding: { x: 8, y: 2 },
-      }).setOrigin(1, 1).setAngle(-4);
+      }).setOrigin(1, 1).setAngle(-4).setScale(2.6).setAlpha(0);
+      this.tweens.add({ targets: stamp, scale: 1, alpha: 1, duration: 200, delay: 1150, ease: 'Quad.in', onComplete: () => this.cameras.main.shake(140, 0.004) });
     }
 
     // 共有：画像を保存（Web Share → ダウンロード）／Xにポスト
     let busy = false;
     const note = this.add.text(W / 2, H * 0.80 + 62, '', { fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim }).setOrigin(0.5);
-    makeButton(this, W / 2 - 150, H * 0.80, '画像を保存', async () => {
+    const btnSave = makeButton(this, W / 2 - 150, H * 0.80, '画像を保存', async () => {
       if (busy) return;
       busy = true;
       note.setText('生成中…');
@@ -306,14 +323,16 @@ export class ResultScene extends Phaser.Scene {
       note.setText(res === 'shared' ? '共有しました' : res === 'downloaded' ? '画像を保存しました' : '保存できませんでした');
       busy = false;
     }, { width: 280, height: 60, fontSize: 22 });
-    makeButton(this, W / 2 + 150, H * 0.80, 'Xにポスト', () => openXPost(buildPostText(r)), { width: 280, height: 60, fontSize: 22 });
+    const btnPost = makeButton(this, W / 2 + 150, H * 0.80, 'Xにポスト', () => openXPost(buildPostText(r)), { width: 280, height: 60, fontSize: 22 });
 
-    makeButton(this, W / 2, H * 0.80 + 130, 'RETRY', () => {
+    const btnRetry = makeButton(this, W / 2, H * 0.80 + 130, 'RETRY', () => {
       // ボスラッシュは、アーツを選び直す画面へ
       if (rush) go(this, 'RushSetup', { characterId: r.characterId });
       else go(this, 'Game', { characterId: r.characterId, stageId: stage.id });
     }, { primary: true });
-    makeButton(this, W / 2, H * 0.80 + 222, 'STAGE SELECT', () => go(this, 'StageSelect'));
+    const btnSel = makeButton(this, W / 2, H * 0.80 + 222, 'STAGE SELECT', () => go(this, 'StageSelect'));
+    // ボタンは、数字が出そろってから順に
+    stagger(this, [btnSave, btnPost, btnRetry, btnSel], { delay: 700, step: 70 });
 
     // 悪夢をクリアしたとき：結果の前に、祝いの絵を大きく見せる（タップで閉じる）
     if (this.congratsKey && this.textures.exists(this.congratsKey)) {
@@ -340,5 +359,32 @@ export class ResultScene extends Phaser.Scene {
         this.tweens.add({ targets: [shade, img, frame, head, hint], alpha: 0, duration: 260, onComplete: () => { for (const o of [shade, img, frame, head, hint]) o.destroy(); } });
       });
     }
+  }
+
+  /**
+   * 数字を 0 から数え上げる。対応する形：「mm:ss（＋順位）」「★ N」「N（カンマ区切り。＋順位）」。
+   * それ以外（キャラ名・ステージ名・×1・N周目）はそのまま
+   */
+  private countUp(t: Phaser.GameObjects.Text, value: string, delay: number): void {
+    let m: RegExpMatchArray | null;
+    let target = 0;
+    let fmt: ((n: number) => string) | null = null;
+    if ((m = value.match(/^(\d{2}):(\d{2})(.*)$/))) {
+      target = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+      const tail = m[3];
+      fmt = (n) => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(Math.floor(n % 60)).padStart(2, '0')}${tail}`;
+    } else if ((m = value.match(/^★ (\d+)$/))) {
+      target = parseInt(m[1], 10);
+      fmt = (n) => `★ ${Math.round(n)}`;
+    } else if ((m = value.match(/^([\d,]+)(\s.*)?$/))) {
+      target = parseInt(m[1].replace(/,/g, ''), 10);
+      const tail = m[2] ?? '';
+      fmt = (n) => `${Math.round(n).toLocaleString()}${tail}`;
+    }
+    if (!fmt || !Number.isFinite(target) || target <= 0) return;
+    const f = fmt;
+    const o = { n: 0 };
+    t.setText(f(0));
+    this.tweens.add({ targets: o, n: target, duration: 650, delay: delay + 60, ease: 'Cubic.out', onUpdate: () => t.setText(f(o.n)), onComplete: () => t.setText(value) });
   }
 }

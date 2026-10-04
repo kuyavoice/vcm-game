@@ -77,7 +77,7 @@ export class LevelUpScene extends Phaser.Scene {
 
     data.choices.forEach((c, i) => {
       const cont = this.add.container(W / 2, y);
-      const card = panel(this, -cardW / 2, -cardH / 2, cardW, cardH, { color: c.color, alpha: 1, stroke: 0x87ceeb, strokeAlpha: 0.5, stripe: 10, shadow: true });
+      const card = panel(this, -cardW / 2, -cardH / 2, cardW, cardH, { color: c.color, alpha: 1, stroke: 0x87ceeb, strokeAlpha: 0.5, stripe: 10, shadow: true, wedge: compact ? 96 : 110 });
       const bg = this.add.rectangle(0, 0, cardW, cardH, 0xffffff, 0.001);
       const tag = this.add.text(cardW / 2 - 20, -cardH / 2 + 16, c.tag, {
         fontFamily: FONT_EN, fontSize: '22px', color: c.tag === 'NEW' ? '#060913' : COLOR_HEX.accent, fontStyle: '700',

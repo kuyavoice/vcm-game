@@ -41,6 +41,8 @@ export interface PanelOpts {
   shadow?: boolean;
   /** 上辺の細い光を出す */
   highlight?: boolean;
+  /** 左にキャラ色の斜めのくさびを敷く幅（レベルアップや宝箱のカード。カットインの小型版）。0 で無し */
+  wedge?: number;
   depth?: number;
 }
 
@@ -81,6 +83,11 @@ export function panel(scene: Phaser.Scene, x: number, y: number, w: number, h: n
     }
     gfx.fillStyle(fill, alpha);
     gfx.fillPoints(pts(0, 0), true);
+    if (cur.wedge) {
+      const ww = Math.min(cur.wedge, w - cut - 10);
+      gfx.fillGradientStyle(color, color, color, color, 0.3, 0.02, 0.3, 0.02);
+      gfx.fillPoints([new Phaser.Math.Vector2(0, 0), new Phaser.Math.Vector2(ww + 26, 0), new Phaser.Math.Vector2(ww, h), new Phaser.Math.Vector2(0, h)], true);
+    }
     if (stripe) {
       gfx.fillStyle(color, 1);
       gfx.fillRect(0, 8, stripe, h - 16);
