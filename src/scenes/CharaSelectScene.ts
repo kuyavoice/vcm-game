@@ -6,6 +6,7 @@ import { loadSave, writeSave } from '../utils/storage';
 import { SelectGuard } from '../ui/SelectGuard';
 import { makeButton } from '../ui/Button';
 import { go, wipeIn, panel, UI, type Panel } from '../ui/theme';
+import { t } from '../utils/lang';
 import { portraitKey, PORTRAITS } from '../data/portraits';
 import { AudioBus } from '../utils/audio';
 import { clearNewBadge, hasNewBadge, isCharacterUnlocked, isSecretPending, markSecretShown, resolveCharacter, visibleCharacters } from '../utils/unlock';
@@ -35,7 +36,7 @@ export class CharaSelectScene extends Phaser.Scene {
     this.add.text(W / 2, H * 0.09, 'SELECT CHARACTER', {
       fontFamily: FONT_EN, fontSize: '50px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 5,
     }).setOrigin(0.5);
-    this.add.text(W / 2, H * 0.09 + 46, '誰の声で、夜を渡る？', {
+    this.add.text(W / 2, H * 0.09 + 46, t('誰の声で、夜を渡る？', 'Whose voice will carry you through the night?'), {
       fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.dim,
     }).setOrigin(0.5);
 
@@ -155,7 +156,7 @@ export class CharaSelectScene extends Phaser.Scene {
     });
 
     markSelected();
-    this.add.text(W / 2, cardsTop + total + 14, '選択中のカードをもう一度タップで決定', { fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.dim }).setOrigin(0.5, 0);
+    this.add.text(W / 2, cardsTop + total + 14, t('選択中のカードをもう一度タップで決定', 'Tap the selected card again to confirm'), { fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.dim }).setOrigin(0.5, 0);
 
     const by = buttonsY;
     makeButton(this, W / 2 - 140, by, 'TITLE', () => go(this, 'Title'), { width: 240, height: 60, fontSize: 24 });

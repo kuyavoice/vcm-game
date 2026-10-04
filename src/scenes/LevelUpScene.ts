@@ -5,6 +5,7 @@ import { SelectGuard } from '../ui/SelectGuard';
 import { loadSave, writeSave } from '../utils/storage';
 import { makeButton } from '../ui/Button';
 import { panel, type Panel } from '../ui/theme';
+import { t } from '../utils/lang';
 import { PORTRAITS, portraitKey } from '../data/portraits';
 
 export interface LevelUpData {
@@ -33,7 +34,7 @@ export class LevelUpScene extends Phaser.Scene {
     this.add.text(W / 2, H * 0.14, 'LEVEL UP', {
       fontFamily: FONT_EN, fontSize: '64px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 4,
     }).setOrigin(0.5);
-    this.add.text(W / 2, H * 0.14 + 52, `Lv ${data.level}　仲間の力を借りる`, {
+    this.add.text(W / 2, H * 0.14 + 52, `Lv ${data.level}　${t('仲間の力を借りる', 'Borrow a friend\'s power')}`, {
       fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.dim,
     }).setOrigin(0.5);
 

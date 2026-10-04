@@ -7,6 +7,7 @@ import { loadSave, writeSave } from '../utils/storage';
 import { AudioBus } from '../utils/audio';
 import { makeButton } from '../ui/Button';
 import { go, panel } from '../ui/theme';
+import { t } from '../utils/lang';
 import { visibleCharacters } from '../utils/unlock';
 
 /** タイトルコールは起動ごとに1回 */
@@ -89,7 +90,7 @@ export class TitleScene extends Phaser.Scene {
       this.tweens.add({ targets: lines, x: -120 - seg, duration: 9000, repeat: -1 });
     }
 
-    this.add.text(W / 2, tapY + 46, '画面をなぞって移動　／　PC: WASD・矢印キーで移動、スペースで必殺', {
+    this.add.text(W / 2, tapY + 46, t('画面をなぞって移動　／　PC: WASD・矢印キーで移動、スペースで必殺', 'Drag to move  /  PC: WASD or arrow keys to move, SPACE for Special'), {
       fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim,
     }).setOrigin(0.5);
 
@@ -142,7 +143,7 @@ export class TitleScene extends Phaser.Scene {
 
     // フッター：位置づけ／AI利用の表記（ポータルと同じ文言）／コピーライト。ホームバーなどのセーフエリア分だけ上げる
     if (kv) {
-      const credit = this.add.text(W / 2, H - 46 - fb, 'ファンゲーム（IF・お祭り枠）　画像・楽曲等の一部制作にAI技術を活用しています。　CREDITS ▸', {
+      const credit = this.add.text(W / 2, H - 46 - fb, t('ファンゲーム（IF・お祭り枠）　画像・楽曲等の一部制作にAI技術を活用しています。　CREDITS ▸', 'Fan game (what-if / festival).  Some images and music were made with AI tools.  CREDITS ▸'), {
         fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.dim,
       }).setOrigin(0.5).setAlpha(0.9).setInteractive({ useHandCursor: true });
       credit.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, ev: Phaser.Types.Input.EventData) => { ev.stopPropagation(); go(this, 'Credits'); });
@@ -184,8 +185,8 @@ export class TitleScene extends Phaser.Scene {
     const px = (W - pw) / 2;
     const py = H / 2 - ph / 2;
     layer.add([shade, panel(this, px, py, pw, ph, { color: 0xffd700, alpha: 0.98, strokeAlpha: 0.8 }).gfx]);
-    layer.add(this.add.text(W / 2, py + 34, '光の点滅について', { fontFamily: FONT_JP, fontSize: '26px', color: COLOR_HEX.gold, fontStyle: '700' }).setOrigin(0.5));
-    layer.add(this.add.text(W / 2, py + 112, 'このゲームには、画面が白く光る演出（被弾・必殺・撃破）があります。\nまぶしく感じる場合は、オプションの HIT FLASH／SCREEN FLASH で弱くできます。', {
+    layer.add(this.add.text(W / 2, py + 34, t('光の点滅について', 'About flashing lights'), { fontFamily: FONT_JP, fontSize: '26px', color: COLOR_HEX.gold, fontStyle: '700' }).setOrigin(0.5));
+    layer.add(this.add.text(W / 2, py + 112, t('このゲームには、画面が白く光る演出（被弾・必殺・撃破）があります。\nまぶしく感じる場合は、オプションの HIT FLASH／SCREEN FLASH で弱くできます。', 'This game has white flashes (on hit, special attacks, boss defeats).\nIf they feel too bright, you can soften them in OPTION: HIT FLASH / SCREEN FLASH.'), {
       fontFamily: FONT_JP, fontSize: '17px', color: COLOR_HEX.white, align: 'center', lineSpacing: 8, wordWrap: { width: pw - 48, useAdvancedWrap: true },
     }).setOrigin(0.5));
     const close = (soft: boolean) => {
@@ -200,8 +201,8 @@ export class TitleScene extends Phaser.Scene {
       // 閉じたタップで TAP TO START が反応しないよう、少し待ってから待ち受ける
       this.time.delayedCall(250, onClose);
     };
-    layer.add(makeButton(this, W / 2 - 120, py + ph - 56, 'このまま', () => close(false), { width: 220, height: 56, fontSize: 20, primary: true, armDelayMs: 300 }));
-    layer.add(makeButton(this, W / 2 + 120, py + ph - 56, '弱くする', () => close(true), { width: 220, height: 56, fontSize: 20, armDelayMs: 300 }));
+    layer.add(makeButton(this, W / 2 - 120, py + ph - 56, t('このまま', 'KEEP'), () => close(false), { width: 220, height: 56, fontSize: 20, primary: true, armDelayMs: 300 }));
+    layer.add(makeButton(this, W / 2 + 120, py + ph - 56, t('弱くする', 'SOFTEN'), () => close(true), { width: 220, height: 56, fontSize: 20, armDelayMs: 300 }));
   }
 
   /**

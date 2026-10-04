@@ -12,6 +12,7 @@ import { loadSave, isStageUnlocked } from '../utils/storage';
 import { SelectGuard } from '../ui/SelectGuard';
 import { makeButton } from '../ui/Button';
 import { go, wipeIn, panel } from '../ui/theme';
+import { t } from '../utils/lang';
 import { AudioBus } from '../utils/audio';
 
 /** ステージ選択（タイトル → ここ → ゲーム）。前ステージのクリアで解放 */
@@ -36,7 +37,7 @@ export class StageSelectScene extends Phaser.Scene {
     this.add.text(W / 2, H * 0.11, 'SELECT STAGE', {
       fontFamily: FONT_EN, fontSize: '56px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 6,
     }).setOrigin(0.5);
-    this.add.text(W / 2, H * 0.11 + 48, 'どの夜に、声を取り戻しに行く？', {
+    this.add.text(W / 2, H * 0.11 + 48, t('どの夜に、声を取り戻しに行く？', 'Which night will you go to, to bring the voice back?'), {
       fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.dim,
     }).setOrigin(0.5);
 

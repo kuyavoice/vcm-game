@@ -34,7 +34,7 @@ export class OptionScene extends Phaser.Scene {
     this.scene.bringToTop();
 
     // 下の画面のボタンを押せないように、全面で入力を受ける
-    this.add.rectangle(0, 0, W, H, 0x060913, 0.92).setOrigin(0).setInteractive();
+    this.add.rectangle(0, 0, W, H, 0x060913, 0.92).setOrigin(0).setInteractive().setScrollFactor(0);
     reveal(this);
 
     const top = Math.max(H * 0.16, 120);
@@ -126,6 +126,8 @@ export class OptionScene extends Phaser.Scene {
     // 画面全体の光：必殺・ボス撃破・十字架・大当たり
     toggleRow('SCREEN FLASH', '必殺・撃破のときの画面の光', ['ON', 'SOFT', 'OFF'], (st) => (st.screenFlash === 'soft' ? 1 : st.screenFlash === 'off' ? 2 : 0), (st, i) => { st.screenFlash = i === 1 ? 'soft' : i === 2 ? 'off' : 'on'; });
     // 必殺のカットイン：連打するとうるさいので、既定は1プレイで最初の1回だけ（2026-10-04 ユーザー指定）。時々＝ボイスの必殺と同じ間隔
+    // 表示言語（最低限。utils/lang.ts）。切り替えたらこの画面も作り直す
+    toggleRow('LANGUAGE', '表示言語 / Language', ['日本語', 'ENGLISH'], (st) => (st.lang === 'en' ? 1 : 0), (st, i) => { st.lang = i === 1 ? 'en' : 'ja'; });
     toggleRow('CUT-IN', '必殺のカットイン（初回だけ／毎回／時々）', ['FIRST', 'ALWAYS', 'SOMETIMES'], (st) => (st.cutIn === 'always' ? 1 : st.cutIn === 'sometimes' ? 2 : 0), (st, i) => { st.cutIn = i === 1 ? 'always' : i === 2 ? 'sometimes' : 'first'; });
 
     if (col !== 0) ty += 86;
@@ -166,5 +168,17 @@ export class OptionScene extends Phaser.Scene {
     };
     makeButton(this, W / 2, ty + 46, 'CLOSE', close, { primary: true });
     this.input.keyboard?.on('keydown-ESC', close);
+
+    // 項目が増えて小さい画面では収まらないので、なぞって送れるようにする（2026-10-05）
+    const maxScroll = Math.max(0, ty + 46 + 60 - H);
+    if (maxScroll > 0) {
+      let startY = 0;
+      let startScroll = 0;
+      this.input.on('pointerdown', (p: Phaser.Input.Pointer) => { startY = p.y; startScroll = cam.scrollY; });
+      this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+        if (!p.isDown) return;
+        cam.scrollY = Phaser.Math.Clamp(startScroll + (startY - p.y), 0, maxScroll);
+      });
+    }
   }
 }

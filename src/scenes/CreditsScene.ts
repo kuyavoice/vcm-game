@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { makeButton } from '../ui/Button';
 import { go, wipeIn, panel } from '../ui/theme';
+import { lang } from '../utils/lang';
 
 /**
  * クレジットと AI 利用の開示（2026-10-05 ユーザー指示）。タイトルの下の文言から開く。
@@ -13,6 +14,15 @@ const SECTIONS: { en: string; title: string; lines: string[] }[] = [
   { en: 'VOICE', title: 'ボイス', lines: ['言峰空也／雪狐／瑞浪蓮／雛桜律', '一部のボイスは ElevenLabs による音声生成を使用しています。'] },
   { en: 'MUSIC', title: '音楽', lines: ['言峰空也', '全曲を Suno（有料プラン）で制作。権利は言峰空也に帰属します。'] },
   { en: 'GRAPHICS', title: 'イラスト・ドット絵', lines: ['一部の画像の制作に、画像生成 AI を活用しています。'] },
+];
+
+const SECTIONS_EN: { en: string; title: string; lines: string[] }[] = [
+  // 人名はローマ字の読みが確定していないので、英語版でも日本語表記のまま
+  { en: 'ORIGINAL', title: 'Original work', lines: ['"Voice Connect Memorial" by 言峰空也 (serialized on Kakuyomu)', 'This is a fan game (a what-if, festival piece).'] },
+  { en: 'PRODUCTION', title: 'Planning / Production / Programming', lines: ['言峰空也', 'Programmed together with Claude (Anthropic).'] },
+  { en: 'VOICE', title: 'Voices', lines: ['言峰空也 / 雪狐 / 瑞浪蓮 / 雛桜律', 'Some voices were generated with ElevenLabs.'] },
+  { en: 'MUSIC', title: 'Music', lines: ['言峰空也', 'All tracks were made with Suno (paid plan). Rights belong to 言峰空也.'] },
+  { en: 'GRAPHICS', title: 'Illustrations / Pixel art', lines: ['Some images were made with image-generation AI.'] },
 ];
 
 export class CreditsScene extends Phaser.Scene {
@@ -29,12 +39,12 @@ export class CreditsScene extends Phaser.Scene {
 
     const top = Math.max(H * 0.06, 40);
     this.add.text(W / 2, top, 'CREDITS', { fontFamily: FONT_EN, fontSize: '44px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 5 }).setOrigin(0.5);
-    this.add.text(W / 2, top + 44, 'クレジットと AI 利用について', { fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim }).setOrigin(0.5);
+    this.add.text(W / 2, top + 44, lang() === 'en' ? 'Credits and use of AI' : 'クレジットと AI 利用について', { fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim }).setOrigin(0.5);
 
     const panelW = Math.min(640, W - 40);
     const left = (W - panelW) / 2;
     let y = top + 92;
-    for (const sec of SECTIONS) {
+    for (const sec of lang() === 'en' ? SECTIONS_EN : SECTIONS) {
       const body = this.add.text(left + 24, y + 44, sec.lines, {
         fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.white, lineSpacing: 6, wordWrap: { width: panelW - 48, useAdvancedWrap: true },
       });

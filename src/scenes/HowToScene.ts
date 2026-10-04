@@ -3,6 +3,7 @@ import { CONFIG } from '../data/config';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { makeButton } from '../ui/Button';
 import { go as goScene, wipeIn, panel } from '../ui/theme';
+import { lang } from '../utils/lang';
 
 interface Page {
   title: string;
@@ -52,6 +53,47 @@ const PAGES: Page[] = [
   },
 ];
 
+// English pages（最低限の英語対応。2026-10-05。内容は日本語と同じ）
+const PAGES_EN: Page[] = [
+  {
+    title: 'Basics', en: 'BASICS',
+    items: [
+      { head: 'Move', body: 'Drag on the screen to move in that direction.\nPC: W / A / S / D or the arrow keys.' },
+      { head: 'Attack', body: 'Attacks are automatic. Keep your distance and weave through the crowd.' },
+      { head: 'Voice Shards', body: 'Dropped by defeated enemies. Collect them to level up\nand pick one upgrade.' },
+      { head: 'Special', body: 'Defeating enemies fills the gauge. When full, press the\nbutton at the bottom right (PC: SPACE).\nThe button can be moved to the left in OPTION.' },
+      { head: 'Rest', body: `Stand still for ${CONFIG.sleepAfterSeconds} seconds to doze off and slowly recover HP.` },
+    ],
+  },
+  {
+    title: 'Power Up', en: 'POWER UP',
+    items: [
+      { head: 'Resonance Arts', body: `Skills borrowed from your friends. Up to ${CONFIG.weaponSlots}. They grow to Lv8.` },
+      { head: 'Support', body: `Passive boosts. Up to ${CONFIG.passiveSlots}.` },
+      { head: 'Jewel Box', body: 'Rarely dropped by Knight-class enemies and above.\nUpgrades the Arts and Supports you hold.' },
+      { head: 'Broken Speaker', body: 'Break it for healing and handy items.' },
+    ],
+  },
+  {
+    title: 'Evolve / Fusion', en: 'EVOLVE / FUSION',
+    items: [
+      { head: 'Evolve', body: 'Raise a Resonance Art to Lv8, hold its matching Support,\nthen open a Jewel Box.' },
+      { head: 'Fusion', body: 'Raise two specific Resonance Arts to Lv8 and open a Jewel Box.\nThey merge into one, freeing a slot.' },
+      { head: 'Recipes', body: 'The Codex has hints.\nEvery skill you obtain is recorded there.' },
+      { head: 'Priority', body: 'A Jewel Box resolves Fusion → Evolve → Level up, in that order.' },
+    ],
+  },
+  {
+    title: 'Yell & Unlocks', en: 'YELL',
+    items: [
+      { head: 'Yell', body: 'Earned during a run. You keep it when the run ends.' },
+      { head: 'Spend it on', body: 'Unlocking characters, permanent upgrades, items,\ncolors, the gallery and music.' },
+      { head: 'Stages', body: 'Clearing a stage opens the next one.' },
+      { head: 'Game speed', body: 'The button at the top right cycles the speed.' },
+    ],
+  },
+];
+
 /** 遊び方。タイトル画面から開く。ページ送りは、ボタン・左右キー・画面の左右をタップ */
 export class HowToScene extends Phaser.Scene {
   private page = 0;
@@ -68,7 +110,8 @@ export class HowToScene extends Phaser.Scene {
     wipeIn(this);
     this.add.tileSprite(0, 0, W, H, 'bg').setOrigin(0).setDepth(-5);
 
-    const pg = PAGES[this.page];
+    const pages = lang() === 'en' ? PAGES_EN : PAGES;
+    const pg = pages[this.page];
     const top = Math.max(H * 0.06, 40);
     this.add.text(W / 2, top, 'HOW TO PLAY', { fontFamily: FONT_EN, fontSize: '44px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 5 }).setOrigin(0.5);
     this.add.text(W / 2, top + 44, `${this.page + 1} / ${PAGES.length}`, { fontFamily: FONT_EN, fontSize: '20px', color: COLOR_HEX.gold, fontStyle: '700' }).setOrigin(0.5);

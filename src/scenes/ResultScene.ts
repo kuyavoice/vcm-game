@@ -4,6 +4,7 @@ import { STAGES, stageById } from '../data/stages';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { makeButton } from '../ui/Button';
 import { go, wipeIn, panel as uiPanel, stagger } from '../ui/theme';
+import { t } from '../utils/lang';
 import { loadSave, writeSave } from '../utils/storage';
 import { AudioBus } from '../utils/audio';
 import { renderShareCard, shareOrDownload, buildPostText, openXPost } from '../utils/shareCard';
@@ -182,7 +183,7 @@ export class ResultScene extends Phaser.Scene {
     // エンドレス：見出しは記録。称号（生存時間で決まる）を大きく出す
     const rankTitle = endless ? endlessTitle(r.timeSec) : null;
     const title = rush ? 'BOSS RUSH' : endless ? 'ENDLESS' : r.cleared ? 'SIGNAL CLEAR' : r.timeUp ? 'TIME UP' : 'SIGNAL LOST';
-    const sub = rush ? (rushTime !== null ? `称号　「${rushTitle(rushTime)}」` : '声が、途切れた……') : rankTitle ? `称号　「${rankTitle.name}」` : r.cleared ? '声は、届いた。' : r.timeUp ? '長い夜が、明けた。' : '声が、途切れた……';
+    const sub = rush ? (rushTime !== null ? `${t('称号', 'TITLE')}　「${rushTitle(rushTime)}」` : t('声が、途切れた……', 'The voice was cut off...')) : rankTitle ? `${t('称号', 'TITLE')}　「${rankTitle.name}」` : r.cleared ? t('声は、届いた。', 'The voice reached them.') : r.timeUp ? t('長い夜が、明けた。', 'The long night is over.') : t('声が、途切れた……', 'The voice was cut off...');
     // 見出しは大きく出てきて「ドン」と収まる。すぐ下にキャラ色の線が伸びる（2026-10-04 磨き B）
     const titleColor = rush ? (rushTime !== null ? '#FF8C42' : COLOR_HEX.danger) : endless ? COLOR_HEX.gold : r.cleared ? COLOR_HEX.accent : COLOR_HEX.danger;
     const titleT = this.add.text(W / 2, H * 0.10, title, {
@@ -319,11 +320,11 @@ export class ResultScene extends Phaser.Scene {
       note.setText('生成中…');
       const blob = await renderShareCard(r);
       if (!blob) { note.setText('生成に失敗しました'); busy = false; return; }
-      const res = await shareOrDownload(blob, `dstage_${stage.id}_${endless || rush ? 'record' : r.cleared ? 'clear' : 'lost'}.png`, buildPostText(r));
+      const res = await shareOrDownload(blob, `dstage_${stage.id}_${endless || rush ? 'record' : r.cleared ? 'clear' : 'lost'}.png`, buildPostText(r, { best: isBest }));
       note.setText(res === 'shared' ? '共有しました' : res === 'downloaded' ? '画像を保存しました' : '保存できませんでした');
       busy = false;
     }, { width: 280, height: 60, fontSize: 22 });
-    const btnPost = makeButton(this, W / 2 + 150, H * 0.80, 'Xにポスト', () => openXPost(buildPostText(r)), { width: 280, height: 60, fontSize: 22 });
+    const btnPost = makeButton(this, W / 2 + 150, H * 0.80, 'Xにポスト', () => openXPost(buildPostText(r, { best: isBest })), { width: 280, height: 60, fontSize: 22 });
 
     const btnRetry = makeButton(this, W / 2, H * 0.80 + 130, 'RETRY', () => {
       // ボスラッシュは、アーツを選び直す画面へ

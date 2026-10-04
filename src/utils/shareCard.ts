@@ -245,7 +245,7 @@ export async function shareOrDownload(blob: Blob, filename: string, text: string
 }
 
 /** Xポスト用の文面 */
-export function buildPostText(r: RunResult): string {
+export function buildPostText(r: RunResult, opts: { best?: boolean } = {}): string {
   const chara = CHARACTERS[r.characterId];
   const stage = stageById(r.stageId ?? 1);
   const mm = Math.floor(r.timeSec / 60);
@@ -254,7 +254,7 @@ export function buildPostText(r: RunResult): string {
   const lines = [
     `${GAME_TITLE}｜${chara?.name ?? ''}で ${stage.nameEn}「${stage.name}」`,
     stage.rush ? (r.rush && r.rush.loopTimes.length > 0 ? `1周 ${fmtTime(r.rush.loopTimes[0])}（${r.rush.loopTimes.length}周クリア）—— 称号「${rushTitle(r.rush.loopTimes[0])}」` : 'ボスに届かなかった……') : stage.endless ? `称号「${endlessTitle(r.timeSec).name}」—— ${endlessLoop(r.timeSec)}周目` : r.cleared ? 'SIGNAL CLEAR —— 声は、届いた。' : 'SIGNAL LOST —— 声が、途切れた……',
-    `生存 ${mm}:${ss}／撃破 ${r.kills}／Lv${r.level}${fusions ? `／合体技 ${fusions}` : ''}`,
+    `生存 ${mm}:${ss}／撃破 ${r.kills}／Lv${r.level}${fusions ? `／合体技 ${fusions}` : ''}${r.score !== undefined && !stage.endless ? `／スコア ${r.score.toLocaleString()}` : ''}${opts.best ? '　★NEW BEST' : ''}`,
     SHARE_URL,
     SHARE_TAG,
   ];
