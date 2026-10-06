@@ -99,7 +99,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     role: '指揮官',
     desc: '本人の火力は控えめ。仲間のアーツを強くする。',
     color: 0x87ceeb,
-    sprite: SPRITE('kuya', 64, 96, 1.25, true),
+    sprite: SPRITE('kuya', 64, 96, 1.25),
     standing: 'assets/images/standing/kuya.webp',
     hp: 100,
     speed: 150,
