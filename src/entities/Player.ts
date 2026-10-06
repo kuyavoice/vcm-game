@@ -36,9 +36,10 @@ export class Player extends Phaser.GameObjects.Sprite {
     this.spriteKey = spriteKey;
     this.hp = def.hp;
     this.maxHp = def.hp;
-    // 基準点：足元中央。画面上は spriteScale 倍で描画
+    // 基準点：足元中央。画面上は spriteScale 倍で描画（高解像度のシートはキャラ定義の倍率。影や盾は従来どおり）
     this.setOrigin(0.5, 1);
-    this.setScale(CONFIG.spriteScale);
+    this.setScale(def.sprite.scale ?? CONFIG.spriteScale);
+    if (def.sprite.smooth) scene.textures.get(spriteKey).setFilter(Phaser.Textures.FilterMode.LINEAR);
     this.setDepth(20);
     this.shadow = scene.add.image(x, y, 'shadow').setOrigin(0.5, 0.5).setDepth(19).setAlpha(0.6).setScale(CONFIG.spriteScale);
     this.shieldFx = scene.add.image(x, y, 'shield').setDepth(21).setScale(CONFIG.spriteScale * 1.6).setVisible(false).setAlpha(0.85);

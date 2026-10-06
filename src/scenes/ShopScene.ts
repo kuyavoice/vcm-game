@@ -155,7 +155,7 @@ export class ShopScene extends Phaser.Scene {
       const isSel = selected === id;
       panel(this, left, y, rowW, rowH, { color: isSel ? 0x87ceeb : 0x3a4a8a, alpha: 0.9, strokeAlpha: 0.8, stripe: false });
       // プレビュー（待機1コマ目・2倍）
-      if (this.textures.exists(key)) this.add.image(left + 40, y + rowH / 2 + 6, key, chara.sprite.frames.idle[0]).setScale(1.2).setOrigin(0.5, 0.6);
+      if (this.textures.exists(key)) this.add.image(left + 40, y + rowH / 2 + 6, key, chara.sprite.frames.idle[0]).setScale((chara.sprite.scale ?? 2) * 0.6).setOrigin(0.5, 0.6);
       this.add.text(left + 80, y + 10, name, { fontFamily: FONT_JP, fontSize: '22px', color: COLOR_HEX.white, fontStyle: '700' });
       this.add.text(left + 80, y + 38, isSel ? '使用中' : owned.includes(id) || id === '' ? '所持' : `★ ${cost} で購入`, { fontFamily: FONT_JP, fontSize: '14px', color: isSel ? COLOR_HEX.accent : COLOR_HEX.dim });
       if (isSel) {

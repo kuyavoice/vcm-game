@@ -5,6 +5,10 @@ export interface CharacterSpriteDef {
   file: string;
   frameWidth: number;
   frameHeight: number;
+  /** 画面上の倍率（省略時 CONFIG.spriteScale）。高解像度のシート（64×96）は 1.25 で、従来の 48×48 ×2 と同じくらいの背丈になる */
+  scale?: number;
+  /** 拡大縮小を滑らかに（LINEAR）。非整数倍で描かれるスマホでドットのガタつきを抑える。高解像度のシート向け */
+  smooth?: boolean;
   frames: {
     idle: number[];
     walk: number[];
@@ -75,12 +79,15 @@ export interface CharacterDef {
   voicePrefix: string;
 }
 
-const SPRITE = (id: string): CharacterSpriteDef => ({
+const SPRITE = (id: string, frameWidth = 48, frameHeight = 48, scale?: number, smooth?: boolean): CharacterSpriteDef => ({
   key: `chara_${id}`,
   file: `assets/sprites/chara/${id}.png`,
-  // 48×48 × 9コマ（待機2／歩き4／被弾1／居眠り2）。画面上は spriteScale 倍
-  frameWidth: 48,
-  frameHeight: 48,
+  // 既定 48×48 × 9コマ（待機2／歩き4／被弾1／居眠り2）。画面上は spriteScale 倍。
+  // 2026-10-06 から、元の大きな絵があるキャラは 64×96（_src_assets/tools/make_chara_sheet.py）・倍率 1.25・滑らか
+  frameWidth,
+  frameHeight,
+  scale,
+  smooth,
   frames: { idle: [0, 1], walk: [2, 3, 4, 5], hit: [6], sleep: [7, 8] },
 });
 
@@ -92,7 +99,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     role: '指揮官',
     desc: '本人の火力は控えめ。仲間のアーツを強くする。',
     color: 0x87ceeb,
-    sprite: SPRITE('kuya'),
+    sprite: SPRITE('kuya', 64, 96, 1.25, true),
     standing: 'assets/images/standing/kuya.webp',
     hp: 100,
     speed: 150,
