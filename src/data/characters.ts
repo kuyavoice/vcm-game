@@ -79,7 +79,9 @@ export interface CharacterDef {
   voicePrefix: string;
 }
 
-const SPRITE = (id: string, frameWidth = 48, frameHeight = 48, scale?: number, smooth?: boolean): CharacterSpriteDef => ({
+// walk：歩きのコマの並び。AI の 3×3 シートは4コマとも「足を開いた接地」で中割り（足が揃う瞬間）が無く、足がばたつくので、
+// 「左右の足が逆の2コマ」の間に待機のコマ（足が揃っている）を挟む（2026-10-07）。どの2コマが逆かは _src_assets/tools の計測で決めた
+const SPRITE = (id: string, frameWidth = 48, frameHeight = 48, scale?: number, smooth?: boolean, walk: number[] = [2, 3, 4, 5]): CharacterSpriteDef => ({
   key: `chara_${id}`,
   file: `assets/sprites/chara/${id}.png`,
   // 既定 48×48 × 9コマ（待機2／歩き4／被弾1／居眠り2）。画面上は spriteScale 倍。
@@ -88,7 +90,7 @@ const SPRITE = (id: string, frameWidth = 48, frameHeight = 48, scale?: number, s
   frameHeight,
   scale,
   smooth,
-  frames: { idle: [0, 1], walk: [2, 3, 4, 5], hit: [6], sleep: [7, 8] },
+  frames: { idle: [0, 1], walk, hit: [6], sleep: [7, 8] },
 });
 
 export const CHARACTERS: Record<string, CharacterDef> = {
@@ -99,7 +101,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     role: '指揮官',
     desc: '本人の火力は控えめ。仲間のアーツを強くする。',
     color: 0x87ceeb,
-    sprite: SPRITE('kuya', 64, 96, 1.25),
+    sprite: SPRITE('kuya', 64, 96, 1.25, undefined, [3, 0, 5, 1]),
     standing: 'assets/images/standing/kuya.webp',
     hp: 100,
     speed: 150,
@@ -121,7 +123,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     role: '防御・回復型',
     desc: '初心者向け。回復が得意で、水流が身を守る。',
     color: 0x87cefa,
-    sprite: SPRITE('mizuho', 64, 96, 1.25),
+    sprite: SPRITE('mizuho', 64, 96, 1.25, undefined, [2, 0, 3, 1]),
     standing: 'assets/images/standing/mizuho.webp',
     hp: 110,
     speed: 150,
@@ -142,7 +144,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     role: '近接重量型',
     desc: '大剣の薙ぎ払いで群れを押し返す。硬いが少し遅い。',
     color: 0xe8f4ff,
-    sprite: SPRITE('yukihito', 64, 96, 1.25),
+    sprite: SPRITE('yukihito', 64, 96, 1.25, undefined, [4, 0, 5, 1]),
     standing: 'assets/images/standing/yukihito.webp',
     hp: 130,
     speed: 135,
@@ -165,7 +167,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     role: '高火力型',
     desc: '上級者向け。攻撃に全振り。HPは低い。',
     color: 0xff4500,
-    sprite: SPRITE('ritsuka', 64, 96, 1.25),
+    sprite: SPRITE('ritsuka', 64, 96, 1.25, undefined, [4, 0, 5, 1]),
     standing: 'assets/images/standing/ritsuka.webp',
     hp: 100,
     speed: 150,
@@ -187,7 +189,7 @@ export const CHARACTERS: Record<string, CharacterDef> = {
     role: '後方支援・回復型',
     desc: '仲間想いの後方支援。星の矢で遠くから援護し、回復にも長ける。',
     color: 0xc0c0ff,
-    sprite: SPRITE('shion', 64, 96, 1.25),
+    sprite: SPRITE('shion', 64, 96, 1.25, undefined, [3, 0, 5, 1]),
     standing: 'assets/images/standing/shion.webp',
     hp: 90,
     speed: 145,
