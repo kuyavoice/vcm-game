@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { CONFIG } from '../data/config';
+import { ITEMS } from '../data/items';
 import type { PickupKind } from '../data/items';
 import { Pickup } from '../entities/Pickup';
 
@@ -65,7 +66,9 @@ export class XpSystem {
       const dx = px - g.x;
       const dy = py - g.y;
       const d2 = dx * dx + dy * dy;
-      if (!g.magnet && (d2 <= r2 || (magnetAll && !g.isItem))) g.magnet = true;
+      // 宝箱だけ回収範囲が広い（欠片・他のアイテムは pickupRadius のまま）
+      const inRange = g.kind === 'chest' ? d2 <= r2 * ITEMS.chest.pickupMul * ITEMS.chest.pickupMul : d2 <= r2;
+      if (!g.magnet && (inRange || (magnetAll && !g.isItem))) g.magnet = true;
       if (g.magnet) {
         const d = Math.sqrt(d2) || 1;
         let spd = CONFIG.gemMagnetSpeed + (pickupRadius * 2 - Math.min(d, pickupRadius * 2)) * 4;
