@@ -28,6 +28,20 @@ function song(characterId: string, name: string, title: string, color: number, s
   ];
 }
 
+/** 他のメンバーの曲（アレンジのみ） */
+function other(id: string, owner: string, title: string, color: number): MusicDef {
+  return { id: `chara_${id}`, key: `bgm_chara_${id}`, title, sub: `${owner} ／ ${ARRANGE}`, color, price: PRICE };
+}
+const others: MusicDef[] = [
+  other('rei', '天宮 澪', 'レイニーキャット・グルーヴ', 0x3cb8c8),
+  other('itaru', '弼辺 徹', '世界は一冊の薄い本', 0xff69b4),
+  other('itsuki', '晴山 樹', '最強！コンテニュー', 0x7fd34a),
+  other('sensitive', 'センシティ部', '出動！センシティ部☆ファイブ！', 0xff8c42),
+  other('prison', '???', '牢中独白', 0x8a94b8),
+  other('superwild', '???', 'SUPER WILD', 0xffb400),
+  other('resonance', '???', '静寂のレゾナンス', 0xb0a0ff),
+];
+
 export const MUSIC: MusicDef[] = [
   { id: 'title', key: 'bgm_title', title: 'D-STAGE SURVIVORS', sub: 'タイトル', color: 0x87ceeb, price: 0 },
   ...song('kuya', '宵月 空夜', 'Shattered Skies', 0x87ceeb),
@@ -35,6 +49,8 @@ export const MUSIC: MusicDef[] = [
   ...song('yukihito', '狐森 雪人', '白銀の残響', 0xe8f4ff),
   ...song('ritsuka', '寿 律花', '声の魔女', 0xff4500),
   ...song('shion', '黒崎 詩音', 'Stardust Requiem', 0xc0c0ff, true),
+  // 他のメンバーの曲（2026-10-12）：道中のアレンジのみ（ファンファーレ無し）。sub の持ち主はユーザー確認待ちのものがある
+  ...others,
   { id: 'fullmoon', key: 'bgm_fullmoon', title: '満ちる月 ― Rising of the Full Moon', sub: '満月', color: 0xfff6d5, price: PRICE },
   { id: 'boss_rook', key: 'bgm_boss_rook', title: '動く城塞', sub: '城兵級のテーマ', color: 0x40e0ff, price: PRICE },
   { id: 'boss_queen', key: 'bgm_boss_queen', title: '茨の女王', sub: '女王級のテーマ', color: 0xffc83d, price: PRICE },

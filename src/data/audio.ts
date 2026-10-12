@@ -36,6 +36,14 @@ export const AUDIO_MANIFEST: AudioEntry[] = [
   { key: 'bgm_chara_yukihito', path: 'assets/audio/bgm/chara_yukihito.mp3', category: 'bgm', loop: true },
   { key: 'bgm_chara_ritsuka', path: 'assets/audio/bgm/chara_ritsuka.mp3', category: 'bgm', loop: true },
   { key: 'bgm_chara_shion', path: 'assets/audio/bgm/chara_shion.mp3', category: 'bgm', loop: true },
+  // 他のメンバーの曲（2026-10-12 配置。ミュージックで解放してカスタムBGMに使う。元は「曲名 D-StageSurvivas Arrange.mp3」）
+  { key: 'bgm_chara_rei', path: 'assets/audio/bgm/chara_rei.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_chara_itaru', path: 'assets/audio/bgm/chara_itaru.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_chara_itsuki', path: 'assets/audio/bgm/chara_itsuki.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_chara_sensitive', path: 'assets/audio/bgm/chara_sensitive.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_chara_prison', path: 'assets/audio/bgm/chara_prison.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_chara_superwild', path: 'assets/audio/bgm/chara_superwild.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_chara_resonance', path: 'assets/audio/bgm/chara_resonance.mp3', category: 'bgm', loop: true },
   { key: 'bgm_result', path: 'assets/audio/bgm/result.mp3', category: 'bgm', loop: true },
   // ゲームオーバー・時間切れのリザルト（無ければ result → title）
   { key: 'bgm_gameover', path: 'assets/audio/bgm/gameover.mp3', category: 'bgm', loop: true },
