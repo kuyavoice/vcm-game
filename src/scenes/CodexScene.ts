@@ -482,7 +482,7 @@ export class CodexScene extends Phaser.Scene {
         // このサポートを相方にして進化するアーツ（見つけたものだけ名前を出す）
         const partners = arts.filter((a) => a.evolution?.passiveId === r.passiveId);
         if (known && partners.length) line = `進化の相方：${partners.map((a) => (found.has(a.id) ? `『${a.name}』` : '『???』')).join('')}`;
-      } else if (def.id === 'monogatari' || def.id === 'sandan') {
+      } else if (def.id === 'monogatari') {
         line = known ? '進化：なし' : '';
       }
       if (line) this.add.text(tx, y + rowH - 36, line, { fontFamily: FONT_JP, fontSize: '14px', color: lineColor, wordWrap: { width: descW, useAdvancedWrap: true } });

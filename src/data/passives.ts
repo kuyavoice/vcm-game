@@ -23,6 +23,12 @@ export interface RunStats {
   soulGainMul: number;
   /** 最大HP倍率（永続強化） */
   maxHpMul: number;
+  /** 声の欠片の経験値倍率（斥候） */
+  xpMul: number;
+  /** 拾うエールの倍率（失せ物探しの神通力） */
+  yellMul: number;
+  /** 設置・常駐・補助のアーツのダメージ倍率（天宮座のアンコール） */
+  zoneDamageMul: number;
 }
 
 export function baseStats(): RunStats {
@@ -41,6 +47,9 @@ export function baseStats(): RunStats {
     counterDamage: 0,
     soulGainMul: 1,
     maxHpMul: 1,
+    xpMul: 1,
+    yellMul: 1,
+    zoneDamageMul: 1,
   };
 }
 
@@ -101,15 +110,15 @@ export const PASSIVES: Record<string, PassiveDef> = {
   },
   scout: {
     id: 'scout', name: '斥候', owner: '孤ヶ爪 ミヤコ',
-    desc: 'レアアイテム・宝箱の出現率 +20%（Lvごと）',
+    desc: 'レアアイテム・宝箱の出現率 +20%、声の欠片の経験値 +5%（Lvごと）',
     maxLevel: 5, color: 0x556b2f,
-    apply: (s, lv) => { s.luckMul *= 1 + 0.2 * lv; },
+    apply: (s, lv) => { s.luckMul *= 1 + 0.2 * lv; s.xpMul *= 1 + 0.05 * lv; },
   },
   finder: {
     id: 'finder', name: '失せ物探しの神通力', owner: '呱々崎 璦萌',
-    desc: '声の欠片・アイテムの回収範囲 +25%（Lvごと）',
+    desc: '声の欠片・アイテムの回収範囲 +25%、拾うエール +10%（Lvごと）',
     maxLevel: 5, color: 0xd2b48c,
-    apply: (s, lv) => { s.pickupMul *= 1 + 0.25 * lv; },
+    apply: (s, lv) => { s.pickupMul *= 1 + 0.25 * lv; s.yellMul *= 1 + 0.1 * lv; },
   },
   script: {
     id: 'script', name: '魔術師の台本', owner: '片桐 玄人',
@@ -119,9 +128,9 @@ export const PASSIVES: Record<string, PassiveDef> = {
   },
   encore: {
     id: 'encore', name: '天宮座のアンコール', owner: '天宮 澪',
-    desc: '効果時間 +10%（Lvごと）。盾・鉄柵・重力場など',
+    desc: '効果時間 +10%、設置・常駐・補助アーツのダメージ +10%（Lvごと）。盾・鉄柵・重力場・御札など',
     maxLevel: 5, color: 0x2f4f4f,
-    apply: (s, lv) => { s.durationMul *= 1 + 0.1 * lv; },
+    apply: (s, lv) => { s.durationMul *= 1 + 0.1 * lv; s.zoneDamageMul *= 1 + 0.1 * lv; },
   },
   gonosen: {
     id: 'gonosen', name: '後の先', owner: '嘉地 杏子',

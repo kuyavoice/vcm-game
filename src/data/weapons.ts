@@ -149,7 +149,7 @@ export const HOSHIKUZU_MAIN: WeaponDef = {
   id: 'hoshikuzu_main', name: '星屑の裁定', owner: '黒崎 詩音', kind: 'main', tags: ['projectile'],
   desc: '敵を追尾する星の光の矢を放つ。',
   color: 0xc0c0ff, maxLevel: 8,
-  base: stats({ damage: 10, intervalSec: 1.3, count: 3, area: 700, speed: 520, pierce: 0 }),
+  base: stats({ damage: 12, intervalSec: 1.3, count: 3, area: 700, speed: 520, pierce: 0 }),
   levels: [
     more(1, '矢の本数'), dmg(25), faster(12), more(1, '矢の本数'), dmg(25), faster(12),
     { desc: '『満天の裁定』：星の矢が、画面のすべての敵を同時に狙う', apply: (s) => { s.evolved = true; s.damage *= 1.2; } },
@@ -258,7 +258,7 @@ const OFUDA: WeaponDef = {
   id: 'ofuda', name: '狐火の御札', owner: '呱々崎 璦萌', kind: 'art', tags: ['orbit'],
   desc: '狐火を宿した御札が、自分の周囲を回り続ける。',
   color: 0xffa040, maxLevel: 8,
-  base: stats({ damage: 8, intervalSec: 0.45, count: 2, area: 90, speed: 2.4, extra: { size: 1 } }),
+  base: stats({ damage: 8, intervalSec: 0.25, count: 2, area: 90, speed: 2.4, extra: { size: 1 } }),
   levels: [
     { desc: '御札 +1・少し大きく', apply: (s) => { s.count += 1; s.extra.size += 0.15; } },
     dmg(30),
@@ -280,7 +280,7 @@ const GANGA: WeaponDef = {
   id: 'ganga', name: '岩牙', owner: '護乃 豪', kind: 'art', tags: ['melee'],
   desc: '進む先の地面が牙のように隆起し、敵を弾き飛ばす。',
   color: 0x8b4513, maxLevel: 8,
-  base: stats({ damage: 30, intervalSec: 2.4, count: 1, area: 220, knockback: 420, extra: { width: 70 } }),
+  base: stats({ damage: 40, intervalSec: 2.4, count: 1, area: 220, knockback: 650, extra: { width: 70 } }),
   levels: [dmg(30), wider(25, '長さ'), faster(15), { desc: '幅 +40%', apply: (s) => { s.extra.width *= 1.4; } }, dmg(30), wider(25, '長さ'), faster(15)],
   evolution: {
     name: '獅咬豪烈破', passiveId: 'makanai',
@@ -361,6 +361,12 @@ const SANDAN: WeaponDef = {
   color: 0x7fffd4, maxLevel: 8,
   base: stats({ damage: 7, intervalSec: 1.0, count: 5, area: 220, speed: 820, knockback: 140, extra: { arcDeg: 30 } }),
   levels: [more(1, '散弾の数'), dmg(25), wider(15, '射程'), faster(12), more(1, '散弾の数'), dmg(25), { desc: '射程 +15%・散弾の数 +1', apply: (s) => { s.area *= 1.15; s.count += 1; } }],
+  // 2026-10-12 追加（スキル点検）：進化が無く頭打ちだったため
+  evolution: {
+    name: '換装・徹甲弾', passiveId: 'gear',
+    desc: '散弾が敵を貫き、後ろの散弾も敵のいる方を向く。',
+    apply: (s) => { s.evolved = true; s.pierce = 1; s.damage *= 1.3; },
+  },
 };
 
 /** 『宵星（援護射撃）』（空夜）：画面内で最もHPの高い敵へハンドガン count 連射。空夜操作時は出ない。extra.targets=同時に狙う数 */
@@ -368,8 +374,8 @@ const ENGO: WeaponDef = {
   id: 'engo', name: '宵星（援護射撃）', owner: '宵月 空夜', kind: 'art', tags: ['projectile'],
   desc: '画面内でいちばん手強い敵へ、ハンドガンの連射を送る。',
   color: 0x87ceeb, maxLevel: 8,
-  base: stats({ damage: 10, intervalSec: 1.5, count: 3, area: 800, speed: 950, extra: { targets: 1 } }),
-  levels: [dmg(25), faster(10), more(1, '連射数'), dmg(25), faster(10), more(1, '連射数'), dmg(25)],
+  base: stats({ damage: 10, intervalSec: 1.5, count: 4, area: 800, speed: 950, extra: { targets: 1 } }),
+  levels: [dmg(25), faster(10), more(1, '連射数'), dmg(25), faster(10), more(1, '連射数'), { desc: '連射数 +1・ダメージ +25%', apply: (s) => { s.count += 1; s.damage *= 1.25; } }],
   evolution: {
     name: '蒼天の号令', passiveId: 'script',
     desc: 'HPの高い敵3体を同時に狙い、まとめて連射する。',
@@ -384,9 +390,9 @@ const ENGO: WeaponDef = {
  */
 const SHUNEI: WeaponDef = {
   id: 'shunei', name: '瞬影', owner: '孤ヶ爪 ミヤコ', kind: 'art', tags: ['melee'],
-  desc: '影がそばに現れ、近くの敵を次々と斬り抜けて消える。',
+  desc: '影がそばに現れ、近くの敵を次々と斬り抜けて消える。斬撃は周りの敵も巻き込む。',
   color: 0xd2b48c, maxLevel: 8,
-  base: stats({ damage: 18, intervalSec: 2.0, count: 3, area: 300, duration: 0.4, extra: { hop: 260, shadows: 1, blindSec: 0 } }),
+  base: stats({ damage: 26, intervalSec: 2.0, count: 3, area: 300, duration: 0.4, extra: { hop: 260, shadows: 1, blindSec: 0, cleave: 60 } }),
   levels: [
     dmg(25), more(1, '斬り抜ける数'), faster(12), more(1, '斬り抜ける数'), dmg(25), more(1, '斬り抜ける数'),
     { desc: '斬り抜ける数 +1・発動間隔 −12%', apply: (s) => { s.count += 1; s.intervalSec *= 0.88; } },
@@ -408,7 +414,7 @@ const SEIATSU: WeaponDef = {
   id: 'seiatsu', name: '制圧射撃', owner: '瀬田 奏真', kind: 'art', tags: ['projectile'],
   desc: '進む方向の前方を、連射で左右に薙ぎ払う。',
   color: 0x9acd32, maxLevel: 8,
-  base: stats({ damage: 5, intervalSec: 2.5, count: 20, area: 350, speed: 900, duration: 1.0, pierce: 0, extra: { arcDeg: 90 } }),
+  base: stats({ damage: 7, intervalSec: 2.5, count: 20, area: 350, speed: 900, duration: 1.0, pierce: 0, extra: { arcDeg: 90 } }),
   levels: [
     more(4, '弾数'), dmg(25),
     { desc: '掃射時間 +20%・弾数 +4', apply: (s) => { s.duration *= 1.2; s.count += 4; } },

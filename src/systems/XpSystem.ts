@@ -55,7 +55,10 @@ export class XpSystem {
   }
 
   /** 吸引と取得。取得した経験値量を返す */
-  update(dt: number, now: number, px: number, py: number, pickupRadius: number): number {
+  /** エールの端数（倍率で小数が出るぶんを持ち越す） */
+  private yellCarry = 0;
+
+  update(dt: number, now: number, px: number, py: number, pickupRadius: number, xpMul = 1, yellMul = 1): number {
     let gained = 0;
     const list = this.pickups.getChildren() as Pickup[];
     const r2 = pickupRadius * pickupRadius;
@@ -76,10 +79,14 @@ export class XpSystem {
         g.x += (dx / d) * spd * dt;
         g.y += (dy / d) * spd * dt;
         if (d < 16) {
-          if (g.kind === 'yell') this.yell += g.value;
-          else if (g.kind === 'xp') {
-            this.xp += g.value;
-            gained += g.value;
+          if (g.kind === 'yell') {
+            this.yellCarry += g.value * yellMul;
+            const whole = Math.floor(this.yellCarry);
+            this.yell += whole;
+            this.yellCarry -= whole;
+          } else if (g.kind === 'xp') {
+            this.xp += g.value * xpMul;
+            gained += g.value * xpMul;
           } else {
             this.onItem?.(g.kind, g.value, g.x, g.y);
           }

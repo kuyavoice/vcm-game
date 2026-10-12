@@ -864,7 +864,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // 経験値・アイテム
-    if (this.xp.update(dt, now, p.x, p.y - 12, p.def.pickup * stats.pickupMul) > 0) AudioBus.play('se_gem', 90);
+    if (this.xp.update(dt, now, p.x, p.y - 12, p.def.pickup * stats.pickupMul, stats.xpMul, stats.yellMul) > 0) AudioBus.play('se_gem', 90);
     if (!this.overlayActive()) {
       if (this.rush.rewards.length > 0) {
         this.openRushReward(this.rush.rewards.shift()!);

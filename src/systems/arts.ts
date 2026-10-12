@@ -17,7 +17,8 @@ let hitStamp = 0;
 const dmgOf = (ctx: BattleContext, s: ArtStats, def: WeaponDef) =>
   s.damage * ctx.stats.damageMul * ctx.bonusDamageMul *
   (def.kind === 'art' ? ctx.artDamageMul : 1) *
-  (def.tags.includes('melee') ? ctx.meleeMul : 1);
+  (def.tags.includes('melee') ? ctx.meleeMul : 1) *
+  (def.tags.includes('zone') || def.tags.includes('orbit') || def.tags.includes('support') ? ctx.stats.zoneDamageMul : 1);
 const artDmg = (ctx: BattleContext, s: ArtStats, def: WeaponDef) => dmgOf(ctx, s, def);
 const facingAngle = (ctx: BattleContext) => Math.atan2(ctx.player.facing.y, ctx.player.facing.x);
 const chest = (ctx: BattleContext) => ({ x: ctx.player.x, y: ctx.player.y - 16 });
@@ -446,6 +447,12 @@ function gangaWave(ctx: BattleContext, s: ArtStats, def: WeaponDef, offset: numb
     const perp = Math.abs(-ex * dy + ey * dx);
     if (along < -e.radius || along > len + e.radius || perp > halfW + e.radius) continue;
     ctx.damage(e, dmg, dx * s.knockback, dy * s.knockback);
+    // ノックバック耐性の高い敵（騎士級など）にも半分は効かせる（ボスは除く。2026-10-12 ユーザー要望）
+    if (e.active && !e.def.boss && e.def.knockbackResist > 0) {
+      const extra = s.knockback * 0.5 * e.def.knockbackResist;
+      e.kbx += dx * extra;
+      e.kby += dy * extra;
+    }
   }
   ctx.fx.line(sx, sy, sx + dx * len, sy + dy * len, halfW * 2, color);
 }
@@ -523,13 +530,28 @@ const bug: ArtBehavior = {
     const list = ctx.onScreenEnemies().filter((e) => !e.def.boss && !e.fly);
     list.sort((a, b) => Phaser.Math.Distance.Between(c.x, c.y, a.x, a.y) - Phaser.Math.Distance.Between(c.x, c.y, b.x, b.y));
     const dmg = artDmg(ctx, s, w.def);
-    for (const e of list.slice(0, s.count)) {
+    const picked = list.slice(0, s.count);
+    for (const e of picked) {
       const a = Math.atan2(e.y - c.y, e.x - c.x);
       ctx.kick(e, a, s.speed, s.duration, dmg);
       ctx.fx.text(e.x, e.y - 40, s.evolved ? 'BV!' : 'BUG!', '#00CED1');
     }
+    kickBossesInstead(ctx, picked.length, s.count, dmg, s.evolved ? 'BV!' : 'BUG!');
   },
 };
+
+/** 蹴れる敵（雑魚）が足りないとき、残りの回数ぶんボスに蹴りのダメージだけ入れる（動かさない。2026-10-12：ボス戦で止まらないように） */
+function kickBossesInstead(ctx: BattleContext, used: number, count: number, dmg: number, label: string): void {
+  let left = count - used;
+  if (left <= 0) return;
+  const bosses = ctx.onScreenEnemies().filter((e) => e.def.boss);
+  if (!bosses.length) return;
+  for (let i = 0; left > 0; i++, left--) {
+    const b = bosses[i % bosses.length];
+    ctx.damage(b, dmg, 0, 0);
+    if (i < bosses.length) ctx.fx.text(b.x, b.y - 120, label, '#00CED1');
+  }
+}
 
 /** 『天宮流・舞闘術』：傘のブーメラン（往復で2回当たる）。進化『花傘乱舞』：3本・戻る前に周囲を舞う */
 const butou: ArtBehavior = {
@@ -579,12 +601,23 @@ const sandan: ArtBehavior = {
     const n = projCount(ctx, s, w.def);
     const arc = Phaser.Math.DegToRad(s.extra.arcDeg ?? 30);
     const dmg = artDmg(ctx, s, w.def);
-    for (const dir of [base, base + Math.PI]) {
+    let back = base + Math.PI;
+    if (s.evolved) {
+      // 『換装・徹甲弾』：後ろ半分（進む方向と逆側）にいる最寄りの敵へ向ける
+      let bd = Infinity;
+      for (const e of ctx.onScreenEnemies()) {
+        const a = Math.atan2(e.y - c.y, e.x - c.x);
+        if (Math.cos(a - base) >= 0) continue;
+        const d = Math.hypot(e.x - c.x, e.y - c.y);
+        if (d < bd) { bd = d; back = a; }
+      }
+    }
+    for (const dir of [base, back]) {
       for (let i = 0; i < n; i++) {
         const off = n > 1 ? (i / (n - 1) - 0.5) * arc : 0;
         ctx.fireBullet({
           x: c.x, y: c.y, angle: dir + off, speed: s.speed * (0.9 + Math.random() * 0.2), damage: dmg,
-          range: s.area * ctx.stats.areaMul, pierce: 0, knockback: s.knockback, scale: 0.9, tint: w.def.color,
+          range: s.area * ctx.stats.areaMul, pierce: s.pierce, knockback: s.knockback, scale: s.evolved ? 1.1 : 0.9, tint: s.evolved ? 0xffe4b5 : w.def.color,
         });
       }
     }
@@ -676,6 +709,17 @@ const shunei: ArtBehavior = {
           ctx.damage(e, dmg, Math.cos(a) * 60, Math.sin(a) * 60);
           ctx.fx.cross(to.x, to.y, 22, 0xffffff);
           if (e.active && s.slow < 1) e.applySlow(s.slow, s.extra.blindSec ?? 1, ctx.now);
+          // 巻き込み（2026-10-12）：斬撃は周囲の敵にも当たる
+          const cleave = (s.extra.cleave ?? 0) * ctx.stats.areaMul;
+          if (cleave > 0) {
+            tmp.length = 0;
+            ctx.enemiesInCircle(to.x, to.y, cleave, tmp);
+            for (const o of tmp) {
+              if (o === e || used.has(o)) continue;
+              ctx.damage(o, dmg, Math.cos(a) * 40, Math.sin(a) * 40);
+              if (o.active && s.slow < 1) o.applySlow(s.slow, s.extra.blindSec ?? 1, ctx.now);
+            }
+          }
         });
       });
     }
@@ -789,7 +833,8 @@ const nekobako: ArtBehavior = {
     const base = facingAngle(ctx);
     const n = projCount(ctx, s, w.def);
     for (let i = 0; i < n; i++) {
-      const off = n > 1 ? (i / (n - 1) - 0.5) * Math.PI : 0;
+      // 広がりは 100°（2026-10-12。180° だとボスに2本しか当たらなかった）
+      const off = n > 1 ? (i / (n - 1) - 0.5) * Phaser.Math.DegToRad(100) : 0;
       ctx.fireBullet({ x: c.x, y: c.y, angle: base + off, speed: s.speed, damage: artDmg(ctx, s, w.def), range: s.area * ctx.stats.areaMul, pierce: Infinity, texture: 'art_arrow', scale: 2, knockback: 120, tint: 0xff8c69 });
     }
   },
@@ -836,7 +881,7 @@ const honjin: ArtBehavior = {
     const c = chest(ctx);
     ctx.addZone({
       x: ctx.player.x, y: ctx.player.y, radius: (s.extra.fenceRadius ?? 150) * ctx.stats.areaMul, duration: dur(ctx, s),
-      dps: (s.extra.fenceDps ?? 15) * ctx.stats.damageMul * ctx.artDamageMul, slow: s.slow, stun: false, color: w.def.color, shape: 'fence', source: 'honjin',
+      dps: (s.extra.fenceDps ?? 15) * ctx.stats.damageMul * ctx.artDamageMul * ctx.stats.zoneDamageMul, slow: s.slow, stun: false, color: w.def.color, shape: 'fence', source: 'honjin',
     });
     const r = s.area * ctx.stats.areaMul;
     const dmg = artDmg(ctx, s, w.def);
@@ -861,12 +906,14 @@ const ricochet: ArtBehavior = {
     const list = ctx.onScreenEnemies().filter((e) => !e.def.boss && !e.fly);
     list.sort((a, b) => Phaser.Math.Distance.Between(c.x, c.y, a.x, a.y) - Phaser.Math.Distance.Between(c.x, c.y, b.x, b.y));
     const dmg = artDmg(ctx, s, w.def);
-    for (const e of list.slice(0, s.count)) {
+    const picked = list.slice(0, s.count);
+    for (const e of picked) {
       const a = Math.atan2(e.y - c.y, e.x - c.x);
       ctx.kick(e, a, s.speed, s.duration, dmg);
       if (e.fly) e.fly.bounces = s.extra.bounces ?? 5;
       ctx.fx.text(e.x, e.y - 40, 'GLITCH', '#00CED1');
     }
+    kickBossesInstead(ctx, picked.length, s.count, dmg, 'GLITCH');
     // 響の跳ね返る弾（飛んでいる敵に当たると加速させる）
     const t = ctx.nearestEnemy(c.x, c.y, 600);
     const aim = t ? Math.atan2(t.y - c.y, t.x - c.x) : Math.random() * Math.PI * 2;
