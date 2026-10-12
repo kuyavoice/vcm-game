@@ -29,6 +29,8 @@ export class YellRoomScene extends Phaser.Scene {
   private normalKey = '';
   private smiling = false;
   private busy = false;
+  /** 顔の高さ（★が飛ぶ先） */
+  private faceY = 200;
 
   constructor() {
     super('YellRoom');
@@ -82,23 +84,35 @@ export class YellRoomScene extends Phaser.Scene {
     const bandY = H - bandH;
     this.add.rectangle(0, bandY, W, bandH, 0x060913, 0.82).setOrigin(0).setDepth(-5);
 
-    // 立ち絵：下端を帯の少し下に。顔が上の見せ場（地図台）に重ならないよう、頭は画面の上端近く
+    // 立ち絵。縦（スマホ）はバストアップで中央（2026-10-12 ユーザー指定）：頭を絆の帯の下に置き、腰から下は操作の帯の裏へ。
+    // 横（PC）は全身を中央に。どちらも顔は地図台の光（絵の 29〜42%）より上に来る
     const charKey = this.normalKey;
-    const cx = wide ? W * 0.5 : W * 0.62;
-    const bottom = bandY + 40;
-    const targetH = bottom - 10;
-    // 立ち絵の後ろに暗いぼかし（顔と地図台の光を分ける）
     const glow = this.glowTexture();
-    this.add.image(cx, targetH * 0.42, glow).setDisplaySize(Math.min(W * 0.95, targetH * 0.9), targetH * 0.9).setAlpha(0.45).setDepth(-8);
     if (this.textures.exists(charKey)) {
       this.textures.get(charKey).setFilter(Phaser.Textures.FilterMode.LINEAR);
       if (this.smileKey && this.textures.exists(this.smileKey)) this.textures.get(this.smileKey).setFilter(Phaser.Textures.FilterMode.LINEAR);
-      this.chara = this.add.image(cx, bottom, charKey).setOrigin(0.5, 1).setDepth(-6);
-      const s = Math.min(targetH / this.chara.height, (W * 0.9) / this.chara.width);
-      this.chara.setScale(s);
-      // ふわっと出る
-      this.chara.setAlpha(0).setY(bottom + 24);
-      this.tweens.add({ targets: this.chara, alpha: 1, y: bottom, duration: 420, ease: 'Cubic.out' });
+      if (!wide) {
+        const topY = 124;
+        this.chara = this.add.image(W / 2, topY, charKey).setOrigin(0.5, 0).setDepth(-6);
+        // 絵の上から 58%（頭〜腰）が、帯の少し下までに収まる大きさ
+        const s = (bandY + 30 - topY) / (this.chara.height * 0.58);
+        this.chara.setScale(s);
+        this.faceY = topY + this.chara.displayHeight * 0.1;
+        this.add.image(W / 2, topY + this.chara.displayHeight * 0.28, glow).setDisplaySize(W * 1.15, (bandY - topY) * 1.1).setAlpha(0.45).setDepth(-8);
+        this.chara.setAlpha(0).setY(topY + 24);
+        this.tweens.add({ targets: this.chara, alpha: 1, y: topY, duration: 420, ease: 'Cubic.out' });
+      } else {
+        const cx = W * 0.5;
+        const bottom = bandY + 40;
+        const targetH = bottom - 10;
+        this.add.image(cx, targetH * 0.42, glow).setDisplaySize(Math.min(W * 0.95, targetH * 0.9), targetH * 0.9).setAlpha(0.45).setDepth(-8);
+        this.chara = this.add.image(cx, bottom, charKey).setOrigin(0.5, 1).setDepth(-6);
+        const s = Math.min(targetH / this.chara.height, (W * 0.9) / this.chara.width);
+        this.chara.setScale(s);
+        this.faceY = bottom - this.chara.displayHeight * 0.9;
+        this.chara.setAlpha(0).setY(bottom + 24);
+        this.tweens.add({ targets: this.chara, alpha: 1, y: bottom, duration: 420, ease: 'Cubic.out' });
+      }
     }
 
     this.ui = this.add.container(0, 0);
@@ -117,39 +131,38 @@ export class YellRoomScene extends Phaser.Scene {
     const next = bondNext(total);
     const wide = W / H > 1.0;
     const left = 20;
-    // 立ち絵の顔（x≈0.62W）に被らない幅
-    const colW = Math.min(wide ? 460 : W * 0.46, W - 40);
 
-    // 見出し（左上）
-    ui.add(this.add.text(left, 18, 'YELL', { fontFamily: FONT_EN, fontSize: '34px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 5, stroke: '#060913', strokeThickness: 5 }));
-    ui.add(this.add.text(left, 60, t(`${name}　にエールを贈る`, `Send yells to ${name}`), { fontFamily: FONT_JP, fontSize: '16px', color: COLOR_HEX.white, stroke: '#060913', strokeThickness: 4 }));
-
-    // 絆の枠
-    const by = 92;
-    const bh = 112;
-    ui.add(uiPanel(this, left, by, colW, bh, { color, alpha: 0.9, strokeAlpha: 0.7, cut: 14, highlight: true }).gfx);
-    const tx = left + 22;
-    ui.add(this.add.text(tx, by + 14, t('絆', 'BOND'), { fontFamily: FONT_JP, fontSize: '16px', color: COLOR_HEX.dim, fontStyle: '700' }));
-    ui.add(this.add.text(tx + 34, by + 4, `Lv ${lv}`, { fontFamily: FONT_EN, fontSize: '36px', color: lv >= BOND_MAX ? COLOR_HEX.gold : COLOR_HEX.white, fontStyle: '700' }));
-    ui.add(this.add.text(tx + 34 + 92, by + 22, lv >= BOND_MAX ? 'MAX' : `／ ${BOND_MAX}`, { fontFamily: FONT_EN, fontSize: '16px', color: COLOR_HEX.dim }));
-    ui.add(this.add.text(left + colW - 18, by + 16, `★ ${total.toLocaleString()}`, { fontFamily: FONT_EN, fontSize: '22px', color: COLOR_HEX.gold, fontStyle: '700' }).setOrigin(1, 0));
-    const gx = tx;
-    const gy = by + 58;
-    const gw = colW - 40;
-    const gh = 12;
-    const g = this.add.graphics();
-    g.fillStyle(0x0b1026, 1).fillRect(gx, gy, gw, gh);
-    for (let i = 0; i < BOND_MAX; i++) {
-      const lo = i === 0 ? 0 : BOND_TIERS[i - 1].at;
-      const hi = BOND_TIERS[i].at;
-      const k = Phaser.Math.Clamp((total - lo) / (hi - lo), 0, 1);
-      const sx = gx + (gw / BOND_MAX) * i + 2;
-      const sw = gw / BOND_MAX - 4;
-      if (k > 0) g.fillStyle(total >= hi ? 0xffd700 : color, 1).fillRect(sx, gy, sw * k, gh);
-      g.lineStyle(1, 0x3a4a8a, 1).strokeRect(sx, gy, sw, gh);
+    if (!wide) {
+      // 縦：見出しと絆を上の帯にまとめる（立ち絵の頭はこの下）
+      ui.add(this.add.text(left, 12, 'YELL', { fontFamily: FONT_EN, fontSize: '28px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 4, stroke: '#060913', strokeThickness: 5 }));
+      ui.add(this.add.text(left + 96, 20, t(`${name}　にエールを贈る`, `Send yells to ${name}`), { fontFamily: FONT_JP, fontSize: '15px', color: COLOR_HEX.white, stroke: '#060913', strokeThickness: 4 }));
+      const by = 50;
+      const bh = 64;
+      const bw = W - left * 2;
+      ui.add(uiPanel(this, left, by, bw, bh, { color, alpha: 0.9, strokeAlpha: 0.7, cut: 12, highlight: true }).gfx);
+      const tx = left + 20;
+      ui.add(this.add.text(tx, by + 10, t('絆', 'BOND'), { fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.dim, fontStyle: '700' }).setOrigin(0, 0));
+      ui.add(this.add.text(tx + 30, by + 2, `Lv ${lv}`, { fontFamily: FONT_EN, fontSize: '28px', color: lv >= BOND_MAX ? COLOR_HEX.gold : COLOR_HEX.white, fontStyle: '700' }));
+      ui.add(this.add.text(tx + 30 + 72, by + 14, lv >= BOND_MAX ? 'MAX' : `／ ${BOND_MAX}`, { fontFamily: FONT_EN, fontSize: '14px', color: COLOR_HEX.dim }));
+      ui.add(this.add.text(left + bw - 16, by + 8, `★ ${total.toLocaleString()}`, { fontFamily: FONT_EN, fontSize: '20px', color: COLOR_HEX.gold, fontStyle: '700' }).setOrigin(1, 0));
+      ui.add(this.add.text(left + bw - 16, by + 32, next ? t(`次の絆まで ★ ${(next.at - total).toLocaleString()}`, `Next: ★ ${(next.at - total).toLocaleString()}`) : t('絆は最大です', 'Bond maxed'), { fontFamily: FONT_JP, fontSize: '12px', color: next ? COLOR_HEX.dim : COLOR_HEX.gold }).setOrigin(1, 0));
+      this.drawGauge(ui, tx, by + 44, bw - 40 - 170, 10, total, color);
+    } else {
+      // 横：左上に絆の枠
+      const colW = Math.min(460, W - 40);
+      ui.add(this.add.text(left, 18, 'YELL', { fontFamily: FONT_EN, fontSize: '34px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 5, stroke: '#060913', strokeThickness: 5 }));
+      ui.add(this.add.text(left, 60, t(`${name}　にエールを贈る`, `Send yells to ${name}`), { fontFamily: FONT_JP, fontSize: '16px', color: COLOR_HEX.white, stroke: '#060913', strokeThickness: 4 }));
+      const by = 92;
+      const bh = 112;
+      ui.add(uiPanel(this, left, by, colW, bh, { color, alpha: 0.9, strokeAlpha: 0.7, cut: 14, highlight: true }).gfx);
+      const tx = left + 22;
+      ui.add(this.add.text(tx, by + 14, t('絆', 'BOND'), { fontFamily: FONT_JP, fontSize: '16px', color: COLOR_HEX.dim, fontStyle: '700' }));
+      ui.add(this.add.text(tx + 34, by + 4, `Lv ${lv}`, { fontFamily: FONT_EN, fontSize: '36px', color: lv >= BOND_MAX ? COLOR_HEX.gold : COLOR_HEX.white, fontStyle: '700' }));
+      ui.add(this.add.text(tx + 34 + 92, by + 22, lv >= BOND_MAX ? 'MAX' : `／ ${BOND_MAX}`, { fontFamily: FONT_EN, fontSize: '16px', color: COLOR_HEX.dim }));
+      ui.add(this.add.text(left + colW - 18, by + 16, `★ ${total.toLocaleString()}`, { fontFamily: FONT_EN, fontSize: '22px', color: COLOR_HEX.gold, fontStyle: '700' }).setOrigin(1, 0));
+      this.drawGauge(ui, tx, by + 58, colW - 40, 12, total, color);
+      ui.add(this.add.text(tx, by + 78, next ? t(`次の絆まで ★ ${(next.at - total).toLocaleString()}`, `Next: ★ ${(next.at - total).toLocaleString()}`) : t('絆は最大です', 'Bond maxed'), { fontFamily: FONT_JP, fontSize: '14px', color: next ? COLOR_HEX.dim : COLOR_HEX.gold }));
     }
-    ui.add(g);
-    ui.add(this.add.text(tx, gy + 20, next ? t(`次の絆まで ★ ${(next.at - total).toLocaleString()}`, `Next: ★ ${(next.at - total).toLocaleString()}`) : t('絆は最大です', 'Bond maxed'), { fontFamily: FONT_JP, fontSize: '14px', color: next ? COLOR_HEX.dim : COLOR_HEX.gold }));
 
     // 解放の一覧（下の帯）
     const listW = Math.min(W - 40, wide ? 760 : W - 40);
@@ -177,6 +190,22 @@ export class YellRoomScene extends Phaser.Scene {
     const can = wallet >= BOND_UNIT;
     ui.add(makeButton(this, lx + listW - 110, oy, `★ ${BOND_UNIT} ${t('贈る', 'Send')}`, () => this.give(W, H, color, bandY, bandH), { width: 220, height: 52, fontSize: 20, primary: can, armDelayMs: 200 }));
     ui.add(makeButton(this, lx + listW - 110 - 230 + 20, oy, 'CLOSE', () => this.close(), { width: 160, height: 52, fontSize: 18, armDelayMs: 200 }));
+  }
+
+  /** 絆のゲージ（5区切り） */
+  private drawGauge(ui: Phaser.GameObjects.Container, gx: number, gy: number, gw: number, gh: number, total: number, color: number): void {
+    const g = this.add.graphics();
+    g.fillStyle(0x0b1026, 1).fillRect(gx, gy, gw, gh);
+    for (let i = 0; i < BOND_MAX; i++) {
+      const lo = i === 0 ? 0 : BOND_TIERS[i - 1].at;
+      const hi = BOND_TIERS[i].at;
+      const k = Phaser.Math.Clamp((total - lo) / (hi - lo), 0, 1);
+      const sx = gx + (gw / BOND_MAX) * i + 2;
+      const sw = gw / BOND_MAX - 4;
+      if (k > 0) g.fillStyle(total >= hi ? 0xffd700 : color, 1).fillRect(sx, gy, sw * k, gh);
+      g.lineStyle(1, 0x3a4a8a, 1).strokeRect(sx, gy, sw, gh);
+    }
+    ui.add(g);
   }
 
   /** エールを贈る：財布から引いて累計へ。お礼のボイス（笑顔）。段階が上がれば演出 */
@@ -208,7 +237,7 @@ export class YellRoomScene extends Phaser.Scene {
         const sx = W / 2 + Phaser.Math.Between(-120, 120);
         const star = this.add.text(sx, bandY + 60, '★', { fontFamily: FONT_EN, fontSize: '28px', color: COLOR_HEX.gold }).setOrigin(0.5).setDepth(20).setAlpha(0);
         this.tweens.add({
-          targets: star, alpha: { from: 0, to: 1 }, x: this.chara.x + Phaser.Math.Between(-60, 60), y: this.chara.y - this.chara.displayHeight * 0.55 + Phaser.Math.Between(-40, 40),
+          targets: star, alpha: { from: 0, to: 1 }, x: this.chara.x + Phaser.Math.Between(-70, 70), y: this.faceY + Phaser.Math.Between(-30, 50),
           duration: 520 + i * 60, delay: i * 40, ease: 'Cubic.out',
           onComplete: () => this.tweens.add({ targets: star, alpha: 0, scale: 1.6, duration: 240, onComplete: () => star.destroy() }),
         });
