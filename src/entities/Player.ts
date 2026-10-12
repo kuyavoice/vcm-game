@@ -30,6 +30,12 @@ export class Player extends Phaser.GameObjects.Sprite {
   /** 実際に使うスプライトキー（カラーバリエーション適用後） */
   spriteKey: string;
 
+  /** 絆MAXのオーラ・残像（data/bond.ts）。setAura() で付ける。fxBoost は必殺中（GameScene が立てる） */
+  private aura?: Phaser.GameObjects.Sprite;
+  private auraColor = 0xffffff;
+  private lastAfterimageAt = 0;
+  fxBoost = false;
+
   constructor(scene: Phaser.Scene, x: number, y: number, def: CharacterDef, spriteKey = def.sprite.key) {
     super(scene, x, y, spriteKey, def.sprite.frames.idle[0]);
     this.def = def;
@@ -45,6 +51,39 @@ export class Player extends Phaser.GameObjects.Sprite {
     this.shieldFx = scene.add.image(x, y, 'shield').setDepth(21).setScale(CONFIG.spriteScale * 1.6).setVisible(false).setAlpha(0.85);
     scene.add.existing(this);
     this.play(`${spriteKey}_idle`);
+  }
+
+  /** 絆MAXのオーラを付ける（加算合成で同じ絵を重ねて色を付ける。残像は move() で置く） */
+  setAura(color: number): void {
+    this.auraColor = color;
+    if (!this.aura) {
+      this.aura = this.scene.add.sprite(this.x, this.y, this.spriteKey, this.frame.name).setOrigin(0.5, 1).setDepth(19.5);
+      this.aura.setBlendMode(Phaser.BlendModes.ADD);
+    }
+    this.aura.setTint(color);
+  }
+
+  private updateAura(now: number, dt: number): void {
+    if (!this.aura) return;
+    const boost = this.fxBoost ? 1.7 : 1;
+    const pulse = 0.28 + Math.sin(now / 160) * 0.08;
+    const grow = 1.06 + Math.sin(now / 240) * 0.02;
+    this.aura
+      .setPosition(this.x, this.y + 1)
+      .setFrame(this.frame.name)
+      .setFlipX(this.flipX)
+      .setScale(this.scaleX * grow, this.scaleY * grow)
+      .setAlpha(Math.min(1, pulse * boost) * this.alpha);
+    // 残像：動いている間、一定間隔で今のコマの薄い複製を置いて消す
+    const gap = this.fxBoost ? 55 : 85;
+    if (this.moving && now - this.lastAfterimageAt > gap) {
+      this.lastAfterimageAt = now;
+      const g = this.scene.add.sprite(this.x, this.y, this.spriteKey, this.frame.name)
+        .setOrigin(0.5, 1).setScale(this.scaleX, this.scaleY).setFlipX(this.flipX).setDepth(18.5)
+        .setTint(this.auraColor).setAlpha((this.fxBoost ? 0.6 : 0.42) * this.alpha).setBlendMode(Phaser.BlendModes.ADD);
+      this.scene.tweens.add({ targets: g, alpha: 0, duration: this.fxBoost ? 360 : 260, ease: 'Quad.out', onComplete: () => g.destroy() });
+    }
+    void dt;
   }
 
   /** 移動入力（-1〜1）を受けて位置を更新 */
@@ -94,6 +133,7 @@ export class Player extends Phaser.GameObjects.Sprite {
     }
 
     if (this.zz) this.zz.setPosition(this.x + 28, this.y - this.displayHeight - 6);
+    this.updateAura(now, dt);
   }
 
   /** 被弾。返り値: 実際に受けたら true */

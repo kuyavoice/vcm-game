@@ -1,4 +1,5 @@
 import { CONFIG } from '../data/config';
+import type { StatsData } from './stats';
 
 export interface BestRecord {
   kills: number;
@@ -15,7 +16,7 @@ export interface SaveData {
   bests: Record<string, BestRecord>;
   /** クリア済みステージID */
   cleared: number[];
-  settings: { bgm: number; se: number; voice: number; speed: number; character: string; /** ダメージの数字を出す */ damageNumbers: boolean; /** 必殺ボタンの位置（既定は右下） */ specialSide: 'right' | 'left'; /** 戦闘中の曲：normal＝今までどおり／custom＝場面ごとに割り当てた曲 */ bgmMode: 'normal' | 'custom'; /** 場面 → 曲ID（music.ts）。utils/bgmCustom.ts */ bgmCustom: Record<string, string>; /** 敵に当たったときの光り方：strong＝白く光る（既定）／soft＝淡く／off＝光らない */ hitFlash: 'strong' | 'soft' | 'off'; /** 画面全体の光（必殺・撃破など）：on／soft／off */ screenFlash: 'on' | 'soft' | 'off'; /** 必殺のカットイン：first＝1プレイで最初の1回だけ（既定）／always＝毎回／sometimes＝時々（ボイスの必殺と同じ間隔） */ cutIn: 'first' | 'always' | 'sometimes'; /** 表示言語（最低限。utils/lang.ts） */ lang: 'ja' | 'en' };
+  settings: { bgm: number; se: number; voice: number; speed: number; character: string; /** ダメージの数字を出す */ damageNumbers: boolean; /** 必殺ボタンの位置（既定は右下） */ specialSide: 'right' | 'left'; /** 戦闘中の曲：normal＝今までどおり／custom＝場面ごとに割り当てた曲 */ bgmMode: 'normal' | 'custom'; /** 場面 → 曲ID（music.ts）。utils/bgmCustom.ts */ bgmCustom: Record<string, string>; /** 敵に当たったときの光り方：strong＝白く光る（既定）／soft＝淡く／off＝光らない */ hitFlash: 'strong' | 'soft' | 'off'; /** 画面全体の光（必殺・撃破など）：on／soft／off */ screenFlash: 'on' | 'soft' | 'off'; /** 必殺のカットイン：first＝1プレイで最初の1回だけ（既定）／always＝毎回／sometimes＝時々（ボイスの必殺と同じ間隔） */ cutIn: 'first' | 'always' | 'sometimes'; /** 表示言語（最低限。utils/lang.ts） */ lang: 'ja' | 'en'; /** 絆MAXのオーラ・残像（data/bond.ts） */ bondFx: 'on' | 'off' };
   totalYell: number;
   /** 解放済みキャラID（空夜は常に使える） */
   unlockedCharacters: string[];
@@ -53,13 +54,17 @@ export interface SaveData {
   achievements: string[];
   /** 絆：キャラIDごとに贈ったエールの累計（data/bond.ts）。2026-10-12 */
   bond: Record<string, number>;
+  /** 絆MAXのオーラの色（キャラID → AURA_COLORS の id。未設定＝キャラ色） */
+  bondAura: Record<string, string>;
+  /** プレイの集計（utils/stats.ts）。null は、まだ一度も作っていない（ランキングから起こす） */
+  stats: StatsData | null;
 }
 
 const DEFAULT: SaveData = {
   best: null,
   bests: {},
   cleared: [],
-  settings: { bgm: 0.7, se: 0.8, voice: 1, speed: 1, character: 'kuya', damageNumbers: true, specialSide: 'right', bgmMode: 'normal', bgmCustom: {}, hitFlash: 'strong', screenFlash: 'on', cutIn: 'first', lang: 'ja' },
+  settings: { bgm: 0.7, se: 0.8, voice: 1, speed: 1, character: 'kuya', damageNumbers: true, specialSide: 'right', bgmMode: 'normal', bgmCustom: {}, hitFlash: 'strong', screenFlash: 'on', cutIn: 'first', lang: 'ja', bondFx: 'on' },
   totalYell: 0,
   unlockedCharacters: [],
   permanent: {},
@@ -80,6 +85,8 @@ const DEFAULT: SaveData = {
   flashNoticeShown: false,
   achievements: [],
   bond: {},
+  bondAura: {},
+  stats: null,
 };
 
 export function loadSave(): SaveData {
@@ -110,6 +117,8 @@ export function loadSave(): SaveData {
       bestiary: parsed.bestiary ? [...parsed.bestiary] : null,
       achievements: [...(parsed.achievements ?? [])],
       bond: { ...(parsed.bond ?? {}) },
+      bondAura: { ...(parsed.bondAura ?? {}) },
+      stats: parsed.stats ? { total: { ...parsed.stats.total }, chars: Object.fromEntries(Object.entries(parsed.stats.chars ?? {}).map(([k, v]) => [k, { ...v }])) } : null,
     };
     // 旧形式の移行：best → bests[1]
     if (data.best && !data.bests['1']) {

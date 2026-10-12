@@ -12,6 +12,7 @@ import { customBgmKeys, type BgmSlot } from '../utils/bgmCustom';
 import { VOICE_PER_RUN, PINCH_RATIO, UNION_FUSION, type VoiceKind } from '../data/voice';
 import { ITEMS, PICKUPS, type PickupKind } from '../data/items';
 import { Player } from '../entities/Player';
+import { bondLevel, BOND_FX_LEVEL, auraColorOf } from '../data/bond';
 import { Enemy, type Hazard } from '../entities/Enemy';
 import { ensureDamageFont } from '../utils/textures';
 import { isCharacterOwned, isJudge } from '../utils/unlock';
@@ -270,6 +271,11 @@ export class GameScene extends Phaser.Scene {
     const colorSel = loadSave().colorSelected[def.id];
     const spriteKey = colorSel ? ensureColorVariant(this, def, colorSel) : def.sprite.key;
     this.player = new Player(this, 0, 0, def, spriteKey);
+    // 絆MAX：オーラと残像（オプションで切れる。色は作戦室で選ぶ）
+    {
+      const sv = loadSave();
+      if (sv.settings.bondFx !== 'off' && bondLevel(sv.bond[def.id] ?? 0) >= BOND_FX_LEVEL) this.player.setAura(auraColorOf(sv.bondAura[def.id], def.color));
+    }
     // 永続強化（セーブ）を反映してから最大HPを決める
     this.up = new UpgradeState();
     this.up.permanent = this.stage.noPermanent ? {} : loadSave().permanent;
@@ -627,6 +633,7 @@ export class GameScene extends Phaser.Scene {
     const p = this.player;
     const enemies = this.enemies.getChildren() as Enemy[];
     const soulActive = now < this.soulUntil;
+    this.player.fxBoost = soulActive;
 
     // 必殺の演出
     this.soulGfx.clear();

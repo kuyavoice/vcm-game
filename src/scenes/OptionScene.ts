@@ -128,6 +128,7 @@ export class OptionScene extends Phaser.Scene {
     // 必殺のカットイン：連打するとうるさいので、既定は1プレイで最初の1回だけ（2026-10-04 ユーザー指定）。時々＝ボイスの必殺と同じ間隔
     // 表示言語（最低限。utils/lang.ts）。切り替えたらこの画面も作り直す
     toggleRow('LANGUAGE', '表示言語 / Language', ['日本語', 'ENGLISH'], (st) => (st.lang === 'en' ? 1 : 0), (st, i) => { st.lang = i === 1 ? 'en' : 'ja'; });
+    toggleRow('BOND FX', '絆MAXのオーラ・残像（戦闘中）', ['ON', 'OFF'], (st) => (st.bondFx === 'off' ? 1 : 0), (st, i) => { st.bondFx = i === 1 ? 'off' : 'on'; });
     toggleRow('CUT-IN', '必殺のカットイン（初回だけ／毎回／時々）', ['FIRST', 'ALWAYS', 'SOMETIMES'], (st) => (st.cutIn === 'always' ? 1 : st.cutIn === 'sometimes' ? 2 : 0), (st, i) => { st.cutIn = i === 1 ? 'always' : i === 2 ? 'sometimes' : 'first'; });
 
     if (col !== 0) ty += 86;

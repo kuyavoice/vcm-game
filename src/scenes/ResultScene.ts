@@ -16,6 +16,7 @@ import { NIGHTMARE_STAGE, NIGHTMARE_AVAILABLE } from '../data/nightmare';
 import { GALLERY, galleryKey } from '../data/gallery';
 import { ENDLESS, ENDLESS_STAGE, endlessTitle, endlessLoop } from '../data/endless';
 import { RUSH, RUSH_STAGE, rushTitle, fmtTime } from '../data/rush';
+import { addRunStats } from '../utils/stats';
 
 export interface RunResult {
   characterId: string;
@@ -166,6 +167,7 @@ export class ResultScene extends Phaser.Scene {
     let gotAchievements: AchievementDef[] = [];
     if (!r.debug) {
       save.totalYell += r.yell;
+      addRunStats(save, r);
       gotAchievements = unlockAchievements(r, save);
       writeSave(save);
       // 隠しキャラ：スコアアタックで強化版の黒騎士を倒すと解放。ここでは何も表示しない（出現はキャラ選択画面で）

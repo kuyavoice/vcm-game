@@ -20,6 +20,7 @@ import { voiceFiles, voiceFilesOf, VOICE_KIND_ORDER, VOICE_KIND_LABEL, UNION_FUS
 import { AudioBus } from '../utils/audio';
 import { ACHIEVEMENTS, unlockAchievements } from '../data/achievements';
 import { bondLevel } from '../data/bond';
+import { statsOf, ensureStats, fmtPlayTime } from '../utils/stats';
 import { writeSave } from '../utils/storage';
 import { go as goScene, wipeIn, panel as uiPanel, UI } from '../ui/theme';
 
@@ -201,6 +202,16 @@ export class CodexScene extends Phaser.Scene {
       : { name: '???', tag: 'クラス：???', tagColor: COLOR_HEX.dim, text: 'まだ、解放していない。', known, color: def.color });
     if (known && keys.length > 1) {
       this.add.text(panel.x + panel.w - 18, panel.y + 22, '絵をタップで切り替え', { fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.dim }).setOrigin(1, 0);
+    }
+    // プレイの集計（右上。2026-10-12）
+    if (known) {
+      // 初回はランキングから起こして保存しておく
+      if (!save.stats) { ensureStats(save); writeSave(save); }
+      const st = statsOf(save, c.id);
+      const l1 = `プレイ ${st.runs}回 ／ ${fmtPlayTime(st.timeSec)} ／ クリア ${st.clears}回`;
+      const l2 = `撃破 ${st.kills.toLocaleString()} ／ 獲得 ★ ${st.yell.toLocaleString()} ／ 最高 Lv${st.bestLevel}`;
+      this.add.text(panel.x + panel.w - 18, panel.y + 44, l1, { fontFamily: FONT_JP, fontSize: '13px', color: COLOR_HEX.dim }).setOrigin(1, 0);
+      this.add.text(panel.x + panel.w - 18, panel.y + 62, l2, { fontFamily: FONT_JP, fontSize: '13px', color: COLOR_HEX.dim }).setOrigin(1, 0);
     }
     // ボイス鑑賞（2026-10-05 ユーザー承認）：解放済みで、ボイスのファイルがあるキャラだけ
     if (known && voiceFilesOf(c.id).length > 0) {
