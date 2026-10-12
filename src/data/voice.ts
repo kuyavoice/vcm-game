@@ -6,21 +6,24 @@ import { VOICE_FILES } from './voiceIndex';
 
 export type VoiceKind =
   | 'start' | 'evolve' | 'special' | 'levelup' | 'hit' | 'gameover' | 'clear'
-  | 'title' | 'select' | 'boss' | 'fusion' | 'fullmoon' | 'pinch' | 'idle' | 'best' | 'union';
+  | 'title' | 'select' | 'boss' | 'fusion' | 'fullmoon' | 'pinch' | 'idle' | 'best' | 'union'
+  /** 絆（作戦室）：thanks＝エールのお礼（ランダム）／bond＝特別ボイス（_1〜_5 が絆1〜5） */
+  | 'thanks' | 'bond';
 
 /** 図鑑のボイス鑑賞での表示名と並び（2026-10-05） */
-export const VOICE_KIND_ORDER: VoiceKind[] = ['title', 'select', 'start', 'levelup', 'evolve', 'special', 'hit', 'pinch', 'boss', 'fullmoon', 'fusion', 'union', 'idle', 'clear', 'gameover', 'best'];
+export const VOICE_KIND_ORDER: VoiceKind[] = ['title', 'select', 'start', 'levelup', 'evolve', 'special', 'hit', 'pinch', 'boss', 'fullmoon', 'fusion', 'union', 'idle', 'clear', 'gameover', 'best', 'thanks', 'bond'];
 export const VOICE_KIND_LABEL: Record<VoiceKind, string> = {
   title: 'タイトルコール', select: 'キャラ選択', start: '出撃', levelup: 'レベルアップ', evolve: '進化', special: '必殺',
   hit: '被弾', pinch: 'ピンチ', boss: 'ボス出現', fullmoon: '満月', fusion: '合体', union: '専用合体技',
   idle: '居眠り', clear: 'クリア', gameover: 'ゲームオーバー', best: 'ベスト更新',
+  thanks: 'エールのお礼', bond: '絆の特別ボイス',
 };
 
 /** 優先度（大きいほど強い）。鳴っている途中に別のボイスが来たら、優先度が高い方。同じなら後から来た方を捨てる */
 export const VOICE_PRIORITY: Record<VoiceKind, number> = {
   special: 5,
   evolve: 4, gameover: 4, clear: 4, boss: 4, fusion: 4, union: 4,
-  start: 3, title: 3, select: 3, fullmoon: 3, pinch: 3, best: 3,
+  start: 3, title: 3, select: 3, fullmoon: 3, pinch: 3, best: 3, thanks: 3, bond: 3,
   levelup: 2, idle: 2,
   hit: 1,
 };

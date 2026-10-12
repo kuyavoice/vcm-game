@@ -19,6 +19,7 @@ import { makeButton } from '../ui/Button';
 import { voiceFiles, voiceFilesOf, VOICE_KIND_ORDER, VOICE_KIND_LABEL, UNION_FUSION } from '../data/voice';
 import { AudioBus } from '../utils/audio';
 import { ACHIEVEMENTS, unlockAchievements } from '../data/achievements';
+import { bondLevel } from '../data/bond';
 import { writeSave } from '../utils/storage';
 import { go as goScene, wipeIn, panel as uiPanel, UI } from '../ui/theme';
 
@@ -205,6 +206,10 @@ export class CodexScene extends Phaser.Scene {
     if (known && voiceFilesOf(c.id).length > 0) {
       makeButton(this, panel.x + panel.w - 18 - 60, panel.y + panel.h - 18 - 22, '♪ VOICE', () => this.openVoiceList(c.id, c.name, def.color, save), { width: 120, height: 44, fontSize: 18 });
     }
+    // エールを贈る（作戦室。2026-10-12）：解放済みのキャラ
+    if (known) {
+      makeButton(this, panel.x + panel.w - 18 - 60 - 130, panel.y + panel.h - 18 - 22, '★ エール', () => goScene(this, 'YellRoom', { id: c.id, page: this.page }), { width: 120, height: 44, fontSize: 18 });
+    }
 
     return { found: list.filter((x) => isCharacterOwned(x.id, save)).length, total: list.length, pages };
   }
@@ -224,7 +229,7 @@ export class CodexScene extends Phaser.Scene {
     const top = Math.max(H * 0.06, 40);
     layer.add(this.add.text(W / 2, top, 'VOICE', { fontFamily: FONT_EN, fontSize: '40px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 6 }).setOrigin(0.5));
     layer.add(this.add.text(W / 2, top + 44, `${name}　のボイス`, { fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim }).setOrigin(0.5));
-    const kinds = VOICE_KIND_ORDER.filter((k) => voiceFiles(id, k).length > 0);
+    const kinds = VOICE_KIND_ORDER.filter((k) => k !== 'thanks' && voiceFiles(id, k).length > 0 && (k !== 'bond' || bondLevel(save.bond[id] ?? 0) > 0));
     const rowW = Math.min(620, W - 40);
     const left = (W - rowW) / 2;
     const bottomY = Math.min(H - 70, H * 0.9);
@@ -236,7 +241,9 @@ export class CodexScene extends Phaser.Scene {
       layer.destroy();
     };
     for (const k of kinds) {
-      const files = voiceFiles(id, k);
+      // 絆の特別ボイスは、絆の段階まで。お礼は作戦室で鳴らすだけ（一覧には出さない）
+      const files = k === 'bond' ? voiceFiles(id, k).slice(0, bondLevel(save.bond[id] ?? 0)) : voiceFiles(id, k);
+      if (!files.length) continue;
       let label = VOICE_KIND_LABEL[k];
       if (k === 'union') {
         const artId = UNION_FUSION[id];

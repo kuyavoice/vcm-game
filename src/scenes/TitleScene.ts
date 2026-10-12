@@ -5,6 +5,7 @@ import { getSafeInsets } from '../utils/safeArea';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, writeSave } from '../utils/storage';
 import { AudioBus } from '../utils/audio';
+import { bondLevel, BOND_MAX } from '../data/bond';
 import { makeButton } from '../ui/Button';
 import { go, panel } from '../ui/theme';
 import { t } from '../utils/lang';
@@ -102,7 +103,10 @@ export class TitleScene extends Phaser.Scene {
     }
     // タイトルコール：解放済みの操作キャラからランダムで1人（隠しキャラは解放後だけ候補）
     if (!titleCalled) {
-      const cands = visibleCharacters(sv).filter((id) => AudioBus.hasVoice(id, 'title'));
+      // 絆MAX（data/bond.ts）のキャラがいれば、その中から（推しの声。2026-10-12）
+      const all = visibleCharacters(sv).filter((id) => AudioBus.hasVoice(id, 'title'));
+      const maxed = all.filter((id) => bondLevel(sv.bond[id] ?? 0) >= BOND_MAX);
+      const cands = maxed.length ? maxed : all;
       if (cands.length > 0) {
         titleCalled = true;
         AudioBus.voice(cands[Math.floor(Math.random() * cands.length)], 'title');

@@ -51,6 +51,8 @@ export interface SaveData {
   flashNoticeShown: boolean;
   /** 解除した実績のID（data/achievements.ts） */
   achievements: string[];
+  /** 絆：キャラIDごとに贈ったエールの累計（data/bond.ts）。2026-10-12 */
+  bond: Record<string, number>;
 }
 
 const DEFAULT: SaveData = {
@@ -77,6 +79,7 @@ const DEFAULT: SaveData = {
   tutorialDone: false,
   flashNoticeShown: false,
   achievements: [],
+  bond: {},
 };
 
 export function loadSave(): SaveData {
@@ -106,6 +109,7 @@ export function loadSave(): SaveData {
       music: [...(parsed.music ?? [])],
       bestiary: parsed.bestiary ? [...parsed.bestiary] : null,
       achievements: [...(parsed.achievements ?? [])],
+      bond: { ...(parsed.bond ?? {}) },
     };
     // 旧形式の移行：best → bests[1]
     if (data.best && !data.bests['1']) {

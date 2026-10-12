@@ -166,6 +166,11 @@ class AudioBusImpl {
   }
 
   /** 自前で持つ（game.sound.mute の読み値は WebAudio の gain の反映待ちで1拍遅れることがある） */
+  /** ボイスが鳴っている（作戦室の笑顔の差分などが見る） */
+  get voicePlaying(): boolean {
+    return !!this.voiceSound && this.voiceSound.isPlaying;
+  }
+
   get muted(): boolean {
     return this.isMuted;
   }

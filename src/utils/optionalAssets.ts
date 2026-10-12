@@ -43,6 +43,19 @@ export const OPTIONAL_IMAGES: Record<string, string> = {
   gameover_yukihito: 'assets/images/gameover/yukihito_gameover.webp',
   gameover_ritsuka: 'assets/images/gameover/ritsuka_gameover.webp',
   gameover_shion: 'assets/images/gameover/shion_gameover.webp',
+  // 作戦室（エールを贈る画面。2026-10-12）：背景は縦 1024×1536 と横 1536×1024。くつろぎの立ち絵（透過 1024×1536）は絆3から。_smile はお礼のボイスの間だけ
+  room: 'assets/images/room/room.webp',
+  room_wide: 'assets/images/room/room_wide.webp',
+  relax_kuya: 'assets/images/room/kuya_relax.webp',
+  relax_kuya_smile: 'assets/images/room/kuya_relax_smile.webp',
+  relax_mizuho: 'assets/images/room/mizuho_relax.webp',
+  relax_mizuho_smile: 'assets/images/room/mizuho_relax_smile.webp',
+  relax_yukihito: 'assets/images/room/yukihito_relax.webp',
+  relax_yukihito_smile: 'assets/images/room/yukihito_relax_smile.webp',
+  relax_ritsuka: 'assets/images/room/ritsuka_relax.webp',
+  relax_ritsuka_smile: 'assets/images/room/ritsuka_relax_smile.webp',
+  relax_shion: 'assets/images/room/shion_relax.webp',
+  relax_shion_smile: 'assets/images/room/shion_relax_smile.webp',
 };
 
 // ギャラリーの絵（存在確認だけ。読み込みはギャラリー画面で、解放済みのものだけ）
@@ -53,7 +66,7 @@ for (const e of CODEX_ENEMIES) if (e.art) OPTIONAL_IMAGES[bestiaryKey(e.id)] = b
 
 /** 起動時に読まず、使う場面で読む画像（キーの接頭辞） */
 // luna_ と chest_ は宝箱の画面と初回の案内でしか使わないので、ゲーム開始時に読む（2026-10-05）
-export const LAZY_IMAGE_PREFIXES = ['victory_', 'gameover_', 'gal_', 'best_', 'cutin_', 'luna_', 'chest_'];
+export const LAZY_IMAGE_PREFIXES = ['victory_', 'gameover_', 'gal_', 'best_', 'cutin_', 'luna_', 'chest_', 'room', 'relax_'];
 export const isLazyImage = (key: string) => LAZY_IMAGE_PREFIXES.some((p) => key.startsWith(p));
 
 const available = new Set<string>();
