@@ -37,9 +37,9 @@ const others: MusicDef[] = [
   other('itaru', '弼辺 徹', '世界は一冊の薄い本', 0xff69b4),
   other('itsuki', '晴山 樹', '最強！コンテニュー', 0x7fd34a),
   other('sensitive', 'センシティ部', '出動！センシティ部☆ファイブ！', 0xff8c42),
-  other('prison', '???', '牢中独白', 0x8a94b8),
-  other('superwild', '???', 'SUPER WILD', 0xffb400),
-  other('resonance', '???', '静寂のレゾナンス', 0xb0a0ff),
+  other('kyoko', '嘉地 杏子', '牢中独白', 0xc06090),
+  other('gou', '護乃 豪', 'SUPER WILD', 0xffb400),
+  other('yuri', '音染 悠理', '静寂のレゾナンス', 0xb0a0ff),
 ];
 
 export const MUSIC: MusicDef[] = [
@@ -49,7 +49,7 @@ export const MUSIC: MusicDef[] = [
   ...song('yukihito', '狐森 雪人', '白銀の残響', 0xe8f4ff),
   ...song('ritsuka', '寿 律花', '声の魔女', 0xff4500),
   ...song('shion', '黒崎 詩音', 'Stardust Requiem', 0xc0c0ff, true),
-  // 他のメンバーの曲（2026-10-12）：道中のアレンジのみ（ファンファーレ無し）。sub の持ち主はユーザー確認待ちのものがある
+  // 他のメンバーの曲（2026-10-12）：道中のアレンジのみ（ファンファーレ無し）。持ち主は 2026-10-12 ユーザー確認済み
   ...others,
   { id: 'fullmoon', key: 'bgm_fullmoon', title: '満ちる月 ― Rising of the Full Moon', sub: '満月', color: 0xfff6d5, price: PRICE },
   { id: 'boss_rook', key: 'bgm_boss_rook', title: '動く城塞', sub: '城兵級のテーマ', color: 0x40e0ff, price: PRICE },
