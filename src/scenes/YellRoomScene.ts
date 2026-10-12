@@ -200,7 +200,12 @@ export class YellRoomScene extends Phaser.Scene {
       ui.add(this.add.text(lx + 44, y + (rowH - 6) / 2 + 10, tier.sub, { fontFamily: FONT_JP, fontSize: '12px', color: COLOR_HEX.dim }).setOrigin(0, 0.5));
       const files = voiceFiles(this.id, 'bond');
       if (open && files[i]) {
-        ui.add(makeButton(this, lx + listW - 14 - 28, y + (rowH - 6) / 2, '▶', () => AudioBus.previewVoice(this.id, files[i], this), { width: 54, height: 32, fontSize: 15, armDelayMs: 150 }));
+        // 行のどこをタップしても鳴る（▶ は目印）。鳴っている間は笑顔
+        const playIt = () => { AudioBus.previewVoice(this.id, files[i], this); this.setSmile(true); };
+        const rowZone = this.add.zone(lx, y, listW, rowH - 6).setOrigin(0).setInteractive({ useHandCursor: true });
+        rowZone.on('pointerup', playIt);
+        ui.add(rowZone);
+        ui.add(makeButton(this, lx + listW - 14 - 28, y + (rowH - 6) / 2, '▶', playIt, { width: 54, height: 32, fontSize: 15, armDelayMs: 150 }));
       } else {
         ui.add(this.add.text(lx + listW - 14, y + (rowH - 6) / 2, open ? t('解放済み', 'Unlocked') : `★ ${tier.at.toLocaleString()}`, { fontFamily: FONT_EN, fontSize: '15px', color: open ? COLOR_HEX.accent : COLOR_HEX.dim }).setOrigin(1, 0.5));
       }
