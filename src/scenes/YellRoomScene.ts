@@ -30,6 +30,9 @@ export class YellRoomScene extends Phaser.Scene {
   private smileKey: string | null = null;
   private normalKey = '';
   private smiling = false;
+  /** 笑顔にした時刻と、その後にボイスが鳴り始めたか（初回はファイルの読み込み待ちで鳴り始めが遅れるため、鳴る前に戻さない） */
+  private smileAt = 0;
+  private smileHeard = false;
   private busy = false;
   /** 顔の高さ（★が飛ぶ先） */
   private faceY = 200;
@@ -341,12 +344,16 @@ export class YellRoomScene extends Phaser.Scene {
     if (!this.chara || !this.smileKey || !this.textures.exists(this.smileKey)) return;
     if (this.smiling === on) return;
     this.smiling = on;
+    if (on) { this.smileAt = this.time.now; this.smileHeard = false; }
     this.chara.setTexture(on ? this.smileKey : this.normalKey);
     this.auraImg?.setTexture(on ? this.smileKey : this.normalKey);
   }
 
   update(): void {
-    if (this.smiling && !AudioBus.voicePlaying) this.setSmile(false);
+    if (!this.smiling) return;
+    if (AudioBus.voicePlaying) { this.smileHeard = true; return; }
+    // 鳴り終わった、または 4 秒待っても鳴らなかった（ファイルが無い等）ときに戻す
+    if (this.smileHeard || this.time.now - this.smileAt > 4000) this.setSmile(false);
   }
 
   /** 立ち絵の後ろの暗いぼかし（楕円のグラデーション） */
