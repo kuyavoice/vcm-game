@@ -16,6 +16,11 @@ import { visibleMusic } from './MusicScene';
 
 /** 推し（絆が一番高いキャラ）が最初に出る重み */
 const FAVORITE_WEIGHT = 3;
+/** キャラごとの置き方の補正（倍率と横のずらし。横は画面幅に対する割合）。律花は髪が横に広く顔が右へ寄るので、少し小さく左へ（2026-10-15 ユーザー指定） */
+const LOBBY_ADJUST: Record<string, { scale: number; dx: number }> = {
+  ritsuka: { scale: 0.84, dx: -0.07 },
+};
+
 /** スワイプと判定する横の移動量（px） */
 const SWIPE_PX = 60;
 
@@ -199,16 +204,18 @@ export class LobbyScene extends Phaser.Scene {
       if (old) this.tweens.add({ targets: old, alpha: 0, x: old.x - dir * 60, duration: 180, onComplete: () => old.destroy() });
       if (!this.textures.exists(key)) { this.chara = undefined; return; }
       this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
+      const adj = LOBBY_ADJUST[id] ?? { scale: 1, dx: 0 };
+      const cx = area.cx + adj.dx * W;
       let img: Phaser.GameObjects.Image;
       if (!wide) {
-        img = this.add.image(area.cx, area.topY, key).setOrigin(0.5, 0).setDepth(-6);
-        img.setScale((area.bottomY + 60 - area.topY) / (img.height * 0.6));
+        img = this.add.image(cx, area.topY, key).setOrigin(0.5, 0).setDepth(-6);
+        img.setScale(((area.bottomY + 60 - area.topY) / (img.height * 0.6)) * adj.scale);
       } else {
-        img = this.add.image(area.cx, area.bottomY + 30, key).setOrigin(0.5, 1).setDepth(-6);
-        img.setScale(Math.min((area.bottomY + 20) / img.height, (W * 0.5) / img.width));
+        img = this.add.image(cx, area.bottomY + 30, key).setOrigin(0.5, 1).setDepth(-6);
+        img.setScale(Math.min((area.bottomY + 20) / img.height, (W * 0.5) / img.width) * adj.scale);
       }
-      img.setAlpha(0).setX(area.cx + dir * 60);
-      this.tweens.add({ targets: img, alpha: 1, x: area.cx, duration: first ? 420 : 220, ease: 'Cubic.out', onComplete: () => { this.switching = false; } });
+      img.setAlpha(0).setX(cx + dir * 60);
+      this.tweens.add({ targets: img, alpha: 1, x: cx, duration: first ? 420 : 220, ease: 'Cubic.out', onComplete: () => { this.switching = false; } });
       this.chara = img;
       // 名札と「エールを贈る」の行き先
       const def = CHARACTERS[id];
