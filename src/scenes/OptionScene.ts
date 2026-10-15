@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { makeButton } from '../ui/Button';
-import { panel, reveal } from '../ui/theme';
+import { panel, reveal, go } from '../ui/theme';
 import { loadSave, writeSave } from '../utils/storage';
 import { AudioBus } from '../utils/audio';
 
@@ -161,6 +161,17 @@ export class OptionScene extends Phaser.Scene {
           note.setText('読み込めませんでした。書き出した文字列をそのまま貼り付けてください');
         }
       }, { width: 104, height: 40, fontSize: 17, armDelayMs: 0 });
+      ty += h + 10;
+    }
+    // タイトルから開いたときだけ：遊び方とクレジット（2026-10-15。入口をタイトルから移した）
+    if (from === 'Title') {
+      const h = 76;
+      panel(this, left, ty, panelW, h, { alpha: 0.95, strokeAlpha: 0.5, cut: 12 });
+      this.add.text(left + 14, ty + 8, 'MORE', { fontFamily: FONT_EN, fontSize: '19px', color: COLOR_HEX.white, fontStyle: '700', letterSpacing: 2 });
+      this.add.text(left + 14, ty + 50, '遊び方・クレジット', { fontFamily: FONT_JP, fontSize: '12px', color: COLOR_HEX.dim });
+      const leaveTo = (key: string) => { this.scene.stop(from); go(this, key); };
+      makeButton(this, left + panelW - 14 - 52 - 114, ty + 30, '遊び方', () => leaveTo('HowTo'), { width: 104, height: 40, fontSize: 17, armDelayMs: 0 });
+      makeButton(this, left + panelW - 14 - 52, ty + 30, 'CREDITS', () => leaveTo('Credits'), { width: 104, height: 40, fontSize: 16, armDelayMs: 0 });
       ty += h + 10;
     }
     const close = () => {

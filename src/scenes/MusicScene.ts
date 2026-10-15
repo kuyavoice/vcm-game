@@ -127,10 +127,10 @@ export class MusicScene extends Phaser.Scene {
       // 聴いていた曲は止めて、タイトルの曲に戻す
       AudioBus.stopBgm();
       AudioBus.playBgm('bgm_title');
-      go(this, 'Title');
+      go(this, 'Lobby');
     };
     const backY = Math.max(H - Math.max(90, H * 0.08), y + 50);
-    makeButton(this, W / 2, backY, 'TITLE', leave, { width: 240, height: 60, fontSize: 24 });
+    makeButton(this, W / 2, backY, 'BACK', leave, { width: 240, height: 60, fontSize: 24 });
 
     // 画面を作り直したとき（解放の直後など）は、鳴っている曲の表示を合わせる
     const cur = AudioBus.currentKey();

@@ -18,6 +18,7 @@ import { MusicScene } from './scenes/MusicScene';
 import { HowToScene } from './scenes/HowToScene';
 import { CreditsScene } from './scenes/CreditsScene';
 import { YellRoomScene } from './scenes/YellRoomScene';
+import { LobbyScene } from './scenes/LobbyScene';
 import { AudioBus } from './utils/audio';
 import { probeOptionalImages } from './utils/optionalAssets';
 
@@ -36,7 +37,7 @@ function start(): void {
     input: {
       activePointers: 3,
     },
-    scene: [BootScene, TitleScene, CharaSelectScene, ShopScene, CodexScene, GalleryScene, StageSelectScene, RushSetupScene, GameScene, LevelUpScene, ChestScene, PauseScene, ResultScene, OptionScene, MusicScene, HowToScene, CreditsScene, YellRoomScene],
+    scene: [BootScene, TitleScene, CharaSelectScene, ShopScene, CodexScene, GalleryScene, StageSelectScene, RushSetupScene, GameScene, LevelUpScene, ChestScene, PauseScene, ResultScene, OptionScene, MusicScene, HowToScene, CreditsScene, YellRoomScene, LobbyScene],
   });
   AudioBus.init(game);
   (window as unknown as { __game: Phaser.Game }).__game = game; // デバッグ用

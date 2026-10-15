@@ -82,14 +82,14 @@ export class CodexScene extends Phaser.Scene {
       if (next !== this.page) this.scene.restart({ tab: this.tab, page: next });
     };
     makeButton(this, W / 2 - 200, by, '◀', () => go(-1), { width: 100, height: 60, fontSize: 26 });
-    makeButton(this, W / 2, by, 'TITLE', () => goScene(this, 'Title'), { width: 200, height: 60, fontSize: 24 });
+    makeButton(this, W / 2, by, 'BACK', () => goScene(this, 'Lobby'), { width: 200, height: 60, fontSize: 24 });
     makeButton(this, W / 2 + 200, by, '▶', () => go(1), { width: 100, height: 60, fontSize: 26 });
 
     this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
       if (ev.repeat) return;
       if (ev.key === 'ArrowRight' || ev.key === 'd' || ev.key === 'D') go(1);
       else if (ev.key === 'ArrowLeft' || ev.key === 'a' || ev.key === 'A') go(-1);
-      else if (ev.key === 'Escape') goScene(this, 'Title');
+      else if (ev.key === 'Escape') goScene(this, 'Lobby');
     });
   }
 

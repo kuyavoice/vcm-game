@@ -1,6 +1,4 @@
 import Phaser from 'phaser';
-import { visibleGallery } from './GalleryScene';
-import { visibleMusic } from './MusicScene';
 import { getSafeInsets } from '../utils/safeArea';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, writeSave } from '../utils/storage';
@@ -125,15 +123,13 @@ export class TitleScene extends Phaser.Scene {
 
     // メニュー（横一列・中央寄せ）。ボタンは pointerdown を止めるので TAP TO START と干渉しない。
     // ギャラリーとミュージックは、中身が1つも無ければ入口ごと出さない
+    // 2026-10-15 ユーザー承認「A案」：入口は EXTRA（拠点＝作戦室：図鑑・実績・ギャラリー・ミュージック・エール）と OPTION（設定・遊び方・データ・クレジット）の2つ
     const menu: { label: string; run: () => void }[] = [
+      { label: 'EXTRA', run: () => go(this, 'Lobby') },
       { label: 'OPTION', run: () => this.scene.launch('Option', { from: 'Title' }) },
-      { label: '遊び方', run: () => go(this, 'HowTo') },
     ];
-    if (visibleMusic(sv).length > 0) menu.push({ label: 'MUSIC', run: () => go(this, 'Music') });
-    if (visibleGallery(sv).length > 0) menu.push({ label: 'GALLERY', run: () => go(this, 'Gallery') });
-    menu.push({ label: '図鑑', run: () => go(this, 'Codex') });
-    const mGap = 10;
-    const mW = Math.min(160, Math.floor((W - 32 - mGap * (menu.length - 1)) / menu.length));
+    const mGap = 14;
+    const mW = Math.min(220, Math.floor((W - 32 - mGap * (menu.length - 1)) / menu.length));
     const mLeft = (W - (mW * menu.length + mGap * (menu.length - 1))) / 2;
     // キービジュアルのときは、ロゴに重ならないよう下の帯に置く
     const menuY = kv ? tapY + 140 : Math.max(H * 0.06, 50);
@@ -143,7 +139,7 @@ export class TitleScene extends Phaser.Scene {
       const btn = makeButton(this, bx, menuY, m.label, () => {
         // 下の帯が伸びきってから移動（ワイプと重なって、帯が画面を引っ張るように見える）
         this.tweens.add({ targets: under, scaleX: 1, duration: 140, ease: 'Cubic.out', onComplete: m.run });
-      }, { width: mW, height: 52, fontSize: menu.length >= 5 ? 19 : 21 });
+      }, { width: mW, height: 56, fontSize: 22 });
       // 押している間だけ帯が少し伸びる（離して確定しなければ戻る）
       const hit = btn.list[3] as Phaser.GameObjects.Rectangle;
       hit.on('pointerdown', () => this.tweens.add({ targets: under, scaleX: 0.35, duration: 120, ease: 'Cubic.out' }));

@@ -42,7 +42,7 @@ export class PauseScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // 音量の調整（オプション画面を重ねる）
-    makeButton(this, W - 24 - 70, top, 'SOUND', () => this.scene.launch('Option', { from: 'Pause' }), { width: 140, height: 48, fontSize: 20 });
+    makeButton(this, W - 24 - 70, top, 'OPTION', () => this.scene.launch('Option', { from: 'Pause' }), { width: 140, height: 48, fontSize: 20 });
 
     // ── 所持一覧 ──
     const left = 36;

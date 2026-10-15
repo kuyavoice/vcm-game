@@ -157,7 +157,7 @@ export class GalleryScene extends Phaser.Scene {
 
     const rows = Math.ceil(normals.length / cols);
     const by = Math.max(H - Math.max(90, H * 0.08), gridTop + rows * (cardH + gap) + 50);
-    makeButton(this, W / 2, by, 'TITLE', () => go(this, 'Title'), { width: 240, height: 60, fontSize: 24 });
+    makeButton(this, W / 2, by, 'BACK', () => go(this, 'Lobby'), { width: 240, height: 60, fontSize: 24 });
 
     // 縦スクロール（内容が画面より長い端末向け）
     const maxScroll = Math.max(0, by + 90 - H);

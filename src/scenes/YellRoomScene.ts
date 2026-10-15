@@ -24,6 +24,8 @@ const LEVELUP_MS = 1400;
 export class YellRoomScene extends Phaser.Scene {
   private id = 'kuya';
   private page = 0;
+  /** 戻る先（図鑑か拠点） */
+  private from = 'Codex';
   private chara!: Phaser.GameObjects.Image;
   private auraImg?: Phaser.GameObjects.Image;
   private ui!: Phaser.GameObjects.Container;
@@ -41,9 +43,10 @@ export class YellRoomScene extends Phaser.Scene {
     super('YellRoom');
   }
 
-  create(data?: { id?: string; page?: number }): void {
+  create(data?: { id?: string; page?: number; from?: string }): void {
     this.id = data?.id ?? 'kuya';
     this.page = data?.page ?? 0;
+    this.from = data?.from ?? 'Codex';
     this.smiling = false;
     this.busy = false;
     this.auraImg = undefined;
@@ -315,7 +318,7 @@ export class YellRoomScene extends Phaser.Scene {
         this.tweens.add({ targets: [band, txt, sub], alpha: 0, duration: 260, onComplete: () => { band.destroy(); txt.destroy(); sub.destroy(); } });
         this.busy = false;
         // 絵や帯の高さが変わる段階（くつろぎ立ち絵・オーラ）はシーンを読み直す
-        if ((lvAfter === BOND_RELAX_LEVEL && hasOptionalImage(`relax_${this.id}`)) || lvAfter === BOND_FX_LEVEL) this.scene.restart({ id: this.id, page: this.page });
+        if ((lvAfter === BOND_RELAX_LEVEL && hasOptionalImage(`relax_${this.id}`)) || lvAfter === BOND_FX_LEVEL) this.scene.restart({ id: this.id, page: this.page, from: this.from });
         else this.drawUI(W, H, color, loadSave().totalYell, after);
       });
       this.drawUI(W, H, color, save.totalYell, before);
@@ -376,6 +379,7 @@ export class YellRoomScene extends Phaser.Scene {
 
   private close(): void {
     AudioBus.stopVoice();
-    go(this, 'Codex', { tab: 'chara', page: this.page });
+    if (this.from === 'Lobby') go(this, 'Lobby');
+    else go(this, 'Codex', { tab: 'chara', page: this.page });
   }
 }
