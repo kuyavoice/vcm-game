@@ -103,6 +103,30 @@ class AudioBusImpl {
     });
   }
 
+  /** ボイスが鳴り終わってから流す曲（タイトルコールの後にタイトル曲。2026-10-15） */
+  private bgmAfterVoice?: string;
+  private bgmAfterVoiceTimer?: ReturnType<typeof setTimeout>;
+
+  /**
+   * いま鳴っている（または読み込み中・再生待ちの）ボイスが終わってから曲を流す。ボイスが無ければすぐ流す。
+   * ボイスがいつまでも鳴らないとき（ファイル無し等）は maxWaitMs 後に流す
+   */
+  playBgmAfterVoice(key: string, maxWaitMs = 6000): void {
+    const pending = !!this.voiceSound || this.voiceLoading.size > 0;
+    if (!pending) { this.playBgm(key); return; }
+    this.bgmAfterVoice = key;
+    if (this.bgmAfterVoiceTimer) clearTimeout(this.bgmAfterVoiceTimer);
+    this.bgmAfterVoiceTimer = setTimeout(() => this.flushBgmAfterVoice(), maxWaitMs);
+  }
+
+  private flushBgmAfterVoice(): void {
+    const key = this.bgmAfterVoice;
+    if (!key) return;
+    this.bgmAfterVoice = undefined;
+    if (this.bgmAfterVoiceTimer) { clearTimeout(this.bgmAfterVoiceTimer); this.bgmAfterVoiceTimer = undefined; }
+    this.playBgm(key);
+  }
+
   /** 先読み：近いうちに切り替える曲を読んでおく（再生はしない）。ボスの形態変化で曲が途切れないように */
   preloadBgm(key: string): void {
     if (!this.game || !this.available.has(key) || this.has(key)) return;
@@ -294,6 +318,8 @@ class AudioBusImpl {
       this.voiceQueued = null;
       this.voice(q.characterId, q.kind);
     }
+    // ボイスの後に流す曲があれば、ここで流す
+    if (this.bgmAfterVoice && !this.voiceSound) this.flushBgmAfterVoice();
   }
 
   /** 鳴っているボイスを止める（画面の切り替えなど） */

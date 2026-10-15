@@ -172,7 +172,8 @@ export class TitleScene extends Phaser.Scene {
     const start = () => {
       if (started) return;
       started = true;
-      AudioBus.playBgm('bgm_title');
+      // タイトルコールが鳴っていれば、鳴り終わってからタイトル曲（2026-10-15 ユーザー要望）
+      AudioBus.playBgmAfterVoice('bgm_title');
       go(this, 'CharaSelect');
     };
     const armStart = () => {
