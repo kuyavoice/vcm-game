@@ -40,6 +40,8 @@ export class LobbyScene extends Phaser.Scene {
   private switching = false;
   private W = 720;
   private H = 1280;
+  /** 縦画面：カード群の上端（キャラはこの上に置く） */
+  private cardsTop = 0;
 
   constructor() {
     super('Lobby');
@@ -108,6 +110,8 @@ export class LobbyScene extends Phaser.Scene {
       this.add.rectangle(0, 0, W, H, 0x0b1026).setOrigin(0).setDepth(-10);
     }
     this.add.rectangle(0, 0, W, H, 0x060913, 0.28).setOrigin(0).setDepth(-9);
+    // タイトルを経由しない入り方でも曲が流れるように（同じ曲なら何もしない）
+    AudioBus.playBgmAfterVoice('bgm_title');
 
     // 見出し・所持エール
     const left = 20;
@@ -132,14 +136,17 @@ export class LobbyScene extends Phaser.Scene {
     }
     cards.push({ title: t('エールを贈る', 'SEND YELLS'), sub: '', color: 0x87ceeb, run: () => this.toYellRoom(), yell: true });
 
-    const cardW = wide ? 520 : Math.min(430, W * 0.62);
-    const cardH = wide ? 96 : 100;
-    const gap = 10;
-    let y = 96;
+    // 縦（スマホ）：カードは画面の下に全幅で並べ、キャラはその上（顔がカードに隠れない。2026-10-15 実機確認で変更）。横：カードは左、キャラは中央右
+    const cardW = wide ? 520 : W - 40;
+    const cardH = wide ? 96 : 84;
+    const gap = wide ? 10 : 8;
+    const blockH = cards.length * (cardH + gap) - gap;
+    let y = wide ? 96 : H - 56 - 40 - blockH - 14;
+    this.cardsTop = y;
     for (const c of cards) {
       const p = uiPanel(this, left, y, cardW, cardH, { color: c.color, alpha: 0.93, strokeAlpha: 0.7, cut: 14, highlight: true });
-      this.add.text(left + 24, y + 18, c.title, { fontFamily: FONT_JP, fontSize: '24px', color: COLOR_HEX.white, fontStyle: '700' });
-      const sub = this.add.text(left + 24, y + 58, c.sub, { fontFamily: FONT_JP, fontSize: '15px', color: COLOR_HEX.dim });
+      this.add.text(left + 24, y + (wide ? 18 : 12), c.title, { fontFamily: FONT_JP, fontSize: wide ? '24px' : '22px', color: COLOR_HEX.white, fontStyle: '700' });
+      const sub = this.add.text(left + 24, y + (wide ? 58 : 50), c.sub, { fontFamily: FONT_JP, fontSize: wide ? '15px' : '14px', color: COLOR_HEX.dim });
       this.add.text(left + cardW - 22, y + cardH / 2, '▶', { fontFamily: FONT_EN, fontSize: '22px', color: COLOR_HEX.accent }).setOrigin(1, 0.5);
       const zone = this.add.zone(left, y, cardW, cardH).setOrigin(0).setInteractive({ useHandCursor: true });
       zone.on('pointerup', c.run);
@@ -158,12 +165,13 @@ export class LobbyScene extends Phaser.Scene {
       if (Math.abs(dx) >= SWIPE_PX && Math.abs(dx) > Math.abs(p.y - downY)) this.switchTo(dx < 0 ? 1 : -1);
       else if (Math.hypot(dx, p.y - downY) < 24) this.toYellRoom();
     });
-    // キャラの名札（下）と ◀ ▶
-    const tagY = wide ? H - 150 : H - 150;
+    // キャラの名札と ◀ ▶（縦：カードのすぐ上の帯／横：キャラの足元）
+    const tagY = wide ? H - 150 : this.cardsTop - 30;
+    if (!wide) this.add.rectangle(0, tagY - 24, W, 48, 0x060913, 0.55).setOrigin(0).setDepth(4);
     this.nameTag = this.add.text(area.x + area.w / 2, tagY, '', { fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.white, stroke: '#060913', strokeThickness: 4, align: 'center', lineSpacing: 4 }).setOrigin(0.5).setDepth(5);
     if (this.ids.length > 1) {
-      makeButton(this, area.x + 34, tagY, '◀', () => this.switchTo(-1), { width: 56, height: 44, fontSize: 20, armDelayMs: 150 }).setDepth(6);
-      makeButton(this, area.x + area.w - 34, tagY, '▶', () => this.switchTo(1), { width: 56, height: 44, fontSize: 20, armDelayMs: 150 }).setDepth(6);
+      makeButton(this, area.x + 44, tagY, '◀', () => this.switchTo(-1), { width: 56, height: 44, fontSize: 20, armDelayMs: 150 }).setDepth(6);
+      makeButton(this, area.x + area.w - 44, tagY, '▶', () => this.switchTo(1), { width: 56, height: 44, fontSize: 20, armDelayMs: 150 }).setDepth(6);
     }
     this.showCharacter(save, this.charaId, 0, true);
 
@@ -183,8 +191,8 @@ export class LobbyScene extends Phaser.Scene {
     const H = this.H;
     const wide = W / H > 1.0;
     if (!wide) {
-      const x = W * 0.5;
-      return { x, y: 90, w: W - x, h: H - 90 - 200, cx: W * 0.74, topY: 96, bottomY: H - 110 };
+      // 上の見出しの下から、名札の帯の上まで
+      return { x: 0, y: 84, w: W, h: Math.max(100, this.cardsTop - 54 - 84), cx: W * 0.52, topY: 84, bottomY: this.cardsTop - 54 };
     }
     const cx = W * 0.64;
     const w = Math.min(W * 0.5, 900);
@@ -208,8 +216,9 @@ export class LobbyScene extends Phaser.Scene {
       const cx = area.cx + adj.dx * W;
       let img: Phaser.GameObjects.Image;
       if (!wide) {
+        // 頭から胸までが名札の帯の上に収まる大きさ（大きくなりすぎる縦長の端末では 1.0 で止める）
         img = this.add.image(cx, area.topY, key).setOrigin(0.5, 0).setDepth(-6);
-        img.setScale(((area.bottomY + 60 - area.topY) / (img.height * 0.6)) * adj.scale);
+        img.setScale(Math.min(1.0, (area.bottomY - area.topY) / (img.height * 0.46)) * adj.scale);
       } else {
         img = this.add.image(cx, area.bottomY + 30, key).setOrigin(0.5, 1).setDepth(-6);
         img.setScale(Math.min((area.bottomY + 20) / img.height, (W * 0.5) / img.width) * adj.scale);

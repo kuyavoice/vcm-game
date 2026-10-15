@@ -137,6 +137,8 @@ export class TitleScene extends Phaser.Scene {
       const bx = mLeft + mW / 2 + i * (mW + mGap);
       const under = this.add.rectangle(bx - mW / 2, menuY + 26 + 6, mW, 4, 0x87ceeb, 1).setOrigin(0, 0.5).setScale(0, 1).setDepth(2);
       const btn = makeButton(this, bx, menuY, m.label, () => {
+        // メニューから入るときもタイトル曲を流す（タイトルコールの後。2026-10-15：EXTRA・OPTION で曲が無かった）
+        AudioBus.playBgmAfterVoice('bgm_title');
         // 下の帯が伸びきってから移動（ワイプと重なって、帯が画面を引っ張るように見える）
         this.tweens.add({ targets: under, scaleX: 1, duration: 140, ease: 'Cubic.out', onComplete: m.run });
       }, { width: mW, height: 56, fontSize: 22 });
