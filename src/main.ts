@@ -41,6 +41,18 @@ function start(): void {
   });
   AudioBus.init(game);
   (window as unknown as { __game: Phaser.Game }).__game = game; // デバッグ用
+
+  // PC で文字や絵が潰れる対策（2026-10-17）：キャンバスが縮小表示されるとき（表示倍率 < 1。縦 1280 の論理解像度に対し PC の窓は低い）は、
+  // ドット用の最近傍（pixelated）だと縮小で線が欠けるので、通常の滑らかな縮小にする。等倍・拡大（スマホ）のときは pixelated のまま
+  const applyCanvasSmoothing = () => {
+    const c = game.canvas;
+    const ratio = c.clientWidth > 0 ? c.clientWidth / c.width : 1;
+    c.style.imageRendering = ratio < 0.999 ? 'auto' : 'pixelated';
+  };
+  game.scale.on('resize', applyCanvasSmoothing);
+  game.events.once('ready', applyCanvasSmoothing);
+  window.addEventListener('resize', () => setTimeout(applyCanvasSmoothing, 50));
+  setTimeout(applyCanvasSmoothing, 0);
 }
 
 // Webフォントの読み込みを待ってから開始（最大1.5秒）。音声ファイルの存在確認も同時に行う
