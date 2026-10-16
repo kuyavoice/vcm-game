@@ -123,7 +123,7 @@ export class LobbyScene extends Phaser.Scene {
     const gal = visibleGallery(save);
     const mus = visibleMusic(save);
     const cards: { title: string; sub: string; color: number; run: () => void; yell?: boolean }[] = [
-      { title: t('図鑑', 'CODEX'), sub: t(`共鳴アーツ・サポート ${codexFound(save)} / ${codexTotal()}`, `Arts & supports ${codexFound(save)} / ${codexTotal()}`), color: 0x87ceeb, run: () => go(this, 'Codex', { tab: 'arts' }) },
+      { title: t('図鑑', 'CODEX'), sub: t(`共鳴アーツ・サポート ${codexFound(save)} / ${codexTotal(save)}`, `Arts & supports ${codexFound(save)} / ${codexTotal(save)}`), color: 0x87ceeb, run: () => go(this, 'Codex', { tab: 'arts' }) },
       { title: t('実績', 'ACHIEVEMENTS'), sub: t(`解除 ${save.achievements.length} / ${ACHIEVEMENTS.length}`, `Unlocked ${save.achievements.length} / ${ACHIEVEMENTS.length}`), color: 0xffd700, run: () => go(this, 'Codex', { tab: 'achv' }) },
     ];
     if (gal.length > 0) {

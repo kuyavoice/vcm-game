@@ -8,6 +8,8 @@ import { NIGHTMARE_STAGE } from './nightmare';
 import { SCORE_STAGE } from './score';
 import { ENDLESS_STAGE } from './endless';
 import { RUSH_STAGE } from './rush';
+import { FUSIONS } from './fusions';
+import { isCharacterOwned } from '../utils/unlock';
 
 /**
  * 実績（2026-10-05 ユーザー承認）。図鑑の「実績」タブに一覧、解除した瞬間はリザルトに出る。
@@ -25,12 +27,23 @@ export interface AchievementDef {
 
 const cleared = (save: SaveData, stageId: number) => save.cleared.includes(stageId);
 
-/** 図鑑に登録される共鳴アーツ・合体技・サポートの数（進化の `:evo` は数えない） */
-export function codexTotal(): number {
-  return Object.values(WEAPONS).filter((w) => w.kind === 'art').length + Object.keys(PASSIVES).length;
+/**
+ * 図鑑（共鳴アーツのタブ）に並ぶ項目のID。CodexScene.drawArts と同じ定義：共鳴アーツ（合体以外）→ 合体（隠しキャラ専用は解放まで除く）→ サポート（`passive:` 付き）。
+ * 進化の `:evo` は項目ではないので含めない。
+ * 2026-10-16 修正：以前はサポートの ID（`passive:…`）をコロン入り＝進化と誤って除外していたため、拠点の登録数と実績「声の記録者」が総数に届かなかった。
+ */
+export function codexEntryIds(save: SaveData): string[] {
+  const arts = Object.values(WEAPONS).filter((w) => w.kind === 'art' && !w.fusion).map((w) => w.id);
+  const fusions = FUSIONS.filter((f) => !f.secretOf || isCharacterOwned(f.secretOf, save)).map((f) => f.id);
+  const passives = Object.keys(PASSIVES).map((id) => `passive:${id}`);
+  return [...arts, ...fusions, ...passives];
+}
+export function codexTotal(save: SaveData): number {
+  return codexEntryIds(save).length;
 }
 export function codexFound(save: SaveData): number {
-  return save.codex.filter((id) => !id.includes(':')).length;
+  const found = new Set(save.codex);
+  return codexEntryIds(save).filter((id) => found.has(id)).length;
 }
 
 export const ACHIEVEMENTS: AchievementDef[] = [
@@ -53,8 +66,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'endless20', name: '長い夜', desc: 'エンドレスで20分を生き延びる', check: (r) => !!r && r.stageId === ENDLESS_STAGE.id && r.timeSec >= 1200 },
   { id: 'rush1', name: '連戦の果て', desc: 'ボスラッシュを1周クリア', check: (r) => !!r && r.stageId === RUSH_STAGE.id && (r.rush?.loopTimes.length ?? 0) >= 1 },
   { id: 'all_chars', name: '全員集合', desc: '仲間を全員解放する', check: (_r, s) => CHARACTER_ORDER.filter((id) => !CHARACTERS[id].secret).every((id) => CHARACTERS[id].unlockYell === 0 || s.unlockedCharacters.includes(id)) },
-  { id: 'codex_half', name: '声の蒐集家', desc: '図鑑の共鳴アーツとサポートを半分登録', check: (_r, s) => codexFound(s) * 2 >= codexTotal() },
-  { id: 'codex_full', name: '声の記録者', desc: '図鑑の共鳴アーツとサポートを全部登録', check: (_r, s) => codexFound(s) >= codexTotal() },
+  { id: 'codex_half', name: '声の蒐集家', desc: '図鑑の共鳴アーツとサポートを半分登録', check: (_r, s) => codexFound(s) * 2 >= codexTotal(s) },
+  { id: 'codex_full', name: '声の記録者', desc: '図鑑の共鳴アーツとサポートを全部登録', check: (_r, s) => codexFound(s) >= codexTotal(s) },
 ];
 
 /**

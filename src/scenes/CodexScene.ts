@@ -414,7 +414,7 @@ export class CodexScene extends Phaser.Scene {
     const perPage = 6;
     const pages = Math.ceil(rows.length / perPage);
     this.page = Phaser.Math.Clamp(this.page, 0, pages - 1);
-    const discovered = rows.filter((r) => found.has(r.def.id)).length;
+    const discovered = rows.filter((r) => found.has(r.def.id)).length; // codexFound(save) と同じ値になる（定義は data/achievements.ts の codexEntryIds）
 
     const left = area.x;
     const rowW = area.w;
