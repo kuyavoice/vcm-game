@@ -38,6 +38,8 @@ export class YellRoomScene extends Phaser.Scene {
   private busy = false;
   /** 顔の高さ（★が飛ぶ先） */
   private faceY = 200;
+  /** お礼ボイスを最後に鳴らした時刻（連打では 0.6 秒以内は鳴らし直さない） */
+  private lastThanksAt = -1e9;
 
   constructor() {
     super('YellRoom');
@@ -285,7 +287,10 @@ export class YellRoomScene extends Phaser.Scene {
     // お礼のボイス（無ければキャラ選択の声）
     const thanks = voiceFiles(this.id, 'thanks');
     const pool = thanks.length ? thanks : voiceFiles(this.id, 'select');
-    if (pool.length) AudioBus.previewVoice(this.id, pool[Math.floor(Math.random() * pool.length)], this);
+    if (pool.length && this.time.now - this.lastThanksAt >= 600) {
+      this.lastThanksAt = this.time.now;
+      AudioBus.previewVoice(this.id, pool[Math.floor(Math.random() * pool.length)], this);
+    }
     this.setSmile(true);
     AudioBus.play('se_item', 70);
 

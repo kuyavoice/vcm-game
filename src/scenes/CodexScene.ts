@@ -23,6 +23,7 @@ import { bondLevel } from '../data/bond';
 import { statsOf, ensureStats, fmtPlayTime } from '../utils/stats';
 import { writeSave } from '../utils/storage';
 import { go as goScene, wipeIn, panel as uiPanel, UI } from '../ui/theme';
+import { t } from '../utils/lang';
 
 type Tab = 'arts' | 'chara' | 'enemy' | 'achv';
 const TABS: { id: Tab; label: string }[] = [
@@ -75,7 +76,7 @@ export class CodexScene extends Phaser.Scene {
     const aw = this.tab === 'arts' ? W - 56 : Math.min(W - 56, 960);
     const area: Area = { x: (W - aw) / 2, y: top + 120, w: aw, h: by - 46 - (top + 120) };
     const res = this.tab === 'arts' ? this.drawArts(save, area) : this.tab === 'chara' ? this.drawCharacters(save, area) : this.tab === 'enemy' ? this.drawEnemies(save, area) : this.drawAchievements(save, area);
-    this.add.text(W / 2, top + 98, `${res.found} / ${res.total}　　${this.page + 1} / ${res.pages}`, { fontFamily: FONT_EN, fontSize: '20px', color: COLOR_HEX.gold, fontStyle: '700' }).setOrigin(0.5);
+    this.add.text(W / 2, top + 98, t(`登録 ${res.found} / ${res.total}　　ページ ${this.page + 1} / ${res.pages}`, `Found ${res.found} / ${res.total}    Page ${this.page + 1} / ${res.pages}`), { fontFamily: FONT_EN, fontSize: '20px', color: COLOR_HEX.gold, fontStyle: '700' }).setOrigin(0.5);
 
     const go = (d: number) => {
       const next = Phaser.Math.Clamp(this.page + d, 0, res.pages - 1);

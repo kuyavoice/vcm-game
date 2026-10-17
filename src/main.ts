@@ -22,6 +22,21 @@ import { LobbyScene } from './scenes/LobbyScene';
 import { AudioBus } from './utils/audio';
 import { probeOptionalImages } from './utils/optionalAssets';
 
+// PC（縮小表示）で小さい文字を読めるように：文字の作成時に fontSize の下限を掛ける（2026-10-17）。縮小が無ければ何もしない
+let textMinPx = 0;
+{
+  type StyleObj = { fontSize?: string | number } & Record<string, unknown>;
+  const proto = Phaser.GameObjects.TextStyle.prototype as unknown as { setStyle: (style: StyleObj | null, updateText?: boolean, setDefaults?: boolean) => unknown };
+  const orig = proto.setStyle;
+  proto.setStyle = function (style: StyleObj | null, updateText?: boolean, setDefaults?: boolean) {
+    if (textMinPx > 0 && style && typeof style === 'object' && style.fontSize !== undefined) {
+      const px = typeof style.fontSize === 'number' ? style.fontSize : parseFloat(String(style.fontSize));
+      if (px > 0 && px < textMinPx) style = { ...style, fontSize: `${textMinPx}px` };
+    }
+    return orig.call(this, style, updateText, setDefaults);
+  };
+}
+
 function start(): void {
   const game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -48,6 +63,8 @@ function start(): void {
     const c = game.canvas;
     const ratio = c.clientWidth > 0 ? c.clientWidth / c.width : 1;
     c.style.imageRendering = ratio < 0.999 ? 'auto' : 'pixelated';
+    // 縮小が強い（PC）ときは、小さい文字の下限を 16px に（画面を作り直したときから効く）
+    textMinPx = ratio < 0.85 ? 16 : 0;
   };
   game.scale.on('resize', applyCanvasSmoothing);
   game.events.once('ready', applyCanvasSmoothing);

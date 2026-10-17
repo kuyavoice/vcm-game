@@ -233,8 +233,8 @@ export class LobbyScene extends Phaser.Scene {
       this.nameTag?.setText(this.ids.length > 1 ? t(`${name}　絆 Lv ${lv}
 スワイプで切替／タップで作戦室`, `${name}  Bond Lv ${lv}
 swipe / tap to visit`) : t(`${name}　絆 Lv ${lv}
-タップで作戦室`, `${name}  Bond Lv ${lv}
-tap to visit`));
+タップで作戦室（仲間を解放すると切り替えられる）`, `${name}  Bond Lv ${lv}
+tap to visit (unlock allies to switch)`));
       this.yellSub?.setText(t(`${name}　絆 Lv ${lv}`, `${name}  Bond Lv ${lv}`));
       this.yellPanel?.redraw({ color: def?.color ?? 0x87ceeb });
       // 迎えのひとこと：キャラ選択のボイス

@@ -219,7 +219,8 @@ const guren: ArtBehavior = {
     const c = chest(ctx);
     const base = facingAngle(ctx);
     const spread = s.evolved ? 0.16 : 0.1;
-    const n = projCount(ctx, s, w.def);
+    // 『煉獄の七杭』は名前どおり 7 本で固定（台本の +1 は乗せない。2026-10-17）
+    const n = s.evolved ? s.count : projCount(ctx, s, w.def);
     for (let i = 0; i < n; i++) {
       const off = (i - (n - 1) / 2) * spread;
       ctx.fireBullet({
@@ -586,7 +587,8 @@ const monogatari: ArtBehavior = {
       const def = pool[Math.floor(Math.random() * pool.length)];
       const st = computeStats(def, w.level, false);
       st.damage *= s.damage;
-      ARTS[def.id].fire(ctx, st, w);
+      // 再現した技の定義（タグ）で判定させる：近接倍率・台本の弾数+1 が乗るように（2026-10-17）
+      ARTS[def.id].fire(ctx, st, Object.create(w, { def: { value: def } }) as Weapon);
       ctx.fx.text(ctx.player.x, ctx.player.y - 110 - i * 26, `『${def.name}』`, '#20B2AA');
     }
   },
@@ -773,9 +775,9 @@ const tristar: ArtBehavior = {
       ctx.fx.cross(t.x, t.y - 10, s.area * ctx.stats.areaMul, 0xe8f4ff);
     }
     if (slashTargets.length) w.state.slashAt = { x: slashTargets[0].x, y: slashTargets[0].y };
-    // 星弾（追尾）
+    // 星弾（追尾）。『魔術師の台本』の弾数+1 が乗る（2026-10-17）
     const star = ctx.nearestEnemy(c.x, c.y, 600);
-    for (let i = 0; i < s.count; i++) {
+    for (let i = 0; i < projCount(ctx, s, w.def); i++) {
       ctx.fireBullet({ x: c.x, y: c.y, angle: Math.random() * Math.PI * 2, speed: s.speed, damage: dmg * (s.extra.starMul ?? 0.6), life: 2.5, pierce: 1, homing: true, texture: 'art_star', spin: 6, rotateToVel: false, knockback: 40, tint: 0xc0c0ff });
     }
     if (star) w.state.starAt = { x: star.x, y: star.y };
@@ -849,7 +851,7 @@ const meteocage: ArtBehavior = {
     const r = s.area * ctx.stats.areaMul;
     const blast = (s.extra.blastRadius ?? 60) * ctx.stats.areaMul;
     const dmg = artDmg(ctx, s, w.def);
-    for (let i = 0; i < s.count; i++) {
+    for (let i = 0; i < projCount(ctx, s, w.def); i++) {
       const a = base + (Math.random() - 0.5) * Phaser.Math.DegToRad(s.extra.arcDeg ?? 180);
       const d = 40 + Math.random() * r;
       const x = c.x + Math.cos(a) * d;

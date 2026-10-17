@@ -128,7 +128,7 @@ export const PASSIVES: Record<string, PassiveDef> = {
   },
   encore: {
     id: 'encore', name: '天宮座のアンコール', owner: '天宮 澪',
-    desc: '効果時間 +10%、設置・常駐・補助アーツのダメージ +10%（Lvごと）。盾・鉄柵・重力場・御札など',
+    desc: '効果時間 +10%、設置・常駐・補助アーツの威力 +10%（Lvごと）',
     maxLevel: 5, color: 0x2f4f4f,
     apply: (s, lv) => { s.durationMul *= 1 + 0.1 * lv; s.zoneDamageMul *= 1 + 0.1 * lv; },
   },
