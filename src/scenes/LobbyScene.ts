@@ -16,7 +16,7 @@ import { visibleMusic } from './MusicScene';
 
 /** 推し（絆が一番高いキャラ）が最初に出る重み */
 const FAVORITE_WEIGHT = 3;
-/** キャラごとの置き方の補正（倍率と横のずらし。横は画面幅に対する割合）。律花は髪が横に広く顔が右へ寄るので、少し小さく左へ（2026-10-15 ユーザー指定） */
+/** キャラごとの置き方の補正（倍率と横のずらし。横は画面幅に対する割合）。律花は髪が横に広く顔が右へ寄るので、少し小さく左へ（2026-10-15 ユーザー指定）。倍率は縦画面（バストアップ）だけに効かせる。横画面（PC）は全身が収まる大きさで揃えるので、効かせると一人だけ小さくなる（2026-10-18 ユーザー指摘） */
 const LOBBY_ADJUST: Record<string, { scale: number; dx: number }> = {
   ritsuka: { scale: 0.84, dx: -0.07 },
 };
@@ -221,7 +221,7 @@ export class LobbyScene extends Phaser.Scene {
         img.setScale(Math.min(1.0, (area.bottomY - area.topY) / (img.height * 0.46)) * adj.scale);
       } else {
         img = this.add.image(cx, area.bottomY + 30, key).setOrigin(0.5, 1).setDepth(-6);
-        img.setScale(Math.min((area.bottomY + 20) / img.height, (W * 0.5) / img.width) * adj.scale);
+        img.setScale(Math.min((area.bottomY + 20) / img.height, (W * 0.5) / img.width));
       }
       img.setAlpha(0).setX(cx + dir * 60);
       this.tweens.add({ targets: img, alpha: 1, x: cx, duration: first ? 420 : 220, ease: 'Cubic.out', onComplete: () => { this.switching = false; } });

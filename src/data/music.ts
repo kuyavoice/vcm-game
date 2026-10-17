@@ -37,7 +37,7 @@ const others: MusicDef[] = [
   other('itaru', '弼辺 徹', '世界は一冊の薄い本', 0xff69b4),
   other('itsuki', '晴山 樹', '最強！コンテニュー', 0x7fd34a),
   other('sensitive', 'センシティ部', '出動！センシティ部☆ファイブ！', 0xff8c42),
-  other('kyoko', '嘉地 杏子', '牢中独白', 0xc06090),
+  other('kyoko', '嘉地 杏子', '籠中独白', 0xc06090),
   other('gou', '護乃 豪', 'SUPER WILD', 0xffb400),
   other('yuri', '音染 悠理', '静寂のレゾナンス', 0xb0a0ff),
 ];
