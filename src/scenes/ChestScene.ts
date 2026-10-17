@@ -159,7 +159,8 @@ export class ChestScene extends Phaser.Scene {
 
       // 報酬カード（縦に並べる）
       const cardW = Math.min(600, W - 60);
-      const rowH = result.rewards.length > 1 ? 96 : 130;
+      // 合体1枚のときは顔の横で説明が3行になることがあるので少し高く（アクア・メディック引き継ぎの一文が付く場合）
+      const rowH = result.rewards.length > 1 ? 96 : result.rewards[0].kind === 'fusion' ? 150 : 130;
       let y = H * 0.54;
       result.rewards.forEach((r, i) => {
         const cont = this.add.container(W / 2, y + rowH / 2).setAlpha(0);
@@ -198,8 +199,11 @@ export class ChestScene extends Phaser.Scene {
           });
         }
         if (r.desc && result!.rewards.length === 1) {
+          // 合体は右下に素材2人の顔があるので、説明文はその左で折り返す（2026-10-18：トライスターで重なっていた）
+          const faces = r.kind === 'fusion' && r.owners ? r.owners.length : 0;
+          const descW = cardW - 56 - (faces > 0 ? 40 + faces * 64 : 0);
           cont.add(this.add.text(-cardW / 2 + 28, -rowH / 2 + 78, td(r.desc), {
-            fontFamily: FONT_JP, fontSize: '17px', color: COLOR_HEX.white, wordWrap: { width: cardW - 56, useAdvancedWrap: true },
+            fontFamily: FONT_JP, fontSize: '17px', color: COLOR_HEX.white, wordWrap: { width: descW, useAdvancedWrap: true },
           }));
         }
         this.tweens.add({ targets: cont, alpha: 1, y: cont.y - 6, duration: 220, delay: 120 * i });
