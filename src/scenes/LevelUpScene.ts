@@ -8,6 +8,7 @@ import { panel, type Panel } from '../ui/theme';
 import { t } from '../utils/lang';
 import { td } from '../data/descEn';
 import { PORTRAITS, portraitKey } from '../data/portraits';
+import type { LoadoutRow } from './PauseScene';
 
 export interface LevelUpData {
   level: number;
@@ -17,6 +18,8 @@ export interface LevelUpData {
   reroll?: () => Choice[];
   skip?: () => void;
   ban?: (c: Choice) => Choice[];
+  /** いまの手持ち（2026-10-18 ユーザー要望：選ぶときにビルドが分かるように） */
+  build?: { weapons: LoadoutRow[]; passives: LoadoutRow[] };
 }
 
 /** レベルアップの選択（通常3択・詩音は4択。Game をポーズして上に重ねる） */
@@ -40,12 +43,59 @@ export class LevelUpScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const cardW = Math.min(640, W - 40);
+
+    // いまの手持ち：見出しの下に2段（上＝初期武器と共鳴アーツ、下＝サポート）。名前と Lv の小さなチップ
+    const buildGroup = this.add.container(0, 0);
+    let stripBottom = 0;
+    if (data.build && (data.build.weapons.length || data.build.passives.length)) {
+      const stripW = cardW;
+      const left = W / 2 - stripW / 2;
+      const chipH = 30;
+      // 1行に最大4つ（名前が読める幅を保つ）。5つ以上は2行に
+      const PER_ROW = 4;
+      const drawRow = (all: LoadoutRow[], ry0: number, label: string): number => {
+        if (!all.length) return ry0;
+        let ry = ry0;
+        for (let start = 0; start < all.length; start += PER_ROW) {
+          const rows = all.slice(start, start + PER_ROW);
+          if (start === 0) {
+            const lab = this.add.text(left, ry + chipH / 2, label, { fontFamily: FONT_EN, fontSize: '12px', color: COLOR_HEX.dim, fontStyle: '700', letterSpacing: 1 }).setOrigin(0, 0.5);
+            buildGroup.add(lab);
+          }
+          const x0 = left + 64;
+          const gap = 6;
+          const chipW = (stripW - 64 - gap * (PER_ROW - 1)) / PER_ROW;
+          rows.forEach((r, i) => {
+            const x = x0 + i * (chipW + gap);
+          const maxed = r.level >= r.max;
+          const p = panel(this, x, ry, chipW, chipH, { color: r.color, alpha: 0.92, stroke: maxed || r.evolved || r.fusion ? 0xffd700 : r.color, strokeWidth: 1, strokeAlpha: maxed || r.evolved || r.fusion ? 0.9 : 0.5, stripe: 4, cut: 8 });
+          buildGroup.add(p.gfx);
+          const lv = r.fusion ? 'FUS' : r.evolved ? 'EVO' : `${r.level}`;
+          const lvText = this.add.text(x + chipW - 6, ry + chipH / 2, lv, { fontFamily: FONT_EN, fontSize: '13px', color: maxed || r.evolved || r.fusion ? COLOR_HEX.gold : COLOR_HEX.white, fontStyle: '700' }).setOrigin(1, 0.5);
+          buildGroup.add(lvText);
+          const nameW = chipW - 12 - lvText.width - 4;
+          const name = this.add.text(x + 10, ry + chipH / 2, r.name, { fontFamily: FONT_JP, fontSize: '13px', color: COLOR_HEX.white, fontStyle: '700' }).setOrigin(0, 0.5);
+          // 長い名前は末尾を落とす
+          let txt = r.name;
+          while (name.width > nameW && txt.length > 2) { txt = txt.slice(0, -1); name.setText(`${txt}…`); }
+          buildGroup.add(name);
+          });
+          ry += chipH + 6;
+        }
+        return ry;
+      };
+      const top = H * 0.14 + 84;
+      const afterArts = drawRow(data.build.weapons, top, 'ARTS');
+      stripBottom = drawRow(data.build.passives, afterArts, 'SUPPORT');
+    }
+
     // 4択（詩音の固有パッシブ）のときは詰めて並べる
     const compact = data.choices.length >= 4;
     const cardH = compact ? 164 : 190;
     const gap = compact ? 14 : 22;
     const total = data.choices.length * cardH + (data.choices.length - 1) * gap;
-    let y = H / 2 - total / 2 + cardH / 2 + 20;
+    // カードは中央寄せ。手持ちの帯が長いときは、その下から
+    let y = Math.max(H / 2 - total / 2 + cardH / 2 + 20, stripBottom + 10 + cardH / 2);
 
     // 誤タップ対策：全指が離れる＋0.3秒待ち＋押し始めと離した位置が同じカード
     const guard = new SelectGuard(this);
@@ -143,7 +193,7 @@ export class LevelUpScene extends Phaser.Scene {
     const sv = loadSave();
     const cnt = sv.consumables;
     let banMode = false;
-    const banHint = this.add.text(W / 2, H * 0.14 + 84, '', { fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.danger, fontStyle: '700' }).setOrigin(0.5);
+    const banHint = this.add.text(W / 2, H * 0.14 + 84 + 32, '', { fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.danger, fontStyle: '700' }).setOrigin(0.5);
     const useItem = (key: 'reroll' | 'skip' | 'ban') => {
       const s2 = loadSave();
       if (s2.consumables[key] <= 0) return false;
@@ -172,6 +222,7 @@ export class LevelUpScene extends Phaser.Scene {
         if (picked || cnt.ban <= 0) return;
         banMode = !banMode;
         banHint.setText(banMode ? '除外する候補をタップ' : '');
+        buildGroup.setVisible(!banMode);
       }, { width: 200, height: 56, fontSize: 20, primary: cnt.ban > 0 });
     }
     // 除外モード中はカードのタップで除外→その枠だけ引き直し

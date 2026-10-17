@@ -41,6 +41,7 @@ import { ensureBestiary, recordEnemySeen } from '../utils/bestiary';
 import { ensureColorVariant } from '../utils/recolor';
 import type { RunResult } from './ResultScene';
 import type { LevelUpData } from './LevelUpScene';
+import type { LoadoutRow } from './PauseScene';
 import type { ChestData } from './ChestScene';
 
 interface Zone extends ZoneOpts {
@@ -591,9 +592,16 @@ export class GameScene extends Phaser.Scene {
     this.scene.launch('Pause', {
       character: this.player.def.name,
       stage: `${this.stage.nameEn} ${this.stage.name}`,
+      ...this.loadout(),
+    });
+  }
+
+  /** いまの手持ち（初期武器・共鳴アーツ・サポート）。ポーズとレベルアップの画面に出す */
+  private loadout(): { weapons: LoadoutRow[]; passives: LoadoutRow[] } {
+    return {
       weapons: this.up.weapons.map((w) => ({ name: w.name, level: w.level, max: w.def.maxLevel, color: w.def.color, owner: w.def.owner, evolved: w.evolved, fusion: !!w.def.fusion })),
       passives: [...this.up.passives].map(([id, lv]) => ({ name: PASSIVES[id].name, level: lv, max: PASSIVES[id].maxLevel, color: PASSIVES[id].color, owner: PASSIVES[id].owner })),
-    });
+    };
   }
 
   // ─────────────────────────── メインループ ───────────────────────────
@@ -1990,6 +1998,7 @@ export class GameScene extends Phaser.Scene {
     }
     const data: LevelUpData = {
       level: this.xp.level,
+      build: this.loadout(),
       choices,
       onPick: (c: Choice) => {
         const r = this.up.apply(c);
@@ -3767,6 +3776,7 @@ export class GameScene extends Phaser.Scene {
     }
     const data: LevelUpData = {
       level: this.xp.level,
+      build: this.loadout(),
       choices,
       onPick: (c: Choice) => this.applyChoice(c),
       reroll: () => this.up.buildChoices(choiceCount),
