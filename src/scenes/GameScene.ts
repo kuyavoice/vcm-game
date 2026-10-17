@@ -330,6 +330,7 @@ export class GameScene extends Phaser.Scene {
     this.xp.xpMul = this.stage.xpMul;
     this.xp.onItem = (kind, value, x, y) => this.onItem(kind, value, x, y);
     this.spawner = new Spawner(this, this.enemies, this.player, this.stage);
+    this.spawner.outlineMode = loadSave().settings.enemyOutline ?? 'auto';
     this.spawner.onBandChange = (b) => this.onBandChange(b.label, !!b.fullMoon, b.from, !!b.boss);
     this.spawner.onBossSpawn = (boss, hpMul, index, total, enraged) => this.onBossSpawn(boss, hpMul, index, total, enraged);
     this.hud = new Hud(this, () => this.pause(), () => this.activateSoul(), () => this.cycleSpeed(), () => { AudioBus.setMuted(!AudioBus.muted); this.hud.setMuted(AudioBus.muted); });

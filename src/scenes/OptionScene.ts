@@ -39,11 +39,15 @@ export class OptionScene extends Phaser.Scene {
 
     const top = Math.max(H * 0.16, 120);
     this.add.text(W / 2, top, 'OPTION', { fontFamily: FONT_EN, fontSize: '56px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 6 }).setOrigin(0.5);
-    this.add.text(W / 2, top + 48, '音量と表示', { fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.dim }).setOrigin(0.5);
+    this.add.text(W / 2, top + 48, '音・表示・操作・データ', { fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.dim }).setOrigin(0.5);
 
     const panelW = Math.min(620, W - 40);
     const left = (W - panelW) / 2;
     const save = loadSave();
+    // 見出し SOUND（音量の上。2026-10-18 整理）
+    this.add.text(left, top + 150 - 34, 'SOUND', { fontFamily: FONT_EN, fontSize: '15px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 3 });
+    this.add.text(left + 110, top + 150 - 32, '音量', { fontFamily: FONT_JP, fontSize: '12px', color: COLOR_HEX.dim });
+    this.add.rectangle(left, top + 150 - 10, panelW, 1, 0x87ceeb, 0.35).setOrigin(0);
 
     ROWS.forEach((row, i) => {
       // 2026-10-05：下にデータの行を足したぶん、音量の行を低く（140→120、間隔 170→150）
@@ -118,20 +122,35 @@ export class OptionScene extends Phaser.Scene {
       col++;
       if (col === 2) { col = 0; ty += h + 10; }
     };
-    toggleRow('DAMAGE', 'ダメージの数字', ['ON', 'OFF'], (st) => (st.damageNumbers !== false ? 0 : 1), (st, i) => { st.damageNumbers = i === 0; });
-    toggleRow('SPECIAL', '必殺ボタンの位置', ['RIGHT', 'LEFT'], (st) => (st.specialSide === 'left' ? 1 : 0), (st, i) => { st.specialSide = i === 1 ? 'left' : 'right'; });
+    // 見出し（2026-10-18 整理）：SOUND（音量＋戦闘の曲）／DISPLAY（表示）／CONTROL（操作・言語）／DATA／MORE
+    const section = (title: string, sub: string) => {
+      if (col !== 0) { col = 0; ty += 86; }
+      ty += 6;
+      this.add.text(left, ty, title, { fontFamily: FONT_EN, fontSize: '15px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 3 });
+      this.add.text(left + 110, ty + 2, sub, { fontFamily: FONT_JP, fontSize: '12px', color: COLOR_HEX.dim });
+      this.add.rectangle(left, ty + 24, panelW, 1, 0x87ceeb, 0.35).setOrigin(0);
+      ty += 32;
+    };
+    // SOUND の続き（音量の下）
     toggleRow('BATTLE BGM', '戦闘中の曲（CUSTOMの割り当てはMUSICで）', ['NORMAL', 'CUSTOM'], (st) => (st.bgmMode === 'custom' ? 1 : 0), (st, i) => { st.bgmMode = i === 1 ? 'custom' : 'normal'; });
+    section('DISPLAY', '表示・見やすさ');
+    toggleRow('DAMAGE', 'ダメージの数字', ['ON', 'OFF'], (st) => (st.damageNumbers !== false ? 0 : 1), (st, i) => { st.damageNumbers = i === 0; });
+    // 敵の縁取り：暗いステージだけ（既定）／全ステージ／無し。視認性の要望（2026-10-18）
+    toggleRow('ENEMY OUTLINE', '敵の縁取り（AUTO＝暗いステージだけ）', ['AUTO', 'ON', 'OFF'], (st) => (st.enemyOutline === 'on' ? 1 : st.enemyOutline === 'off' ? 2 : 0), (st, i) => { st.enemyOutline = i === 1 ? 'on' : i === 2 ? 'off' : 'auto'; });
     // 被弾の光：敵に当たったときの白い点滅。速い倍速だと画面全体がまぶしい、との声（2026-10-01）
     toggleRow('HIT FLASH', '敵に当たったときの光り方', ['STRONG', 'SOFT', 'OFF'], (st) => (st.hitFlash === 'soft' ? 1 : st.hitFlash === 'off' ? 2 : 0), (st, i) => { st.hitFlash = i === 1 ? 'soft' : i === 2 ? 'off' : 'strong'; });
     // 画面全体の光：必殺・ボス撃破・十字架・大当たり
     toggleRow('SCREEN FLASH', '必殺・撃破のときの画面の光', ['ON', 'SOFT', 'OFF'], (st) => (st.screenFlash === 'soft' ? 1 : st.screenFlash === 'off' ? 2 : 0), (st, i) => { st.screenFlash = i === 1 ? 'soft' : i === 2 ? 'off' : 'on'; });
     // 必殺のカットイン：連打するとうるさいので、既定は1プレイで最初の1回だけ（2026-10-04 ユーザー指定）。時々＝ボイスの必殺と同じ間隔
+    toggleRow('CUT-IN', '必殺のカットイン（初回だけ／毎回／時々）', ['FIRST', 'ALWAYS', 'SOMETIMES'], (st) => (st.cutIn === 'always' ? 1 : st.cutIn === 'sometimes' ? 2 : 0), (st, i) => { st.cutIn = i === 1 ? 'always' : i === 2 ? 'sometimes' : 'first'; });
+    toggleRow('BOND FX', '絆MAXのオーラ・残像（戦闘中）', ['ON', 'OFF'], (st) => (st.bondFx === 'off' ? 1 : 0), (st, i) => { st.bondFx = i === 1 ? 'off' : 'on'; });
+    section('CONTROL', '操作・言語');
+    toggleRow('SPECIAL', '必殺ボタンの位置', ['RIGHT', 'LEFT'], (st) => (st.specialSide === 'left' ? 1 : 0), (st, i) => { st.specialSide = i === 1 ? 'left' : 'right'; });
     // 表示言語（最低限。utils/lang.ts）。切り替えたらこの画面も作り直す
     toggleRow('LANGUAGE', '表示言語 / Language', ['日本語', 'ENGLISH'], (st) => (st.lang === 'en' ? 1 : 0), (st, i) => { st.lang = i === 1 ? 'en' : 'ja'; });
-    toggleRow('BOND FX', '絆MAXのオーラ・残像（戦闘中）', ['ON', 'OFF'], (st) => (st.bondFx === 'off' ? 1 : 0), (st, i) => { st.bondFx = i === 1 ? 'off' : 'on'; });
-    toggleRow('CUT-IN', '必殺のカットイン（初回だけ／毎回／時々）', ['FIRST', 'ALWAYS', 'SOMETIMES'], (st) => (st.cutIn === 'always' ? 1 : st.cutIn === 'sometimes' ? 2 : 0), (st, i) => { st.cutIn = i === 1 ? 'always' : i === 2 ? 'sometimes' : 'first'; });
 
-    if (col !== 0) ty += 86;
+    if (col !== 0) { col = 0; ty += 86; }
+    ty += 10; // DATA・MORE は枠の中に見出しがあるので、区切りの見出しは付けない
     // セーブデータの書き出し／読み込み（2026-10-05）：別の端末・ブラウザで続きを見るため。文字列をクリップボードに写す／貼り付ける
     {
       const h = 76;

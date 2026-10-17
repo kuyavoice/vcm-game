@@ -9,6 +9,8 @@ import { Enemy } from '../entities/Enemy';
 
 /** waves.ts に従って画面外から敵を湧かせる。壊れたスピーカーの配置とボス出現も担当 */
 export class Spawner {
+  /** 敵の縁取り（オプション。auto＝ステージの設定どおり） */
+  outlineMode: 'auto' | 'on' | 'off' = 'auto';
   private acc = 0;
   private ambushTimer = 0;
   private speakerTimer = ITEMS.speaker.intervalSec * 0.5;
@@ -227,8 +229,9 @@ export class Spawner {
     const e = this.enemies.get(x, y) as Enemy | null;
     if (!e) return null;
     e.spawn(ENEMIES[id], x, y, hpMul);
-    // 背景が暗いステージは、淡い縁取りの付いた絵を使う（縁取り版のある敵だけ）
-    if (this.stage.enemyOutline && !ENEMIES[id].isObject && this.scene.anims.exists(`anim_e_${id}_o`)) {
+    // 背景が暗いステージは、淡い縁取りの付いた絵を使う（縁取り版のある敵だけ）。オプションで全ステージ ON／OFF にもできる（2026-10-18）
+    const outline = this.outlineMode === 'on' || (this.outlineMode === 'auto' && !!this.stage.enemyOutline);
+    if (outline && !ENEMIES[id].isObject && this.scene.anims.exists(`anim_e_${id}_o`)) {
       e.animSuffix = '_o';
       e.playLoop();
       e.anims.setProgress(Math.random());
