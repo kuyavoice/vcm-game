@@ -7,6 +7,7 @@ import { AudioBus } from '../utils/audio';
 import { screenFlash } from '../utils/screenFlash';
 import { PORTRAITS, portraitKey } from '../data/portraits';
 import { pickLunaLine, type LunaGroup } from '../data/lunaLines';
+import { td } from '../data/descEn';
 
 export interface ChestData {
   /** 開封時に結果を確定する（進化・Lvアップの適用込み） */
@@ -197,7 +198,7 @@ export class ChestScene extends Phaser.Scene {
           });
         }
         if (r.desc && result!.rewards.length === 1) {
-          cont.add(this.add.text(-cardW / 2 + 28, -rowH / 2 + 78, r.desc, {
+          cont.add(this.add.text(-cardW / 2 + 28, -rowH / 2 + 78, td(r.desc), {
             fontFamily: FONT_JP, fontSize: '17px', color: COLOR_HEX.white, wordWrap: { width: cardW - 56, useAdvancedWrap: true },
           }));
         }

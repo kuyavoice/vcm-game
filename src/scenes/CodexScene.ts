@@ -24,6 +24,7 @@ import { statsOf, ensureStats, fmtPlayTime } from '../utils/stats';
 import { writeSave } from '../utils/storage';
 import { go as goScene, wipeIn, panel as uiPanel, UI } from '../ui/theme';
 import { t } from '../utils/lang';
+import { td } from '../data/descEn';
 
 type Tab = 'arts' | 'chara' | 'enemy' | 'achv';
 const TABS: { id: Tab; label: string }[] = [
@@ -461,7 +462,7 @@ export class CodexScene extends Phaser.Scene {
       this.add.text(tx, y + 10, title, { fontFamily: FONT_JP, fontSize: '24px', color: known ? COLOR_HEX.white : '#5A6488', fontStyle: '700' });
       this.add.text(tx, y + 40, sub, { fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.dim });
       const descW = rowW - (tx - left) - 16;
-      const body = known ? def.desc : r.fusionHint ? `ヒント：${r.fusionHint}` : 'まだ、この声は借りていない。';
+      const body = known ? td(def.desc) : r.fusionHint ? `ヒント：${r.fusionHint}` : 'まだ、この声は借りていない。';
       this.add.text(tx, y + 62, body, { fontFamily: FONT_JP, fontSize: '15px', color: known ? COLOR_HEX.white : COLOR_HEX.dim, wordWrap: { width: descW, useAdvancedWrap: true } });
 
       // 進化／合体のヒント行

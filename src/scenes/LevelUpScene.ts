@@ -6,6 +6,7 @@ import { loadSave, writeSave } from '../utils/storage';
 import { makeButton } from '../ui/Button';
 import { panel, type Panel } from '../ui/theme';
 import { t } from '../utils/lang';
+import { td } from '../data/descEn';
 import { PORTRAITS, portraitKey } from '../data/portraits';
 
 export interface LevelUpData {
@@ -97,7 +98,7 @@ export class LevelUpScene extends Phaser.Scene {
       const owner = this.add.text(tx, -cardH / 2 + 62, hasFace ? `― ${c.owner}` : c.owner, {
         fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim,
       }).setOrigin(0, 0);
-      const desc = this.add.text(tx, -cardH / 2 + (compact ? 92 : 100), c.desc, {
+      const desc = this.add.text(tx, -cardH / 2 + (compact ? 92 : 100), td(c.desc), {
         fontFamily: FONT_JP, fontSize: compact ? '20px' : '22px', color: COLOR_HEX.white, wordWrap: { width: cardW / 2 - 24 - tx, useAdvancedWrap: true },
       }).setOrigin(0, 0);
       cont.add([card.gfx, bg, tag, title, owner, desc]);
