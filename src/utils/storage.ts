@@ -35,6 +35,8 @@ export interface SaveData {
   endlessRanking: { timeSec: number; score: number; kills: number; level: number; character: string; date: string }[];
   /** ボスラッシュの記録（1周のクリア時間の短い順）。loops＝クリアした周の数 */
   rushRanking: { timeSec: number; loops: number; character: string; arts: string[]; supports?: string[]; date: string }[];
+  /** ボスラッシュの最高周回数（ランキングは1周目タイム順で10件に切るので、周回の記録は別に1件持つ。2026-10-18） */
+  rushMaxLoops: { loops: number; timeSec: number; character: string; date: string } | null;
   /** ボスラッシュで前回選んだアーツとサポート */
   lastRushArts: string[];
   lastRushSupports: string[];
@@ -75,6 +77,7 @@ const DEFAULT: SaveData = {
   scoreRanking: [],
   endlessRanking: [],
   rushRanking: [],
+  rushMaxLoops: null,
   lastRushArts: [],
   lastRushSupports: [],
   secretNew: {},
@@ -109,6 +112,7 @@ export function loadSave(): SaveData {
       scoreRanking: [...(parsed.scoreRanking ?? [])],
       endlessRanking: [...(parsed.endlessRanking ?? [])],
       rushRanking: [...(parsed.rushRanking ?? [])],
+      rushMaxLoops: parsed.rushMaxLoops ? { ...parsed.rushMaxLoops } : null,
       lastRushArts: [...(parsed.lastRushArts ?? [])],
       lastRushSupports: [...(parsed.lastRushSupports ?? [])],
       secretNew: { ...(parsed.secretNew ?? {}) },
@@ -120,6 +124,11 @@ export function loadSave(): SaveData {
       bondAura: { ...(parsed.bondAura ?? {}) },
       stats: parsed.stats ? { total: { ...parsed.stats.total }, chars: Object.fromEntries(Object.entries(parsed.stats.chars ?? {}).map(([k, v]) => [k, { ...v }])) } : null,
     };
+    // 最高周回数の回収：以前のデータは、ランキングに残っている中で一番周回の多いプレイを起こす（2026-10-18）
+    if (!data.rushMaxLoops && data.rushRanking.length > 0) {
+      const top = data.rushRanking.reduce((a, b) => (b.loops > a.loops ? b : a));
+      data.rushMaxLoops = { loops: top.loops, timeSec: top.timeSec, character: top.character, date: top.date };
+    }
     // 旧形式の移行：best → bests[1]
     if (data.best && !data.bests['1']) {
       data.bests['1'] = data.best;

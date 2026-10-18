@@ -67,7 +67,7 @@ export class StageSelectScene extends Phaser.Scene {
       const unlocked = isOpen(st);
       const top = save.endlessRanking[0];
       const rb = save.rushRanking[0];
-      const best = st.rush ? (rb ? { kills: 0, timeSec: rb.timeSec, cleared: true, loop: rb.loops, rush: true } : undefined) : st.endless ? (top ? { kills: top.kills, timeSec: top.timeSec, cleared: true, loop: endlessLoop(top.timeSec) } : undefined) : st.scoreMode ? (save.scoreRanking[0] ? { kills: save.scoreRanking[0].kills, timeSec: save.scoreRanking[0].timeSec, cleared: save.scoreRanking[0].cleared, score: save.scoreRanking[0].score } : undefined) : save.bests[String(st.id)];
+      const best = st.rush ? (rb ? { kills: 0, timeSec: rb.timeSec, cleared: true, loop: save.rushMaxLoops?.loops ?? rb.loops, rush: true } : undefined) : st.endless ? (top ? { kills: top.kills, timeSec: top.timeSec, cleared: true, loop: endlessLoop(top.timeSec) } : undefined) : st.scoreMode ? (save.scoreRanking[0] ? { kills: save.scoreRanking[0].kills, timeSec: save.scoreRanking[0].timeSec, cleared: save.scoreRanking[0].cleared, score: save.scoreRanking[0].score } : undefined) : save.bests[String(st.id)];
       const cont = this.buildCard(st, unlocked, best, cardW, cardH);
       cont.setPosition(W / 2 + 40, y).setAlpha(0);
       this.tweens.add({ targets: cont, alpha: 1, x: W / 2, duration: 220, delay: 60 * i, ease: 'Cubic.out' });
@@ -124,7 +124,7 @@ export class StageSelectScene extends Phaser.Scene {
       if (best) {
         const mm = Math.floor(best.timeSec / 60).toString().padStart(2, '0');
         const ss = Math.floor(best.timeSec % 60).toString().padStart(2, '0');
-        const bestText = this.add.text(cardW / 2 - 20, cardH / 2 - (tight ? 8 : 16), best.rush ? `BEST  ${mm}:${ss}  ×${best.loop} LOOP` : best.loop !== undefined ? `BEST  ${mm}:${ss}  LOOP ${best.loop}` : best.score !== undefined ? `BEST  ${best.score.toLocaleString()} pt  ${mm}:${ss}` : `BEST  ✕ ${best.kills}  ${mm}:${ss}${best.cleared ? '  CLEAR' : ''}`, {
+        const bestText = this.add.text(cardW / 2 - 20, cardH / 2 - (tight ? 8 : 16), best.rush ? `BEST  ${mm}:${ss}   MAX  ${best.loop} LOOP` : best.loop !== undefined ? `BEST  ${mm}:${ss}  LOOP ${best.loop}` : best.score !== undefined ? `BEST  ${best.score.toLocaleString()} pt  ${mm}:${ss}` : `BEST  ✕ ${best.kills}  ${mm}:${ss}${best.cleared ? '  CLEAR' : ''}`, {
           fontFamily: FONT_EN, fontSize: '16px', color: best.cleared ? COLOR_HEX.gold : COLOR_HEX.accent, fontStyle: '700',
         }).setOrigin(1, 1);
         cont.add(bestText);

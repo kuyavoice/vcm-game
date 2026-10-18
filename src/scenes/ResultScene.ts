@@ -123,6 +123,7 @@ export class ResultScene extends Phaser.Scene {
     else if (!r.debug && r.cleared && prev && !prev.cleared) save.bests[key] = { ...prev, cleared: true };
     // スコアアタックのランキング（端末内ベスト10）
     let rank = 0;
+    let isMaxLoops = false;
     if (rush && !r.debug) {
       // ボスラッシュの記録（端末内）：1周のクリア時間の短い順（倒れる前に1周できたときだけ）
       if (rushTime !== null && r.rush) {
@@ -131,7 +132,13 @@ export class ResultScene extends Phaser.Scene {
         save.rushRanking.sort((a, b) => a.timeSec - b.timeSec || b.loops - a.loops);
         save.rushRanking = save.rushRanking.slice(0, RUSH.rankingSize);
         rank = save.rushRanking.indexOf(entry) + 1;
-        isBest = rank === 1;
+        // 最高周回数は別枠（1周目タイムの順位とは独立）。どちらかを更新したら「NEW BEST」（2026-10-18 友人の報告：17周しても記録が動かない）
+        const loops = r.rush.loopTimes.length;
+        if (loops > (save.rushMaxLoops?.loops ?? 0)) {
+          save.rushMaxLoops = { loops, timeSec: rushTime, character: r.characterId, date: entry.date };
+          isMaxLoops = true;
+        }
+        isBest = rank === 1 || isMaxLoops;
       } else isBest = false;
     } else if (endless && !r.debug) {
       // エンドレスの記録（端末内）：生存時間の長い順
@@ -241,7 +248,7 @@ export class ResultScene extends Phaser.Scene {
     // エンドレスは、生存時間を一番上に大きく。順位は生存時間で決まる
     const rows: [string, string][] = rush ? [
       ['TIME', rushTime !== null ? `${fmtTime(rushTime)}${rank ? `  #${rank}` : ''}` : '—'],
-      ['LOOPS', `${r.rush?.loopTimes.length ?? 0}周クリア`],
+      ['LOOPS', `${r.rush?.loopTimes.length ?? 0}周クリア${isMaxLoops ? '  MAX!' : ''}`],
       ['BOSSES', `${r.rush?.bossesDefeated ?? 0}`],
       ['CHARACTER', chara?.name ?? r.characterId],
       ['DEFEATED', `${r.kills}`],
