@@ -21,6 +21,7 @@ import { AudioBus } from '../utils/audio';
 import { ACHIEVEMENTS, unlockAchievements } from '../data/achievements';
 import { bondLevel } from '../data/bond';
 import { statsOf, ensureStats, fmtPlayTime } from '../utils/stats';
+import { rankName } from '../data/ranks';
 import { writeSave } from '../utils/storage';
 import { go as goScene, wipeIn, panel as uiPanel, UI } from '../ui/theme';
 import { t } from '../utils/lang';
@@ -211,7 +212,7 @@ export class CodexScene extends Phaser.Scene {
       if (!save.stats) { ensureStats(save); writeSave(save); }
       const st = statsOf(save, c.id);
       const l1 = `プレイ ${st.runs}回 ／ ${fmtPlayTime(st.timeSec)} ／ クリア ${st.clears}回`;
-      const l2 = `撃破 ${st.kills.toLocaleString()} ／ 獲得 ★ ${st.yell.toLocaleString()} ／ 最高 Lv${st.bestLevel}`;
+      const l2 = `撃破 ${st.kills.toLocaleString()} ／ 獲得 ★ ${st.yell.toLocaleString()} ／ 最高 Lv${st.bestLevel}${rankName(st.bestRank) ? ` ／ RANK ${rankName(st.bestRank)}` : ''}`;
       this.add.text(panel.x + panel.w - 18, panel.y + 44, l1, { fontFamily: FONT_JP, fontSize: '13px', color: COLOR_HEX.dim }).setOrigin(1, 0);
       this.add.text(panel.x + panel.w - 18, panel.y + 62, l2, { fontFamily: FONT_JP, fontSize: '13px', color: COLOR_HEX.dim }).setOrigin(1, 0);
     }

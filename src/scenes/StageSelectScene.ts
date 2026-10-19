@@ -9,6 +9,7 @@ import { RUSH_STAGE } from '../data/rush';
 import { unlockSecret } from '../utils/unlock';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, isStageUnlocked } from '../utils/storage';
+import { rankName } from '../data/ranks';
 import { SelectGuard } from '../ui/SelectGuard';
 import { makeButton } from '../ui/Button';
 import { go, wipeIn, panel } from '../ui/theme';
@@ -68,7 +69,9 @@ export class StageSelectScene extends Phaser.Scene {
       const top = save.endlessRanking[0];
       const rb = save.rushRanking[0];
       const best = st.rush ? (rb ? { kills: 0, timeSec: rb.timeSec, cleared: true, loop: save.rushMaxLoops?.loops ?? rb.loops, rush: true } : undefined) : st.endless ? (top ? { kills: top.kills, timeSec: top.timeSec, cleared: true, loop: endlessLoop(top.timeSec) } : undefined) : st.scoreMode ? (save.scoreRanking[0] ? { kills: save.scoreRanking[0].kills, timeSec: save.scoreRanking[0].timeSec, cleared: save.scoreRanking[0].cleared, score: save.scoreRanking[0].score } : undefined) : save.bests[String(st.id)];
-      const cont = this.buildCard(st, unlocked, best, cardW, cardH);
+      // 最高ランク（2026-10-19）
+      const rk = rankName(save.ranks[String(st.id)]);
+      const cont = this.buildCard(st, unlocked, best ? { ...best, rank: rk } : undefined, cardW, cardH);
       cont.setPosition(W / 2 + 40, y).setAlpha(0);
       this.tweens.add({ targets: cont, alpha: 1, x: W / 2, duration: 220, delay: 60 * i, ease: 'Cubic.out' });
 
@@ -100,7 +103,7 @@ export class StageSelectScene extends Phaser.Scene {
     });
   }
 
-  private buildCard(st: StageDef, unlocked: boolean, best: { kills: number; timeSec: number; cleared: boolean; score?: number; loop?: number; rush?: boolean } | undefined, cardW: number, cardH: number): Phaser.GameObjects.Container {
+  private buildCard(st: StageDef, unlocked: boolean, best: { kills: number; timeSec: number; cleared: boolean; score?: number; loop?: number; rush?: boolean; rank?: string | null } | undefined, cardW: number, cardH: number): Phaser.GameObjects.Container {
     // 6枚のときは、さらに詰める
     const tight = cardH < 150;
     const cont = this.add.container(0, 0);
@@ -124,7 +127,7 @@ export class StageSelectScene extends Phaser.Scene {
       if (best) {
         const mm = Math.floor(best.timeSec / 60).toString().padStart(2, '0');
         const ss = Math.floor(best.timeSec % 60).toString().padStart(2, '0');
-        const bestText = this.add.text(cardW / 2 - 20, cardH / 2 - (tight ? 8 : 16), best.rush ? `BEST  ${mm}:${ss}   MAX  ${best.loop} LOOP` : best.loop !== undefined ? `BEST  ${mm}:${ss}  LOOP ${best.loop}` : best.score !== undefined ? `BEST  ${best.score.toLocaleString()} pt  ${mm}:${ss}` : `BEST  ✕ ${best.kills}  ${mm}:${ss}${best.cleared ? '  CLEAR' : ''}`, {
+        const bestText = this.add.text(cardW / 2 - 20, cardH / 2 - (tight ? 8 : 16), (best.rank ? `RANK ${best.rank}   ` : '') + (best.rush ? `BEST  ${mm}:${ss}   MAX  ${best.loop} LOOP` : best.loop !== undefined ? `BEST  ${mm}:${ss}  LOOP ${best.loop}` : best.score !== undefined ? `BEST  ${best.score.toLocaleString()} pt  ${mm}:${ss}` : `BEST  ✕ ${best.kills}  ${mm}:${ss}${best.cleared ? '  CLEAR' : ''}`), {
           fontFamily: FONT_EN, fontSize: '16px', color: best.cleared ? COLOR_HEX.gold : COLOR_HEX.accent, fontStyle: '700',
         }).setOrigin(1, 1);
         cont.add(bestText);

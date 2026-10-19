@@ -5,6 +5,7 @@ import { CHARACTERS } from '../data/characters';
 import { stageById } from '../data/stages';
 import { endlessTitle, endlessLoop } from '../data/endless';
 import { rushTitle, fmtTime } from '../data/rush';
+import { rankOf, RANK_COLORS } from '../data/ranks';
 
 export const SHARE_URL = 'https://kuyavoice.github.io/vcm-game/';
 export const SHARE_TAG = '#DSTAGESURVIVORS';
@@ -127,6 +128,22 @@ export async function renderShareCard(r: RunResult): Promise<Blob | null> {
   g.fillRect(px, py, pw, ph);
   g.strokeStyle = accent; g.lineWidth = 3;
   g.strokeRect(px, py, pw, ph);
+  // ランクのスタンプ（パネルの左上に乗せる）。2026-10-19
+  const rk = rankOf(r);
+  if (rk) {
+    g.textAlign = 'left';
+    g.font = en(40);
+    const label = `RANK ${rk}`;
+    const tw = g.measureText(label).width + 40;
+    g.save();
+    g.translate(px + 8, py - 12);
+    g.rotate(-0.06);
+    g.fillStyle = RANK_COLORS[rk];
+    g.fillRect(0, -56, tw, 60);
+    g.fillStyle = '#060913';
+    g.fillText(label, 20, -50);
+    g.restore();
+  }
   const mm = Math.floor(r.timeSec / 60).toString().padStart(2, '0');
   const ss = Math.floor(r.timeSec % 60).toString().padStart(2, '0');
   const rows: [string, string, boolean][] = rush ? [
@@ -254,7 +271,7 @@ export function buildPostText(r: RunResult, opts: { best?: boolean } = {}): stri
   const lines = [
     `${GAME_TITLE}｜${chara?.name ?? ''}で ${stage.nameEn}「${stage.name}」`,
     stage.rush ? (r.rush && r.rush.loopTimes.length > 0 ? `1周 ${fmtTime(r.rush.loopTimes[0])}（${r.rush.loopTimes.length}周クリア）—— 称号「${rushTitle(r.rush.loopTimes[0])}」` : 'ボスに届かなかった……') : stage.endless ? `称号「${endlessTitle(r.timeSec).name}」—— ${endlessLoop(r.timeSec)}周目` : r.cleared ? 'SIGNAL CLEAR —— 声は、届いた。' : 'SIGNAL LOST —— 声が、途切れた……',
-    `生存 ${mm}:${ss}／撃破 ${r.kills}／Lv${r.level}${fusions ? `／合体技 ${fusions}` : ''}${r.score !== undefined && !stage.endless ? `／スコア ${r.score.toLocaleString()}` : ''}${opts.best ? '　★NEW BEST' : ''}`,
+    `生存 ${mm}:${ss}／撃破 ${r.kills}／Lv${r.level}${fusions ? `／合体技 ${fusions}` : ''}${r.score !== undefined && !stage.endless ? `／スコア ${r.score.toLocaleString()}` : ''}${rankOf(r) ? `／ランク ${rankOf(r)}` : ''}${opts.best ? '　★NEW BEST' : ''}`,
     SHARE_URL,
     SHARE_TAG,
   ];

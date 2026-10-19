@@ -10,6 +10,7 @@ import { ENDLESS_STAGE } from './endless';
 import { RUSH_STAGE } from './rush';
 import { FUSIONS } from './fusions';
 import { isCharacterOwned } from '../utils/unlock';
+import { ALL_RANK_MODE_IDS } from './ranks';
 
 /**
  * 実績（2026-10-05 ユーザー承認）。図鑑の「実績」タブに一覧、解除した瞬間はリザルトに出る。
@@ -68,6 +69,9 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'all_chars', name: '全員集合', desc: '仲間を全員解放する', check: (_r, s) => CHARACTER_ORDER.filter((id) => !CHARACTERS[id].secret).every((id) => CHARACTERS[id].unlockYell === 0 || s.unlockedCharacters.includes(id)) },
   { id: 'codex_half', name: '声の蒐集家', desc: '図鑑の共鳴アーツとサポートを半分登録', check: (_r, s) => codexFound(s) * 2 >= codexTotal(s) },
   { id: 'codex_full', name: '声の記録者', desc: '図鑑の共鳴アーツとサポートを全部登録', check: (_r, s) => codexFound(s) >= codexTotal(s) },
+  // ランク（2026-10-19）：ランクは data/ranks.ts。SSS=6、S=4
+  { id: 'rank_sss', name: '極光', desc: 'どれかのモードでランク SSS', check: (_r, s) => Object.values(s.ranks ?? {}).some((v) => v >= 6) },
+  { id: 'rank_s_all', name: '全天の星図', desc: '全モードでランク S 以上（STAGE 1〜3・スコアアタック・悪夢・エンドレス・ボスラッシュ）', check: (_r, s) => ALL_RANK_MODE_IDS.every((id) => (s.ranks?.[String(id)] ?? 0) >= 4) },
 ];
 
 /**

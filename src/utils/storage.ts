@@ -1,3 +1,4 @@
+import { RANK_MODE_IDS, rankValue, rankOfScore, rankOfEndless, rankOfRush } from '../data/ranks';
 import { CONFIG } from '../data/config';
 import type { StatsData } from './stats';
 
@@ -37,6 +38,8 @@ export interface SaveData {
   rushRanking: { timeSec: number; loops: number; character: string; arts: string[]; supports?: string[]; date: string }[];
   /** ボスラッシュの最高周回数（ランキングは1周目タイム順で10件に切るので、周回の記録は別に1件持つ。2026-10-18） */
   rushMaxLoops: { loops: number; timeSec: number; character: string; date: string } | null;
+  /** モード別の最高ランク（stageId → 数。data/ranks.ts の rankValue。2026-10-19） */
+  ranks: Record<string, number>;
   /** ボスラッシュで前回選んだアーツとサポート */
   lastRushArts: string[];
   lastRushSupports: string[];
@@ -78,6 +81,7 @@ const DEFAULT: SaveData = {
   endlessRanking: [],
   rushRanking: [],
   rushMaxLoops: null,
+  ranks: {},
   lastRushArts: [],
   lastRushSupports: [],
   secretNew: {},
@@ -113,6 +117,7 @@ export function loadSave(): SaveData {
       endlessRanking: [...(parsed.endlessRanking ?? [])],
       rushRanking: [...(parsed.rushRanking ?? [])],
       rushMaxLoops: parsed.rushMaxLoops ? { ...parsed.rushMaxLoops } : null,
+      ranks: { ...(parsed.ranks ?? {}) },
       lastRushArts: [...(parsed.lastRushArts ?? [])],
       lastRushSupports: [...(parsed.lastRushSupports ?? [])],
       secretNew: { ...(parsed.secretNew ?? {}) },
@@ -124,6 +129,13 @@ export function loadSave(): SaveData {
       bondAura: { ...(parsed.bondAura ?? {}) },
       stats: parsed.stats ? { total: { ...parsed.stats.total }, chars: Object.fromEntries(Object.entries(parsed.stats.chars ?? {}).map(([k, v]) => [k, { ...v }])) } : null,
     };
+    // ランクの回収（2026-10-19）：ランキングが残っているモード（スコア・エンドレス・ボスラッシュ）はそこから最高ランクを起こす。通常・悪夢はクリアタイムを保存していないので次のクリアから
+    if (!parsed.ranks) {
+      const put = (id: number, v: number) => { if (v > (data.ranks[String(id)] ?? 0)) data.ranks[String(id)] = v; };
+      for (const e of data.scoreRanking) put(RANK_MODE_IDS.score, rankValue(rankOfScore(e.score)));
+      for (const e of data.endlessRanking) put(RANK_MODE_IDS.endless, rankValue(rankOfEndless(e.timeSec)));
+      for (const e of data.rushRanking) put(RANK_MODE_IDS.rush, rankValue(rankOfRush(e.timeSec)));
+    }
     // 最高周回数の回収：以前のデータは、ランキングに残っている中で一番周回の多いプレイを起こす（2026-10-18）
     if (!data.rushMaxLoops && data.rushRanking.length > 0) {
       const top = data.rushRanking.reduce((a, b) => (b.loops > a.loops ? b : a));

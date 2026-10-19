@@ -17,6 +17,7 @@ import { GALLERY, galleryKey } from '../data/gallery';
 import { ENDLESS, ENDLESS_STAGE, endlessTitle, endlessLoop } from '../data/endless';
 import { RUSH, RUSH_STAGE, rushTitle, fmtTime } from '../data/rush';
 import { addRunStats } from '../utils/stats';
+import { rankOf, rankValue, RANK_COLORS } from '../data/ranks';
 
 export interface RunResult {
   characterId: string;
@@ -154,6 +155,12 @@ export class ResultScene extends Phaser.Scene {
       save.scoreRanking.sort((a, b) => b.score - a.score);
       save.scoreRanking = save.scoreRanking.slice(0, SCORE.rankingSize);
       rank = save.scoreRanking.indexOf(entry) + 1;
+    }
+    // モード別ランク（data/ranks.ts）。最高だけ保存（ステージ選択・実績・集計に使う）
+    const rankMark = rankOf(r);
+    if (rankMark && !r.debug) {
+      const v = rankValue(rankMark);
+      if (v > (save.ranks[key] ?? 0)) save.ranks[key] = v;
     }
     let unlocked: string | null = null;
     if (!r.debug && r.cleared && !save.cleared.includes(stage.id)) {
@@ -326,6 +333,13 @@ export class ResultScene extends Phaser.Scene {
         fontFamily: FONT_EN, fontSize: '20px', color: '#060913', backgroundColor: '#FFD700', fontStyle: '700', padding: { x: 8, y: 2 },
       }).setOrigin(1, 1).setAngle(-4).setScale(2.6).setAlpha(0);
       this.tweens.add({ targets: stamp, scale: 1, alpha: 1, duration: 200, delay: 1150, ease: 'Quad.in', onComplete: () => this.cameras.main.shake(140, 0.004) });
+    }
+    // ランクのスタンプ（パネル左上。NEW BEST と対）。2026-10-19
+    if (rankMark) {
+      const rs = this.add.text(panel.x + 14, py - 14, `RANK ${rankMark}`, {
+        fontFamily: FONT_EN, fontSize: '22px', color: '#060913', backgroundColor: RANK_COLORS[rankMark], fontStyle: '700', padding: { x: 10, y: 2 }, letterSpacing: 2,
+      }).setOrigin(0, 1).setAngle(-4).setScale(2.2).setAlpha(0);
+      this.tweens.add({ targets: rs, scale: 1, alpha: 1, duration: 200, delay: isBest ? 1400 : 1000, ease: 'Quad.in' });
     }
 
     // 共有：画像を保存（Web Share → ダウンロード）／Xにポスト
