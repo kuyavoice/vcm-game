@@ -44,6 +44,8 @@ export const AUDIO_MANIFEST: AudioEntry[] = [
   { key: 'bgm_chara_kyoko', path: 'assets/audio/bgm/chara_kyoko.mp3', category: 'bgm', loop: true },
   { key: 'bgm_chara_gou', path: 'assets/audio/bgm/chara_gou.mp3', category: 'bgm', loop: true },
   { key: 'bgm_chara_yuri', path: 'assets/audio/bgm/chara_yuri.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_chara_kenshiro', path: 'assets/audio/bgm/chara_kenshiro.mp3', category: 'bgm', loop: true },
+  { key: 'bgm_chara_hibiki', path: 'assets/audio/bgm/chara_hibiki.mp3', category: 'bgm', loop: true },
   { key: 'bgm_result', path: 'assets/audio/bgm/result.mp3', category: 'bgm', loop: true },
   // ゲームオーバー・時間切れのリザルト（無ければ result → title）
   { key: 'bgm_gameover', path: 'assets/audio/bgm/gameover.mp3', category: 'bgm', loop: true },

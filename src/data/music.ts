@@ -40,6 +40,9 @@ const others: MusicDef[] = [
   other('kyoko', '嘉地 杏子', '籠中独白', 0xc06090),
   other('gou', '護乃 豪', 'SUPER WILD', 0xffb400),
   other('yuri', '音染 悠理', '静寂のレゾナンス', 0xb0a0ff),
+  // 2026-10-19 追加
+  other('kenshiro', '鈴鳴 拳士郎', 'この食卓が約束の場所', 0x228b22),
+  other('hibiki', '振須 響', 'SHARPENS YOU UP!', 0x00ced1),
 ];
 
 export const MUSIC: MusicDef[] = [
