@@ -1,3 +1,4 @@
+import { enableDragScroll } from '../ui/dragScroll';
 import Phaser from 'phaser';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { makeButton } from '../ui/Button';
@@ -203,13 +204,7 @@ export class OptionScene extends Phaser.Scene {
     // 項目が増えて小さい画面では収まらないので、なぞって送れるようにする（2026-10-05）
     const maxScroll = Math.max(0, ty + 46 + 60 - H);
     if (maxScroll > 0) {
-      let startY = 0;
-      let startScroll = 0;
-      this.input.on('pointerdown', (p: Phaser.Input.Pointer) => { startY = p.y; startScroll = cam.scrollY; });
-      this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
-        if (!p.isDown) return;
-        cam.scrollY = Phaser.Math.Clamp(startScroll + (startY - p.y), 0, maxScroll);
-      });
+      enableDragScroll(this, cam, maxScroll);
     }
   }
 }

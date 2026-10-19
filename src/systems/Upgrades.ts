@@ -233,12 +233,14 @@ export class UpgradeState {
     }
     const c = cands[Math.floor(Math.random() * cands.length)];
     if (c.kind === 'weapon') {
+      // 説明文はレベルアップ画面と同じ（上がる前に次のレベルの文を取る）。2026-10-19
+      const desc = c.weapon.nextDesc() ?? undefined;
       c.weapon.levelUp();
-      return { kind: 'weapon', title: c.weapon.name, sub: `Lv ${c.weapon.level - 1} → ${c.weapon.level}`, color: c.weapon.def.color, owner: c.weapon.def.owner, weapon: c.weapon };
+      return { kind: 'weapon', title: c.weapon.name, sub: `Lv ${c.weapon.level - 1} → ${c.weapon.level}`, color: c.weapon.def.color, owner: c.weapon.def.owner, weapon: c.weapon, desc };
     }
     const p = PASSIVES[c.id];
     const lv = (this.passives.get(c.id) ?? 0) + 1;
     this.passives.set(c.id, lv);
-    return { kind: 'passive', title: p.name, sub: `Lv ${lv - 1} → ${lv}`, color: p.color, owner: p.owner };
+    return { kind: 'passive', title: p.name, sub: `Lv ${lv - 1} → ${lv}`, color: p.color, owner: p.owner, desc: p.desc };
   }
 }
