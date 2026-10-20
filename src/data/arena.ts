@@ -60,9 +60,17 @@ export const ARENA = {
     keepDistance: 170,
     firstActDelaySec: 2.0,
     idleSec: 1.2,
-    weights: { vanish: 3, crescent: 3 } as Readonly<Record<string, number>>,
-    /** 姿消し：直線は1回の行動で lines 本（1本ずつ）。帯はプレイヤーの位置を通って闘技場を横断する */
+    weights: { vanish: 3, crescent: 3, wave: 2 } as Readonly<Record<string, number>>,
+    /** 姿消し：直線は1回の行動で lines 本（1本ずつ）。帯はプレイヤーの位置を通って闘技場を横断する。HP半分以下（激昂）で3本（2026-10-20 ユーザー指定） */
     vanishLines: 2,
+    vanishLinesEnraged: 3,
+    /** 衝撃波：立ち止まり、闘技場のランダムな位置に小さな三日月（扇）の予兆をばらまく（2026-10-20 ユーザー指定）。激昂で数が増える */
+    waveCount: 8,
+    waveCountEnraged: 12,
+    waveIntervalSec: 0.15,
+    waveWindupSec: 0.9,
+    waveRadius: 130,
+    waveHalfDeg: 60,
     lineWindupSec: 1.0,
     lineHalfWidth: 70,
     lineSpeed: 1700,

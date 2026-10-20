@@ -2114,7 +2114,7 @@ export class GameScene extends Phaser.Scene {
     e.spawn(def, x, y, 1);
     const kind = ARENA.bosses[Math.min(this.arena.wave, ARENA.bosses.length - 1)].kind;
     const common = kind === 'hunter' ? ARENA.hunter : ARENA.grunt;
-    e.arena = { kind, act: '', t: 0, timer: common.firstActDelaySec, last: '', dirX: 0, dirY: 0, tick: 0, speed: 0 };
+    e.arena = { kind, act: '', t: 0, timer: common.firstActDelaySec, last: '', dirX: 0, dirY: 0, tick: 0, speed: 0, n: 0, enraged: false };
     this.spawner.bossActive = true;
     this.boss = e;
     this.bosses.push(e);
@@ -2177,6 +2177,13 @@ export class GameScene extends Phaser.Scene {
     let mx = 0;
     let my = 0;
     let spd = 0;
+    // 激昂（HP半分）：以後の行動が増える（狩人級：直線3本・衝撃波が増える）
+    if (!s.enraged && e.hp <= e.maxHp * 0.5) {
+      s.enraged = true;
+      this.hud.banner(`${def.name} —— 激昂`, '#FF4D6D', 34);
+      this.fxRing(e.x, e.y - 40, 220, TELEGRAPH_COLOR, 10);
+      this.cameras.main.shake(300, 0.006);
+    }
     if (s.act === 'dash') {
       s.t -= dt;
       mx = s.dirX;
@@ -2191,6 +2198,26 @@ export class GameScene extends Phaser.Scene {
     } else if (s.act === 'vanish' || s.act === 'crescent') {
       // 予兆の間：止まる（発動は予兆の onFire）。姿消し中は薄い
       if (s.act === 'vanish') e.setAlpha(0.12 + Math.sin(now / 60) * 0.05);
+    } else if (s.act === 'wave') {
+      // 衝撃波：立ち止まって、ランダムな位置に小さな三日月を次々と
+      const H = ARENA.hunter;
+      s.t -= dt;
+      s.tick -= dt;
+      if (s.n > 0 && s.tick <= 0) {
+        s.tick = H.waveIntervalSec;
+        s.n--;
+        const ang = Math.random() * Math.PI * 2;
+        const rr = this.arena.r * 0.92 * Math.sqrt(Math.random());
+        const wx = this.arena.cx + Math.cos(ang) * rr;
+        const wy = this.arena.cy + Math.sin(ang) * rr;
+        const face = Math.random() * Math.PI * 2;
+        this.pushTelegraph({
+          shape: { kind: 'sector', x: wx, y: wy, r: H.waveRadius, angle: face, halfArc: Phaser.Math.DegToRad(H.waveHalfDeg) },
+          startAt: now, at: now + H.waveWindupSec * 1000, damage: ARENA.telegraphDamage,
+          onFire: () => this.fxSlash(wx, wy, H.waveRadius, TELEGRAPH_COLOR, face, H.waveHalfDeg * 2, false),
+        });
+      }
+      if (s.t <= 0) { s.act = ''; s.timer = C.idleSec; }
     } else if (s.act === 'charge') {
       // 予兆の間：身震いして止まる（発動は予兆の onFire）
       e.x += (Math.random() - 0.5) * 5;
@@ -2242,8 +2269,16 @@ export class GameScene extends Phaser.Scene {
     s.last = pick;
     this.fxText(e.x, e.y - 160, '!!', '#FF4D6D');
     if (pick === 'vanish') {
-      s.tick = A.vanishLines - 1;
+      s.tick = (s.enraged ? A.vanishLinesEnraged : A.vanishLines) - 1;
       this.hunterVanish(e, now);
+      return;
+    }
+    if (pick === 'wave') {
+      s.act = 'wave';
+      s.n = s.enraged ? A.waveCountEnraged : A.waveCount;
+      s.tick = 0;
+      s.t = s.n * A.waveIntervalSec + A.waveWindupSec + 0.3;
+      e.pose('hit', 0.4);
       return;
     }
     // 三日月：正面の扇 → 発動したら背面の扇
