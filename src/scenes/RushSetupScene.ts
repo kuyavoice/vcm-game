@@ -10,6 +10,7 @@ import { loadSave, writeSave } from '../utils/storage';
 import { makeButton } from '../ui/Button';
 import { go, wipeIn, panel, type Panel } from '../ui/theme';
 import { AudioBus } from '../utils/audio';
+import { isJudge } from '../utils/unlock';
 
 /**
  * ボスラッシュの準備：図鑑に登録済みの共鳴アーツから3つ選ぶ。
@@ -32,7 +33,8 @@ export class RushSetupScene extends Phaser.Scene {
 
     const save = loadSave();
     const chara = CHARACTERS[data.characterId] ?? CHARACTERS.kuya;
-    const known = new Set(save.codex);
+    // 審査モード（?judge）は全部解放なので、アーツ・サポートも全部選べる（2026-10-20 ユーザー要望：闘技場の手触り確認）
+    const known = isJudge() ? new Set<string>([...ART_IDS, ...Object.values(PASSIVES).map((p) => `passive:${p.id}`)]) : new Set(save.codex);
     const pool = ART_IDS.filter((id) => known.has(id) && !chara.excludedArts.includes(id));
     const picked = new Set<string>((save.lastRushArts ?? []).filter((id) => pool.includes(id)));
     // サポート：図鑑に登録済みのもの（`passive:ID`）から、supportCount まで。0でもよい
