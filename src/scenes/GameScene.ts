@@ -2200,7 +2200,7 @@ export class GameScene extends Phaser.Scene {
         if (s.tick <= 0) {
           s.tick = A.scatterTickSec;
           for (let i = 0; i < A.scatterPerTick; i++) {
-            this.fireEnemyBullet(e.x, e.y - 30, Math.random() * Math.PI * 2, Phaser.Math.Between(A.scatterSpeedMin, A.scatterSpeedMax), 4, A.scatterDamage, A.scatterTint);
+            this.fireEnemyBullet(e.x, e.y - 30, Math.random() * Math.PI * 2, Phaser.Math.Between(A.scatterSpeedMin, A.scatterSpeedMax), 4, A.scatterDamage, A.scatterTint, A.scatterScale);
           }
         }
       }
@@ -3531,9 +3531,9 @@ export class GameScene extends Phaser.Scene {
     return b;
   }
 
-  private fireEnemyBullet(x: number, y: number, angle: number, speed: number, life: number, damage: number, tint?: number): void {
+  private fireEnemyBullet(x: number, y: number, angle: number, speed: number, life: number, damage: number, tint?: number, scale = 1): void {
     const b = this.ebullets.get(x, y) as EnemyBullet | null;
-    if (b) b.fire(x, y, angle, speed, life, damage, tint);
+    if (b) b.fire(x, y, angle, speed, life, damage, tint, scale);
   }
 
   private kick(e: Enemy, angle: number, speed: number, durationSec: number, damage: number): void {

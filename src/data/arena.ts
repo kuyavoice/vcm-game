@@ -49,8 +49,9 @@ export const ARENA = {
     scatterSpeedMin: 170,
     scatterSpeedMax: 330,
     scatterDamage: 12,
-    /** ばらまきの弾の色（暗い床で赤だと見づらいので明るい桃色。2026-10-20 ユーザー指摘） */
-    scatterTint: 0xffb3c6,
+    /** ばらまきの弾：色は付けない（弾の絵は明るい緑。赤で染めると暗い床で見づらい。2026-10-20 ユーザー指摘）、大きさ 1.5 倍 */
+    scatterTint: 0xffffff,
+    scatterScale: 1.5,
   },
 };
 

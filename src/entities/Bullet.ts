@@ -156,8 +156,10 @@ export class EnemyBullet extends Phaser.GameObjects.Image {
     this.setDepth(24).setScale(CONFIG.spriteScale);
   }
 
-  fire(x: number, y: number, angle: number, speed: number, lifeSec: number, damage: number, tint?: number): void {
+  /** scale：絵の大きさの倍率（既定1。闘技場のばらまきは大きめ）。使い回すので毎回設定する */
+  fire(x: number, y: number, angle: number, speed: number, lifeSec: number, damage: number, tint?: number, scale = 1): void {
     this.setPosition(x, y);
+    this.setScale(CONFIG.spriteScale * scale);
     this.vx = Math.cos(angle) * speed;
     this.vy = Math.sin(angle) * speed;
     this.life = lifeSec;
