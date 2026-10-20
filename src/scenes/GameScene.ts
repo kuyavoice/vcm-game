@@ -2113,7 +2113,7 @@ export class GameScene extends Phaser.Scene {
     if (!e) return;
     e.spawn(def, x, y, 1);
     const kind = ARENA.bosses[Math.min(this.arena.wave, ARENA.bosses.length - 1)].kind;
-    const common = kind === 'hunter' ? ARENA.hunter : ARENA.grunt;
+    const common = kind === 'hunter' ? ARENA.hunter : kind === 'knight' ? ARENA.knight : ARENA.grunt;
     e.arena = { kind, act: '', t: 0, timer: common.firstActDelaySec, last: '', dirX: 0, dirY: 0, tick: 0, speed: 0, n: 0, enraged: false };
     this.spawner.bossActive = true;
     this.boss = e;
@@ -2170,7 +2170,7 @@ export class GameScene extends Phaser.Scene {
   private updateArenaBoss(e: Enemy, dt: number, now: number, dist: number, nx: number, ny: number): void {
     const s = e.arena!;
     const A = ARENA.grunt;
-    const C = s.kind === 'hunter' ? ARENA.hunter : ARENA.grunt;
+    const C = s.kind === 'hunter' ? ARENA.hunter : s.kind === 'knight' ? ARENA.knight : ARENA.grunt;
     const p = this.player;
     const def = e.def;
     const g = this.bossGfx;
@@ -2195,7 +2195,7 @@ export class GameScene extends Phaser.Scene {
         if (s.kind === 'hunter' && s.tick > 0) { s.tick--; this.hunterVanish(e, now); }
         else { s.act = ''; s.timer = C.idleSec; e.setAlpha(1); }
       }
-    } else if (s.act === 'vanish' || s.act === 'crescent') {
+    } else if (s.act === 'vanish' || s.act === 'crescent' || s.act === 'baum' || s.act === 'lance') {
       // 予兆の間：止まる（発動は予兆の onFire）。姿消し中は薄い
       if (s.act === 'vanish') e.setAlpha(0.12 + Math.sin(now / 60) * 0.05);
     } else if (s.act === 'wave') {
@@ -2249,6 +2249,7 @@ export class GameScene extends Phaser.Scene {
       if (dist > C.keepDistance) { mx = nx; my = ny; spd = C.walkSpeed * e.chillFactor(now); }
       if (s.timer <= 0) {
         if (s.kind === 'hunter') this.startHunterAct(e, now, dist, nx, ny);
+        else if (s.kind === 'knight') this.startKnightArenaAct(e, now, dist, nx, ny);
         else this.startArenaAct(e, now, dist, nx, ny);
       }
     }
@@ -2310,6 +2311,63 @@ export class GameScene extends Phaser.Scene {
         });
       },
     });
+  }
+
+  /** 変異体・騎士級の行動を1つ始める：バームクーヘン（段階的に広がる輪）／ランス（細長い帯の突き） */
+  private startKnightArenaAct(e: Enemy, now: number, _dist: number, nx: number, ny: number): void {
+    const A = ARENA.knight;
+    const s = e.arena!;
+    const pick = this.pickAct(A.weights, s.last);
+    s.last = pick;
+    this.fxText(e.x, e.y - 170, '!!', '#FF4D6D');
+    const cx = e.x;
+    const cy = e.y - 30;
+    if (pick === 'baum') {
+      s.act = 'baum';
+      const radii = s.enraged ? A.baumRadiiEnraged : A.baumRadii;
+      s.t = A.baumWindupSec + (radii.length - 1) * A.baumGapSec + 0.4;
+      AudioBus.play('se_rook_stomp', 0, 'se_boss');
+      radii.forEach((r, i) => {
+        const inner = i === 0 ? 0 : radii[i - 1];
+        this.pushTelegraph({
+          shape: i === 0 ? { kind: 'circle', x: cx, y: cy, r } : { kind: 'ring', x: cx, y: cy, inner, outer: r },
+          startAt: now, at: now + (A.baumWindupSec + i * A.baumGapSec) * 1000, damage: ARENA.telegraphDamage,
+          onFire: () => {
+            if (!e.active) return;
+            this.fxRing(cx, cy, r, TELEGRAPH_COLOR, 8);
+            this.cameras.main.shake(140, 0.006);
+            AudioBus.play('se_slash_heavy2', 0, 'se_slash');
+            if (i === radii.length - 1 && s.act === 'baum') { s.act = ''; s.timer = A.idleSec; }
+          },
+        });
+      });
+      return;
+    }
+    // ランス
+    s.act = 'lance';
+    const thrust = (angle: number, windup: number, last: boolean) => {
+      const t0 = this.gameNow;
+      const x2 = cx + Math.cos(angle) * A.lanceLength;
+      const y2 = cy + Math.sin(angle) * A.lanceLength;
+      this.pushTelegraph({
+        shape: { kind: 'line', x1: cx, y1: cy, x2, y2, half: A.lanceHalfWidth },
+        startAt: t0, at: t0 + windup * 1000, damage: ARENA.telegraphDamage,
+        onFire: () => {
+          if (!e.active) return;
+          this.fxLine(cx, cy, x2, y2, A.lanceHalfWidth * 1.2, 0xffffff);
+          this.cameras.main.shake(110, 0.005);
+          AudioBus.play('se_slash_heavy', 0, 'se_slash');
+          e.setFlipX(Math.cos(angle) < 0);
+          if (last) { if (s.act === 'lance') { s.act = ''; s.timer = A.idleSec; } }
+          else {
+            // 激昂：今のプレイヤーの位置へ狙い直して2本目
+            const p = this.player;
+            thrust(Math.atan2(p.y - 12 - cy, p.x - cx), A.lanceSecondWindupSec, true);
+          }
+        },
+      });
+    };
+    thrust(Math.atan2(ny, nx), A.lanceWindupSec, !s.enraged);
   }
 
   /** 狩人級：姿を消し、プレイヤーの今の位置を通る直線（向きはランダム）を予兆してから駆け抜ける */

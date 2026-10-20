@@ -21,6 +21,7 @@ export const ARENA = {
   bosses: [
     { base: 'grunt' as EnemyId, kind: 'grunt', name: '変異体・雑音級', hp: 9000, scale: 8, hitRadius: 100, contactDamage: 10 },
     { base: 'hunter' as EnemyId, kind: 'hunter', name: '変異体・狩人級', hp: 8000, scale: 8, hitRadius: 95, contactDamage: 10 },
+    { base: 'knight' as EnemyId, kind: 'knight', name: '変異体・騎士級', hp: 11000, scale: 5, hitRadius: 110, contactDamage: 14 },
   ],
   /** ①変異体・雑音級：突進／飛び跳ね3連／全体ばらまき */
   grunt: {
@@ -81,6 +82,24 @@ export const ARENA = {
     crescentSecondWindupSec: 0.6,
     crescentRadius: 300,
     crescentHalfDeg: 55,
+  },
+  /** ③変異体・騎士級（2026-10-20 ユーザー案）：足元の輪がバームクーヘンのように段階的に広がる／近〜中距離へランスの突き */
+  knight: {
+    walkSpeed: 70,
+    keepDistance: 150,
+    firstActDelaySec: 2.0,
+    idleSec: 1.5,
+    weights: { baum: 3, lance: 3 } as Readonly<Record<string, number>>,
+    /** バームクーヘン：内側の円 → 外側の輪の順に、段階的に発動（外へ逃げるか、発動済みの内側へ入るかの読み合い）。激昂で1段増える */
+    baumWindupSec: 0.9,
+    baumGapSec: 0.45,
+    baumRadii: [150, 290, 430],
+    baumRadiiEnraged: [150, 290, 430, 570],
+    /** ランス：騎士級からプレイヤーへ向けた細長い帯 → 突き。激昂では狙い直して2本目 */
+    lanceWindupSec: 0.7,
+    lanceLength: 390,
+    lanceHalfWidth: 55,
+    lanceSecondWindupSec: 0.5,
   },
 };
 

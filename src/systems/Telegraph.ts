@@ -35,6 +35,15 @@ function distToSegment(px: number, py: number, x1: number, y1: number, x2: numbe
   return Math.hypot(px - (x1 + dx * t), py - (y1 + dy * t));
 }
 
+/** 輪（内径 inner〜外径 outer）を1つの多角形として塗る（外周を一周 → 内周を逆回り） */
+function fillAnnulus(g: Phaser.GameObjects.Graphics, x: number, y: number, inner: number, outer: number): void {
+  const N = 72;
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i <= N; i++) { const a = (i / N) * Math.PI * 2; pts.push({ x: x + Math.cos(a) * outer, y: y + Math.sin(a) * outer }); }
+  for (let i = N; i >= 0; i--) { const a = (i / N) * Math.PI * 2; pts.push({ x: x + Math.cos(a) * inner, y: y + Math.sin(a) * inner }); }
+  g.fillPoints(pts, true);
+}
+
 /** 点（半径 pr）が予兆の中にいるか */
 export function telegraphHit(s: TelegraphShape, px: number, py: number, pr: number): boolean {
   switch (s.kind) {
@@ -70,10 +79,11 @@ export function drawTelegraph(g: Phaser.GameObjects.Graphics, s: TelegraphShape,
       return;
     }
     case 'ring': {
+      // 輪は太いストロークだと半透明の三角形が重なって放射状の筋が出るので、外周＋内周を1つの多角形にして塗る
       const w = s.outer - s.inner;
-      g.lineStyle(w, color, fillA);
-      g.strokeCircle(s.x, s.y, (s.inner + s.outer) / 2);
-      if (innerA > 0 && k > 0) { g.lineStyle(w * k, color, innerA); g.strokeCircle(s.x, s.y, s.inner + (w * k) / 2); }
+      g.fillStyle(color, fillA);
+      fillAnnulus(g, s.x, s.y, s.inner, s.outer);
+      if (innerA > 0 && k > 0) { g.fillStyle(color, innerA); fillAnnulus(g, s.x, s.y, s.inner, s.inner + w * k); }
       g.lineStyle(4, 0xffffff, 0.85);
       g.strokeCircle(s.x, s.y, s.inner);
       g.strokeCircle(s.x, s.y, s.outer);
