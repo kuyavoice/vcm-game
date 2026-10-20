@@ -3,6 +3,7 @@ import type { WaveBand } from './waves';
 import { NIGHTMARE_STAGE } from './nightmare';
 import { ENDLESS_STAGE } from './endless';
 import { RUSH_STAGE } from './rush';
+import { ARENA_STAGE } from './arena';
 
 // ステージ定義。前のステージをクリアすると次が解放される。数値は初期値。
 
@@ -45,6 +46,8 @@ export interface StageDef {
   endless?: boolean;
   /** ボスラッシュ：ボスの連戦。時間帯のボスは使わず、GameScene が出す（data/rush.ts） */
   rush?: boolean;
+  /** 闘技場：狭い円形の場で変異体と1対1。雑魚は湧かない（data/arena.ts。2026-10-20） */
+  arena?: boolean;
   /** 敵の攻撃力の倍率（接触・弾・ボスの攻撃すべて。既定1） */
   enemyDamageMul?: number;
   /** 永続強化（ショップの PERMANENT）を無効にする */
@@ -85,6 +88,7 @@ export function stageById(id: number): StageDef {
   if (id === NIGHTMARE_STAGE.id) return NIGHTMARE_STAGE;
   if (id === ENDLESS_STAGE.id) return ENDLESS_STAGE;
   if (id === RUSH_STAGE.id) return RUSH_STAGE;
+  if (id === ARENA_STAGE.id) return ARENA_STAGE;
   return STAGES.find((s) => s.id === id) ?? STAGES[0];
 }
 

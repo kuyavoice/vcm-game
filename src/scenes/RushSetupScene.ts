@@ -3,6 +3,7 @@ import { WEAPONS, ART_IDS } from '../data/weapons';
 import { PASSIVES } from '../data/passives';
 import { CHARACTERS } from '../data/characters';
 import { RUSH, RUSH_STAGE } from '../data/rush';
+import { ARENA, ARENA_STAGE } from '../data/arena';
 import { PORTRAITS, portraitKey } from '../data/portraits';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, writeSave } from '../utils/storage';
@@ -19,7 +20,9 @@ export class RushSetupScene extends Phaser.Scene {
     super('RushSetup');
   }
 
-  create(data: { characterId: string }): void {
+  create(data: { characterId: string; arena?: boolean }): void {
+    // 闘技場（data/arena.ts）も同じ準備画面を使う（2026-10-20）
+    const arena = !!data.arena;
     const cam = this.cameras.main;
     const W = cam.width;
     const H = cam.height;
@@ -33,13 +36,14 @@ export class RushSetupScene extends Phaser.Scene {
     const pool = ART_IDS.filter((id) => known.has(id) && !chara.excludedArts.includes(id));
     const picked = new Set<string>((save.lastRushArts ?? []).filter((id) => pool.includes(id)));
     // サポート：図鑑に登録済みのもの（`passive:ID`）から、supportCount まで。0でもよい
-    const supPool = Object.values(PASSIVES).filter((p) => known.has(`passive:${p.id}`)).map((p) => p.id);
+    // 闘技場では最初から付くサポートは選ばせない（重複するだけなので）
+    const supPool = Object.values(PASSIVES).filter((p) => known.has(`passive:${p.id}`) && !(arena && ARENA.defaultSupports.includes(p.id))).map((p) => p.id);
     const pickedSup = new Set<string>((save.lastRushSupports ?? []).filter((id) => supPool.includes(id)));
 
     const top = Math.max(H * 0.06, 40);
-    this.add.text(W / 2, top, 'BOSS RUSH', { fontFamily: FONT_EN, fontSize: '44px', color: '#FF8C42', fontStyle: '700', letterSpacing: 5 }).setOrigin(0.5);
+    this.add.text(W / 2, top, arena ? 'ARENA' : 'BOSS RUSH', { fontFamily: FONT_EN, fontSize: '44px', color: arena ? '#FF4D6D' : '#FF8C42', fontStyle: '700', letterSpacing: 5 }).setOrigin(0.5);
     this.add.text(W / 2, top + 44, `共鳴アーツを${RUSH.pickCount}つ、サポートを${RUSH.supportCount}つまで選ぶ（全部 最大Lvで始まる）`, { fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim }).setOrigin(0.5);
-    this.add.text(W / 2, top + 70, `${chara.name}　／　Lv${RUSH.fixedLevel} 固定・永続強化なし`, { fontFamily: FONT_JP, fontSize: '16px', color: COLOR_HEX.accent }).setOrigin(0.5);
+    this.add.text(W / 2, top + 70, arena ? `${chara.name}　／　Lv${RUSH.fixedLevel} 固定・永続強化なし・『${ARENA.defaultSupports.map((id) => PASSIVES[id]?.name ?? id).join('』『')}』付き` : `${chara.name}　／　Lv${RUSH.fixedLevel} 固定・永続強化なし`, { fontFamily: FONT_JP, fontSize: '16px', color: COLOR_HEX.accent }).setOrigin(0.5);
     const count = this.add.text(W / 2, top + 100, '', { fontFamily: FONT_EN, fontSize: '22px', color: COLOR_HEX.gold, fontStyle: '700' }).setOrigin(0.5);
 
     const rowW = Math.min(660, W - 40);
@@ -158,7 +162,7 @@ export class RushSetupScene extends Phaser.Scene {
       sv.lastRushSupports = supports;
       writeSave(sv);
       AudioBus.playBgm('bgm_title');
-      go(this, 'Game', { characterId: chara.id, stageId: RUSH_STAGE.id, rushArts: arts, rushSupports: supports });
+      go(this, 'Game', { characterId: chara.id, stageId: arena ? ARENA_STAGE.id : RUSH_STAGE.id, rushArts: arts, rushSupports: supports });
     }, { width: 240, height: 60, fontSize: 24, primary: true });
     refresh();
 

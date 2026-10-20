@@ -6,6 +6,7 @@ import { SCORE_STAGE } from '../data/score';
 import { NIGHTMARE_STAGE, NIGHTMARE_AVAILABLE } from '../data/nightmare';
 import { ENDLESS_STAGE, isEndlessShown, endlessLoop } from '../data/endless';
 import { RUSH_STAGE } from '../data/rush';
+import { ARENA_STAGE } from '../data/arena';
 import { unlockSecret } from '../utils/unlock';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, isStageUnlocked } from '../utils/storage';
@@ -49,7 +50,7 @@ export class StageSelectScene extends Phaser.Scene {
     const characterId = resolveCharacter(save);
     const guard = new SelectGuard(this);
     const cardW = Math.min(640, W - 40);
-    const allStages = [...STAGES, SCORE_STAGE, ...(NIGHTMARE_AVAILABLE ? [NIGHTMARE_STAGE] : []), ...(isEndlessShown() ? [ENDLESS_STAGE] : []), RUSH_STAGE];
+    const allStages = [...STAGES, SCORE_STAGE, ...(NIGHTMARE_AVAILABLE ? [NIGHTMARE_STAGE] : []), ...(isEndlessShown() ? [ENDLESS_STAGE] : []), RUSH_STAGE, ARENA_STAGE];
     // 解放の条件：スコアアタックは全ステージのクリア。ほかは、決まったステージのクリア
     // `?debug` のときは、エンドレスを解放済みとして扱う（本当に解放していなければ、記録は保存しない。GameScene 側）
     const debug = /[?&]debug(?:[&=]|$)/.test(location.search);
@@ -81,8 +82,9 @@ export class StageSelectScene extends Phaser.Scene {
         hit.on('pointerup', () => {
           cont.setScale(1);
           if (!guard.release(hit)) return;
-          // ボスラッシュは、アーツを選ぶ画面を挟む
+          // ボスラッシュと闘技場は、アーツを選ぶ画面を挟む
           if (st.rush) go(this, 'RushSetup', { characterId });
+          else if (st.arena) go(this, 'RushSetup', { characterId, arena: true });
           else go(this, 'Game', { characterId, stageId: st.id });
         });
       }
@@ -99,6 +101,7 @@ export class StageSelectScene extends Phaser.Scene {
       const ok = st && isOpen(st);
       if (!ok || !guard.confirm()) return;
       if (st.rush) go(this, 'RushSetup', { characterId });
+      else if (st.arena) go(this, 'RushSetup', { characterId, arena: true });
       else go(this, 'Game', { characterId, stageId: st.id });
     });
   }

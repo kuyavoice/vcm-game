@@ -6,6 +6,8 @@ import { stageById, type StageDef } from '../data/stages';
 import { SCORE } from '../data/score';
 import { ENDLESS } from '../data/endless';
 import { RUSH, rushWaves, rushTempo, rushDamageMul, fmtTime } from '../data/rush';
+import { ARENA, arenaBossDef } from '../data/arena';
+import { drawTelegraph, telegraphHit, TELEGRAPH_COLOR, type Telegraph } from '../systems/Telegraph';
 import { isHeld } from '../utils/heldKeys';
 import { screenFlash } from '../utils/screenFlash';
 import { customBgmKeys, type BgmSlot } from '../utils/bgmCustom';
@@ -160,6 +162,11 @@ export class GameScene extends Phaser.Scene {
   private customBgm: Partial<Record<BgmSlot, string>> = {};
   private debugRookIndex = 0;
   private debugQueenIndex = 0;
+  /** 闘技場（data/arena.ts）：中心・半径・進行（wave＝次に出す変異体の番号）。done＝全部倒した */
+  private arena = { cx: 0, cy: 0, r: 0, wave: 0, nextAt: 0, startSec: 0, done: false };
+  /** 予兆（systems/Telegraph.ts）。アーツより上の層（bossGfx）に描く */
+  private telegraphs: Telegraph[] = [];
+  private arenaGfx?: Phaser.GameObjects.Graphics;
   private fullMoon = false;
   private enemySpeedMul = 1;
 
@@ -227,6 +234,8 @@ export class GameScene extends Phaser.Scene {
     this.fullMoon = false;
     this.enemySpeedMul = this.stage.enemySpeedMul;
     this.moon = undefined;
+    this.arena = { cx: 0, cy: 0, r: 0, wave: 0, nextAt: 0, startSec: 0, done: false };
+    this.telegraphs = [];
   }
 
   create(): void {
@@ -284,8 +293,8 @@ export class GameScene extends Phaser.Scene {
     for (const id of def.excludedArts) this.up.excluded.add(id);
     this.up.traitDamageMul = def.traits.damageMul;
     this.up.characterId = this.characterId;
-    // ボスラッシュ：Lv40 固定。初期武器と、選んだ共鳴アーツ3つを Lv8 で持って始める
-    if (this.stage.rush) {
+    // ボスラッシュ・闘技場：Lv40 固定。初期武器と、選んだ共鳴アーツ3つを Lv8 で持って始める
+    if (this.stage.rush || this.stage.arena) {
       while (!this.up.main.isMaxLevel) this.up.main.levelUp();
       for (const id of this.rushArts) {
         if (this.up.arts.some((w) => w.def.id === id)) continue;
@@ -295,6 +304,8 @@ export class GameScene extends Phaser.Scene {
       }
       // 持っていくサポートは最大Lv
       for (const id of this.rushSupports) if (PASSIVES[id]) this.up.passives.set(id, PASSIVES[id].maxLevel);
+      // 闘技場：移動速度と自然回復は最初から付く（ユーザー指定）
+      if (this.stage.arena) for (const id of ARENA.defaultSupports) if (PASSIVES[id]) this.up.passives.set(id, PASSIVES[id].maxLevel);
     }
     this.up.recompute();
     this.player.maxHp = Math.round(def.hp * def.traits.maxHpMul * this.up.stats.maxHpMul);
@@ -325,8 +336,17 @@ export class GameScene extends Phaser.Scene {
 
     // システム
     this.xp = new XpSystem(this.pickups);
-    // ボスラッシュは Lv 固定（ボスのHPの式に使う）
-    if (this.stage.rush) this.xp.level = RUSH.fixedLevel;
+    // ボスラッシュ・闘技場は Lv 固定（ボスのHPの式に使う）
+    if (this.stage.rush || this.stage.arena) this.xp.level = RUSH.fixedLevel;
+    // 闘技場：中心はプレイヤーの開始位置。外は暗くして縁を描く。床のアーツは薄く（予兆と重ならないように）
+    if (this.stage.arena) {
+      this.arena.cx = this.player.x;
+      this.arena.cy = this.player.y;
+      this.arena.r = ARENA.radius;
+      this.arenaGfx = this.add.graphics().setDepth(3);
+      this.drawArenaFloor();
+      this.zoneGfx.setAlpha(ARENA.zoneAlpha);
+    }
     this.xp.xpMul = this.stage.xpMul;
     this.xp.onItem = (kind, value, x, y) => this.onItem(kind, value, x, y);
     this.spawner = new Spawner(this, this.enemies, this.player, this.stage);
@@ -673,7 +693,7 @@ export class GameScene extends Phaser.Scene {
     this.hud.update({
       hp: p.hp, maxHp: p.maxHp, xp: this.xp.xp, xpToNext: this.xp.xpToNext, level: this.xp.level,
       time: this.elapsed, kills: this.kills, yell: this.xp.yell,
-      band: this.stage.rush ? this.rushLabel(now) : `${this.spawner.bandLabel}　${this.stage.nameEn}`,
+      band: this.stage.rush ? this.rushLabel(now) : this.stage.arena ? this.arenaLabel(now) : `${this.spawner.bandLabel}　${this.stage.nameEn}`,
       soul: this.soulGauge, soulActive,
       boss: (() => { const b = this.bosses.find((x) => x.active) ?? null; return b ? { name: this.bosses.filter((x) => x.active).length > 1 ? `${b.def.name} ×${this.bosses.filter((x) => x.active).length}` : b.def.name, hp: b.hp, maxHp: b.maxHp } : null; })(),
       score: this.stage.scoreMode ? { score: Math.round(this.score), combo: this.comboMul } : null,
@@ -796,6 +816,7 @@ export class GameScene extends Phaser.Scene {
     }
     if (this.walls.length) this.pushOutOfWalls(p, 12);
     if (this.cage) this.pushOutOfCage();
+    if (this.stage.arena) this.clampToArena(p, 14, -12);
 
     // 『流麗なる水衣』発動中は Midnight Patisserie Lv2相当（+1.0/秒）の回復を上乗せ（v2）
     if (specialActive && def.special.id === 'aqua_lament') p.heal(1.0 * dt);
@@ -817,7 +838,7 @@ export class GameScene extends Phaser.Scene {
 
     // 時間・湧き
     this.elapsed += dt;
-    if (!this.debugNoSpawn) this.spawner.update(dt, this.elapsed);
+    if (!this.debugNoSpawn && !this.stage.arena) this.spawner.update(dt, this.elapsed);
     if (this.stage.ramp) this.enemySpeedMul = this.stage.enemySpeedMul * Math.min(this.stage.ramp.speedMax ?? Infinity, 1 + this.stage.ramp.speedPerMin * (this.elapsed / 60)) * (this.fullMoon ? CONFIG.fullMoon.enemySpeedMul : 1);
     // エンドレス：1周するたびに、敵の攻撃力が上がる
     if (this.stage.endless && this.spawner.cycle !== this.cycleShown) {
@@ -872,6 +893,12 @@ export class GameScene extends Phaser.Scene {
       if (now >= this.rush.nextAt) this.spawnRushWave();
     }
 
+    // 闘技場：変異体を順に出す。倒したら少し間を置いて次
+    if (this.stage.arena && !this.overlayActive() && !this.arena.done && this.bosses.every((b) => !b.active)) {
+      if (this.arena.nextAt === 0) this.arena.nextAt = now + ARENA.firstDelaySec * 1000;
+      if (now >= this.arena.nextAt) this.spawnArenaBoss();
+    }
+
     // 経験値・アイテム
     if (this.xp.update(dt, now, p.x, p.y - 12, p.def.pickup * stats.pickupMul, stats.xpMul, stats.yellMul) > 0) AudioBus.play('se_gem', 90);
     if (!this.overlayActive()) {
@@ -917,6 +944,8 @@ export class GameScene extends Phaser.Scene {
     if (this.walls.length) this.updateWalls(now);
     this.updatePollens(dt, now);
     this.updateCage(now);
+    if (this.stage.arena) this.drawArenaEdge(now);
+    this.updateTelegraphs(now);
 
     for (let i = 0; i < enemies.length; i++) {
       const e = enemies[i];
@@ -1017,6 +1046,12 @@ export class GameScene extends Phaser.Scene {
         const v = this.cameras.main.worldView;
         if (e.x < v.left - 200 || e.x > v.right + 200 || e.y < v.top - 200 || e.y > v.bottom + 200) { e.despawn(); continue; }
         if (dist < e.radius + p.def.hitRadius) this.hurt(def.contactDamage, now, true);
+        continue;
+      }
+
+      // 闘技場の変異体：専用の行動（移動・接触もその中で）
+      if (e.arena) {
+        this.updateArenaBoss(e, dt, now, dist, nx, ny);
         continue;
       }
 
@@ -2018,6 +2053,229 @@ export class GameScene extends Phaser.Scene {
     this.guardOnResume = true;
     this.scene.pause();
     this.scene.launch('LevelUp', data);
+  }
+
+  // ─────────────────────────── 闘技場（data/arena.ts。2026-10-20 ユーザー案） ───────────────────────────
+
+  /** 闘技場の床：外側を暗くして、縁に光の柵。静的なので1回だけ描く */
+  private drawArenaFloor(): void {
+    const g = this.arenaGfx;
+    if (!g) return;
+    const { cx, cy, r } = this.arena;
+    g.clear();
+    // 外は暗く：大きな板に「円の外だけ」のマスク（太い輪のストロークは WebGL で描画が乱れたので使わない）
+    const m = this.make.graphics({ x: 0, y: 0 }, false);
+    m.fillStyle(0xffffff, 1);
+    m.fillCircle(cx, cy, r);
+    const mask = m.createGeometryMask();
+    mask.invertAlpha = true;
+    this.add.rectangle(cx, cy, 8000, 8000, 0x02040a, 0.66).setDepth(3).setMask(mask);
+    g.lineStyle(14, 0xff4d6d, 0.18);
+    g.strokeCircle(cx, cy, r + 7);
+    g.lineStyle(3, 0x87ceeb, 0.9);
+    g.strokeCircle(cx, cy, r);
+    // 目盛り
+    g.lineStyle(2, 0x87ceeb, 0.45);
+    for (let i = 0; i < 48; i++) {
+      const a = (i / 48) * Math.PI * 2;
+      const len = i % 4 === 0 ? 22 : 10;
+      g.lineBetween(cx + Math.cos(a) * (r - len), cy + Math.sin(a) * (r - len), cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+    }
+  }
+
+  /** 縁の光（毎フレーム。bossGfx に描く） */
+  private drawArenaEdge(now: number): void {
+    const g = this.bossGfx;
+    const { cx, cy, r } = this.arena;
+    g.lineStyle(5, 0x87ceeb, 0.18 + Math.sin(now / 320) * 0.1);
+    g.strokeCircle(cx, cy, r - 5);
+  }
+
+  /** 闘技場の中に留める（o の足元 (x, y+oy) が中心から r - margin を超えないように） */
+  private clampToArena(o: { x: number; y: number }, margin: number, oy = 0): void {
+    const { cx, cy, r } = this.arena;
+    const dx = o.x - cx;
+    const dy = o.y + oy - cy;
+    const d = Math.hypot(dx, dy);
+    const max = r - margin;
+    if (d <= max || d < 0.01) return;
+    o.x = cx + (dx / d) * max;
+    o.y = cy + (dy / d) * max - oy;
+  }
+
+  /** 次の変異体を出す（上の縁の近く）。HPは data/arena.ts の固定値 */
+  private spawnArenaBoss(): void {
+    const def = arenaBossDef(this.arena.wave);
+    const a = -Math.PI / 2 + (Math.random() - 0.5) * 0.6;
+    const x = this.arena.cx + Math.cos(a) * this.arena.r * 0.7;
+    const y = this.arena.cy + Math.sin(a) * this.arena.r * 0.7;
+    const e = this.enemies.get(x, y) as Enemy | null;
+    if (!e) return;
+    e.spawn(def, x, y, 1);
+    e.arena = { act: '', t: 0, timer: ARENA.grunt.firstActDelaySec, last: '', dirX: 0, dirY: 0, tick: 0 };
+    this.spawner.bossActive = true;
+    this.boss = e;
+    this.bosses.push(e);
+    if (this.arena.wave === 0) this.arena.startSec = this.elapsed;
+    this.arena.nextAt = Infinity;
+    this.hud.banner(`${def.name} —— 出現`, '#FF4D6D', 40);
+    this.cameras.main.shake(300, 0.006);
+    AudioBus.play('se_boss');
+    this.vo('boss');
+    this.resumeBgm();
+  }
+
+  /** HUD の時間帯の欄 */
+  private arenaLabel(now: number): string {
+    const alive = this.bosses.find((b) => b.active);
+    if (alive) return `ARENA　${this.arena.wave + 1} / ${ARENA.bosses.length}　${alive.def.name}`;
+    if (this.arena.done) return 'ARENA　制覇';
+    const left = this.arena.nextAt === Infinity || this.arena.nextAt === 0 ? 0 : Math.max(0, Math.ceil((this.arena.nextAt - now) / 1000));
+    return `ARENA　次の変異体まで ${left}秒`;
+  }
+
+  /** 予兆を1つ足す */
+  private pushTelegraph(t: Telegraph): void {
+    this.telegraphs.push(t);
+  }
+
+  /** 予兆の描画と発動（発動の瞬間に中にいれば大ダメージ。閃光を残して消える） */
+  private updateTelegraphs(now: number): void {
+    if (this.telegraphs.length === 0) return;
+    const g = this.bossGfx;
+    const p = this.player;
+    for (let i = this.telegraphs.length - 1; i >= 0; i--) {
+      const t = this.telegraphs[i];
+      if (now < t.at) {
+        const k = Phaser.Math.Clamp((now - t.startAt) / Math.max(1, t.at - t.startAt), 0, 1);
+        drawTelegraph(g, t.shape, k, t.color ?? TELEGRAPH_COLOR);
+        continue;
+      }
+      // 発動
+      this.telegraphs.splice(i, 1);
+      if (t.damage > 0 && telegraphHit(t.shape, p.x, p.y - 12, p.def.hitRadius)) this.hurt(t.damage, now);
+      const flash = this.add.graphics().setDepth(26);
+      drawTelegraph(flash, t.shape, 1, t.color ?? TELEGRAPH_COLOR, true);
+      this.fadeOut(flash, 240);
+      t.onFire?.();
+    }
+  }
+
+  /**
+   * 変異体・雑音級（巨大）：歩いて近づき、一定の間で 突進／飛び跳ね3連／全体ばらまき のどれか。
+   * 予兆は共通の仕組み（pushTelegraph）。移動・接触もここで。
+   */
+  private updateArenaBoss(e: Enemy, dt: number, now: number, dist: number, nx: number, ny: number): void {
+    const A = ARENA.grunt;
+    const s = e.arena!;
+    const p = this.player;
+    const def = e.def;
+    const g = this.bossGfx;
+    let mx = 0;
+    let my = 0;
+    let spd = 0;
+    if (s.act === 'dash') {
+      s.t -= dt;
+      mx = s.dirX;
+      my = s.dirY;
+      spd = A.chargeSpeed;
+      if (s.t <= 0) { s.act = ''; s.timer = A.idleSec; e.playLoop(); }
+    } else if (s.act === 'charge') {
+      // 予兆の間：身震いして止まる（発動は予兆の onFire）
+      e.x += (Math.random() - 0.5) * 5;
+    } else if (s.act === 'jump') {
+      s.t -= dt;
+      e.setAlpha(0.55 + Math.sin(now / 40) * 0.2);
+      if (s.t <= 0) { s.act = ''; s.timer = A.idleSec; e.setAlpha(1); }
+    } else if (s.act === 'scatter') {
+      s.t -= dt;
+      if (s.t > A.scatterSec) {
+        const k = 1 - (s.t - A.scatterSec) / A.scatterWindupSec;
+        g.lineStyle(6, TELEGRAPH_COLOR, 0.4 + k * 0.5);
+        g.strokeCircle(e.x, e.y - 30, 70 + k * 110);
+        g.lineStyle(2, TELEGRAPH_COLOR, 0.5);
+        g.strokeCircle(e.x, e.y - 30, 190);
+      } else {
+        s.tick -= dt;
+        if (s.tick <= 0) {
+          s.tick = A.scatterTickSec;
+          for (let i = 0; i < A.scatterPerTick; i++) {
+            this.fireEnemyBullet(e.x, e.y - 30, Math.random() * Math.PI * 2, Phaser.Math.Between(A.scatterSpeedMin, A.scatterSpeedMax), 4, A.scatterDamage, TELEGRAPH_COLOR);
+          }
+        }
+      }
+      if (s.t <= 0) { s.act = ''; s.timer = A.idleSec; }
+    } else {
+      // 歩いて近づく（近すぎれば止まる）。間が空いたら行動
+      s.timer -= dt;
+      if (dist > A.keepDistance) { mx = nx; my = ny; spd = A.walkSpeed * e.chillFactor(now); }
+      if (s.timer <= 0) this.startArenaAct(e, now, dist, nx, ny);
+    }
+    e.x += mx * spd * dt;
+    e.y += my * spd * dt;
+    if (s.act === 'dash') e.setFlipX(s.dirX < 0);
+    else e.setFlipX(nx < 0);
+    this.clampToArena(e, e.radius * 0.6);
+    if (def.contactDamage > 0 && dist < e.radius + p.def.hitRadius) this.hurt(def.contactDamage, now, true);
+  }
+
+  /** 変異体・雑音級の行動を1つ始める */
+  private startArenaAct(e: Enemy, now: number, dist: number, nx: number, ny: number): void {
+    const A = ARENA.grunt;
+    const s = e.arena!;
+    const pick = this.pickAct(A.weights, s.last);
+    s.last = pick;
+    const gx = e.x;
+    const gy = e.y;
+    if (pick === 'charge') {
+      s.act = 'charge';
+      s.dirX = nx;
+      s.dirY = ny;
+      this.fxText(e.x, e.y - 160, '!!', '#FF4D6D');
+      AudioBus.play('se_knight_charge', 300);
+      e.pose('hit', 0.3);
+      this.pushTelegraph({
+        shape: { kind: 'line', x1: gx, y1: gy, x2: gx + nx * A.chargeLength, y2: gy + ny * A.chargeLength, half: A.chargeHalfWidth },
+        startAt: now, at: now + A.chargeWindupSec * 1000, damage: ARENA.telegraphDamage,
+        onFire: () => {
+          if (!e.active || s.act !== 'charge') return;
+          s.act = 'dash';
+          s.t = A.chargeDurationSec;
+          this.cameras.main.shake(120, 0.005);
+        },
+      });
+      return;
+    }
+    if (pick === 'jump') {
+      s.act = 'jump';
+      const n = A.jumpCount;
+      s.t = A.jumpWindupSec + (n - 1) * A.jumpGapSec + 0.35;
+      this.fxText(e.x, e.y - 160, '!!', '#FF4D6D');
+      // 進行方向（プレイヤーの方）に、半分の距離・プレイヤーの位置・その先、の順で3つ
+      const ds = [Math.max(140, dist * 0.5), Math.max(240, dist), Math.max(240, dist) + A.jumpSpacing];
+      ds.forEach((d, i) => {
+        const c = { x: gx + nx * d, y: gy + ny * d };
+        this.clampToArena(c, A.jumpRadius * 0.5);
+        this.pushTelegraph({
+          shape: { kind: 'circle', x: c.x, y: c.y, r: A.jumpRadius },
+          startAt: now, at: now + (A.jumpWindupSec + i * A.jumpGapSec) * 1000, damage: ARENA.telegraphDamage,
+          onFire: () => {
+            if (!e.active) return;
+            e.setPosition(c.x, c.y);
+            e.setAlpha(1);
+            this.fxRing(c.x, c.y, A.jumpRadius, TELEGRAPH_COLOR, 10);
+            this.cameras.main.shake(160, 0.007);
+            AudioBus.play('se_slash_heavy', 0, 'se_slash');
+          },
+        });
+      });
+      return;
+    }
+    // ばらまき
+    s.act = 'scatter';
+    s.t = A.scatterWindupSec + A.scatterSec;
+    s.tick = 0;
+    this.fxText(e.x, e.y - 160, '!!', '#FF4D6D');
   }
 
   /** 重み付きの乱数で行動を選ぶ（last と skip の行動は選ばない）。選べなければ空 */
@@ -3210,6 +3468,8 @@ export class GameScene extends Phaser.Scene {
       b.y += b.vy * dt;
       b.life -= dt;
       if (b.life <= 0) { b.despawn(); continue; }
+      // 闘技場の外へ出た弾は消す
+      if (this.stage.arena && Math.hypot(b.x - this.arena.cx, b.y - this.arena.cy) > this.arena.r + 40) { b.despawn(); continue; }
       if (Math.hypot(p.x - b.x, p.y - 12 - b.y) < p.def.hitRadius + 5) {
         this.hurt(b.damage, now);
         b.despawn();
@@ -3366,8 +3626,8 @@ export class GameScene extends Phaser.Scene {
       this.comboMul = Math.min(SCORE.comboMax, 1 + this.combo * SCORE.comboStep);
       this.score += (SCORE.points[def.id] ?? 1) * this.comboMul;
     }
-    // ボスラッシュは Lv 固定なので、欠片は落とさない
-    if (!this.stage.rush) this.xp.drop(e.x, e.y, def.xp, this.ctx.now, this.up.stats.luckMul);
+    // ボスラッシュ・闘技場は Lv 固定なので、欠片は落とさない
+    if (!this.stage.rush && !this.stage.arena) this.xp.drop(e.x, e.y, def.xp, this.ctx.now, this.up.stats.luckMul);
     // 『運命のチャーハン』：スパイスの帯の中で倒した敵が、まれにミニチャーハンを落とす
     if (e.bandDrop > 0 && this.gameNow < e.vulnUntil && Math.random() < e.bandDrop) this.xp.spawn(e.x, e.y, 'chahan', 1, this.ctx.now);
     if (!this.stage.rush && def.tier >= 2 && !def.boss && Math.random() < ITEMS.chest.dropChance * this.up.stats.luckMul) {
@@ -3382,6 +3642,25 @@ export class GameScene extends Phaser.Scene {
         this.fxText(this.player.x, this.player.y - 140, `+${yell} ★`, '#FFD700');
       }
       if (this.stage.rush) this.onRushBossDefeated(e);
+      // 闘技場：次の変異体がいれば続く。最後なら下の「最後のボス」の流れでクリア
+      if (this.stage.arena) {
+        this.bosses = this.bosses.filter((b) => b !== e);
+        this.telegraphs.length = 0;
+        this.arena.wave++;
+        if (this.arena.wave < ARENA.bosses.length) {
+          this.spawner.bossActive = false;
+          this.hitStopMs = CONFIG.bossDefeat.hitStopMs;
+          this.slowMoUntil = this.realNow + CONFIG.bossDefeat.slowMoMs;
+          this.bossBurst(e.x, e.y - 60, def.eyeColor, 3);
+          this.cameras.main.shake(260, 0.008);
+          this.hud.banner(`${def.name} 撃破`, '#FFD700', 34);
+          screenFlash(this, 300);
+          this.arena.nextAt = this.gameNow + ARENA.gapSec * 1000;
+          this.resumeBgm();
+          return;
+        }
+        this.arena.done = true;
+      }
       this.bosses = this.bosses.filter((b) => b !== e);
       this.clearBossField(def.bossKind);
       if (this.bosses.every((b) => !b.active)) this.spawner.bossActive = false;

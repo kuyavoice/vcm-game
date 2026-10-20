@@ -77,6 +77,8 @@ export class Enemy extends Phaser.GameObjects.Sprite {
   aim: { x: number; y: number; a: number }[] = [];
   /** 姿勢のコマを見せている残り時間（秒）。0 になったら歩きのアニメに戻す */
   poseT = 0;
+  /** 闘技場の変異体の状態（GameScene.updateArenaBoss）。null なら通常の敵 */
+  arena: { act: string; t: number; timer: number; last: string; dirX: number; dirY: number; tick: number } | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'e_grunt_0');
@@ -115,6 +117,7 @@ export class Enemy extends Phaser.GameObjects.Sprite {
     this.animSuffix = '';
     this.aim = [];
     this.poseT = 0;
+    this.arena = null;
     this.setOrigin(0.5, def.originY ?? 0.75);
     this.setPosition(x, y);
     this.setActive(true).setVisible(true);
