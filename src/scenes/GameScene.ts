@@ -841,6 +841,8 @@ export class GameScene extends Phaser.Scene {
     if (stats.regenPerSec > 0) p.heal(stats.regenPerSec * dt);
     if (p.sleeping) p.heal(CONFIG.sleepRegenPerSec * dt);
 
+    // 闘技場：必殺ゲージは時間でも溜まる（必殺中は溜めない）
+    if (this.stage.arena && now >= this.soulUntil) this.soulGauge = Math.min(1, this.soulGauge + dt / ARENA.specialChargeSec);
     // 時間・湧き
     this.elapsed += dt;
     if (!this.debugNoSpawn && !this.stage.arena) this.spawner.update(dt, this.elapsed);
@@ -2289,6 +2291,7 @@ export class GameScene extends Phaser.Scene {
         e.playLoop();
         // 狩人級：直線がまだ残っていれば、また姿を消して次の線
         if (s.kind === 'hunter' && s.tick > 0) { s.tick--; this.hunterVanish(e, now); }
+        else if (s.kind === 'grunt' && s.tick > 0) { s.tick--; this.gruntCharge(e, now); }
         else { s.act = ''; s.timer = C.idleSec; e.setAlpha(1); }
       }
     } else if (s.act === 'rain') {
@@ -2313,7 +2316,7 @@ export class GameScene extends Phaser.Scene {
     } else if (s.act === 'shadows') {
       s.t -= dt;
       if (s.t <= 0) { s.act = ''; s.timer = C.idleSec; }
-    } else if (s.act === 'vanish' || s.act === 'crescent' || s.act === 'baum' || s.act === 'lance' || s.act === 'fan' || s.act === 'triple') {
+    } else if (s.act === 'vanish' || s.act === 'crescent' || s.act === 'baum' || s.act === 'lance' || s.act === 'fan' || s.act === 'triple' || s.act === 'stomp' || s.act === 'sweep' || s.act === 'beam') {
       // 予兆の間：止まる（発動は予兆の onFire）。姿消し中は薄い
       if (s.act === 'vanish') e.setAlpha(0.12 + Math.sin(now / 60) * 0.05);
     } else if (s.act === 'wave') {
@@ -2386,7 +2389,7 @@ export class GameScene extends Phaser.Scene {
   private startHunterAct(e: Enemy, now: number, _dist: number, nx: number, ny: number): void {
     const A = ARENA.hunter;
     const s = e.arena!;
-    const pick = this.pickAct(A.weights, s.last);
+    const pick = this.pickAct(s.enraged ? A.weightsEnraged : A.weights, s.last);
     s.last = pick;
     this.fxText(e.x, e.y - 160, '!!', '#FF4D6D');
     if (pick === 'vanish') {
@@ -2463,9 +2466,33 @@ export class GameScene extends Phaser.Scene {
       });
       return;
     }
-    // ランス
+    if (pick === 'sweep') {
+      // 薙ぎ払い：正面の半円 → 背面の半円
+      s.act = 'sweep';
+      const a = Math.atan2(ny, nx);
+      const half = Phaser.Math.DegToRad(A.sweepHalfDeg);
+      const swing = (angle: number, windup: number, last: boolean) => {
+        const t0 = this.gameNow;
+        this.pushTelegraph({
+          shape: { kind: 'sector', x: cx, y: cy, r: A.sweepRadius, angle, halfArc: half },
+          startAt: t0, at: t0 + windup * 1000, damage: ARENA.telegraphDamage,
+          onFire: () => {
+            if (!e.active) return;
+            this.fxSlash(cx, cy, A.sweepRadius, TELEGRAPH_COLOR, angle, A.sweepHalfDeg * 2, false);
+            AudioBus.play('se_slash_heavy', 0, 'se_slash');
+            this.cameras.main.shake(130, 0.006);
+            if (last) { if (s.act === 'sweep') { s.act = ''; s.timer = A.idleSec; } }
+            else swing(angle + Math.PI, A.sweepSecondWindupSec, true);
+          },
+        });
+      };
+      swing(a, A.sweepWindupSec, false);
+      return;
+    }
+    // ランス（激昂では狙い直して lanceCountEnraged 本）
     s.act = 'lance';
-    const thrust = (angle: number, windup: number, last: boolean) => {
+    s.n = s.enraged ? A.lanceCountEnraged : 1;
+    const thrust = (angle: number, windup: number) => {
       const t0 = this.gameNow;
       const x2 = cx + Math.cos(angle) * A.lanceLength;
       const y2 = cy + Math.sin(angle) * A.lanceLength;
@@ -2478,16 +2505,17 @@ export class GameScene extends Phaser.Scene {
           this.cameras.main.shake(110, 0.005);
           AudioBus.play('se_slash_heavy', 0, 'se_slash');
           e.setFlipX(Math.cos(angle) < 0);
-          if (last) { if (s.act === 'lance') { s.act = ''; s.timer = A.idleSec; } }
+          s.n--;
+          if (s.n <= 0) { if (s.act === 'lance') { s.act = ''; s.timer = A.idleSec; } }
           else {
-            // 激昂：今のプレイヤーの位置へ狙い直して2本目
+            // 激昂：今のプレイヤーの位置へ狙い直して次の1本
             const p = this.player;
-            thrust(Math.atan2(p.y - 12 - cy, p.x - cx), A.lanceSecondWindupSec, true);
+            thrust(Math.atan2(p.y - 12 - cy, p.x - cx), A.lanceSecondWindupSec);
           }
         },
       });
     };
-    thrust(Math.atan2(ny, nx), A.lanceWindupSec, !s.enraged);
+    thrust(Math.atan2(ny, nx), A.lanceWindupSec);
   }
 
   /** 悪夢の黒騎士・変異体の行動を1つ始める：扇（どこまでも）／突進／放射の線 */
@@ -2583,9 +2611,12 @@ export class GameScene extends Phaser.Scene {
       s.t = A.shadowsCastSec;
       e.pose('cast', A.shadowsCastSec);
       AudioBus.play('se_queen_summon', 0, 'se_boss');
-      for (const side of [-1, 1]) {
-        const x = e.x + side * A.shadowOffset;
-        const y = e.y;
+      // 激昂では前後にも（計4体）
+      const spots: [number, number][] = s.enraged ? [[-1, 0], [1, 0], [0, -1], [0, 1]] : [[-1, 0], [1, 0]];
+      for (const [sx, sy] of spots) {
+        const side = sx;
+        const x = e.x + sx * A.shadowOffset;
+        const y = e.y + sy * A.shadowOffset * 0.8;
         const c = { x, y };
         this.clampToArena(c, 60);
         const sh = this.enemies.get(c.x, c.y) as Enemy | null;
@@ -2596,6 +2627,33 @@ export class GameScene extends Phaser.Scene {
         sh.setFlipX(side < 0);
         this.fxRing(c.x, c.y - 20, 60, 0x9d4dff, 6);
       }
+      return;
+    }
+    if (pick === 'beam') {
+      // 光線：自分からプレイヤーを通って端まで。激昂では90°回して2本目
+      s.act = 'beam';
+      const cx = e.x;
+      const cy = e.y - 30;
+      const p = this.player;
+      const fire = (angle: number, windup: number, last: boolean) => {
+        const t0 = this.gameNow;
+        const x2 = cx + Math.cos(angle) * A.beamLength;
+        const y2 = cy + Math.sin(angle) * A.beamLength;
+        this.pushTelegraph({
+          shape: { kind: 'line', x1: cx, y1: cy, x2, y2, half: A.beamHalfWidth },
+          startAt: t0, at: t0 + windup * 1000, damage: ARENA.telegraphDamage,
+          onFire: () => {
+            if (!e.active) return;
+            this.fxLine(cx, cy, x2, y2, A.beamHalfWidth * 1.4, 0xd0a0ff);
+            AudioBus.play('se_slash_heavy', 0, 'se_slash');
+            this.cameras.main.shake(140, 0.006);
+            if (last) { if (s.act === 'beam') { s.act = ''; s.timer = A.idleSec; } }
+            else fire(angle + Math.PI / 2 * (Math.random() < 0.5 ? 1 : -1), A.beamSecondWindupSec, true);
+          },
+        });
+      };
+      fire(Math.atan2(p.y - 12 - cy, p.x - cx), A.beamWindupSec, !s.enraged);
+      e.pose('cast', 0.6);
       return;
     }
     s.act = 'rain';
@@ -2620,10 +2678,11 @@ export class GameScene extends Phaser.Scene {
     const y1 = py - Math.sin(a) * L;
     const x2 = px + Math.cos(a) * L;
     const y2 = py + Math.sin(a) * L;
-    const at = now + (A.lineGapSec + A.lineWindupSec) * 1000;
+    const gap = s.enraged ? A.lineGapEnragedSec : A.lineGapSec;
+    const at = now + (gap + A.lineWindupSec) * 1000;
     this.pushTelegraph({
       shape: { kind: 'line', x1, y1, x2, y2, half: A.lineHalfWidth },
-      startAt: now + A.lineGapSec * 1000, at, damage: ARENA.telegraphDamage,
+      startAt: now + gap * 1000, at, damage: ARENA.telegraphDamage,
       onFire: () => {
         if (!e.active || s.act !== 'vanish') return;
         // 線の始点に現れて、終点まで駆け抜ける
@@ -2640,6 +2699,36 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  /** 雑音級の突進：今のプレイヤーの方向へ帯の予兆 → ダッシュ */
+  private gruntCharge(e: Enemy, now: number): void {
+    const A = ARENA.grunt;
+    const s = e.arena!;
+    const p = this.player;
+    const gx = e.x;
+    const gy = e.y;
+    const d = Math.hypot(p.x - gx, p.y - 12 - gy) || 1;
+    const nx = (p.x - gx) / d;
+    const ny = (p.y - 12 - gy) / d;
+    s.act = 'charge';
+    s.dirX = nx;
+    s.dirY = ny;
+    this.fxText(e.x, e.y - 160, '!!', '#FF4D6D');
+    // 突進の音は城兵級のもの（騎兵の音は合わない。2026-10-20 ユーザー指摘）
+    AudioBus.play('se_rook_charge', 300, 'se_knight_charge');
+    e.pose('hit', 0.3);
+    this.pushTelegraph({
+      shape: { kind: 'line', x1: gx, y1: gy, x2: gx + nx * A.chargeLength, y2: gy + ny * A.chargeLength, half: A.chargeHalfWidth },
+      startAt: now, at: now + A.chargeWindupSec * 1000, damage: ARENA.telegraphDamage,
+      onFire: () => {
+        if (!e.active || s.act !== 'charge') return;
+        s.act = 'dash';
+        s.speed = A.chargeSpeed;
+        s.t = A.chargeDurationSec;
+        this.cameras.main.shake(120, 0.005);
+      },
+    });
+  }
+
   /** 変異体・雑音級の行動を1つ始める */
   private startArenaAct(e: Enemy, now: number, dist: number, nx: number, ny: number): void {
     const A = ARENA.grunt;
@@ -2649,33 +2738,35 @@ export class GameScene extends Phaser.Scene {
     const gx = e.x;
     const gy = e.y;
     if (pick === 'charge') {
-      s.act = 'charge';
-      s.dirX = nx;
-      s.dirY = ny;
+      // 激昂：突進のあと狙い直してもう1本
+      s.tick = s.enraged ? 1 : 0;
+      this.gruntCharge(e, now);
+      return;
+    }
+    if (pick === 'stomp') {
+      s.act = 'stomp';
       this.fxText(e.x, e.y - 160, '!!', '#FF4D6D');
-      // 突進の音は城兵級のもの（騎兵の音は合わない。2026-10-20 ユーザー指摘）
-      AudioBus.play('se_rook_charge', 300, 'se_knight_charge');
-      e.pose('hit', 0.3);
+      AudioBus.play('se_rook_stomp', 0, 'se_boss');
       this.pushTelegraph({
-        shape: { kind: 'line', x1: gx, y1: gy, x2: gx + nx * A.chargeLength, y2: gy + ny * A.chargeLength, half: A.chargeHalfWidth },
-        startAt: now, at: now + A.chargeWindupSec * 1000, damage: ARENA.telegraphDamage,
+        shape: { kind: 'circle', x: gx, y: gy - 10, r: A.stompRadius },
+        startAt: now, at: now + A.stompWindupSec * 1000, damage: ARENA.telegraphDamage,
         onFire: () => {
-          if (!e.active || s.act !== 'charge') return;
-          s.act = 'dash';
-          s.speed = A.chargeSpeed;
-          s.t = A.chargeDurationSec;
-          this.cameras.main.shake(120, 0.005);
+          if (!e.active) return;
+          this.fxRing(gx, gy - 10, A.stompRadius, TELEGRAPH_COLOR, 10);
+          this.cameras.main.shake(180, 0.008);
+          if (s.act === 'stomp') { s.act = ''; s.timer = A.idleSec; }
         },
       });
       return;
     }
     if (pick === 'jump') {
       s.act = 'jump';
-      const n = A.jumpCount;
+      const n = s.enraged ? A.jumpCountEnraged : A.jumpCount;
       s.t = A.jumpWindupSec + (n - 1) * A.jumpGapSec + 0.35;
       this.fxText(e.x, e.y - 160, '!!', '#FF4D6D');
       // 進行方向（プレイヤーの方）に、半分の距離・プレイヤーの位置・その先、の順で3つ
-      const ds = [Math.max(140, dist * 0.5), Math.max(240, dist), Math.max(240, dist) + A.jumpSpacing];
+      const ds: number[] = [];
+      for (let i = 0; i < n; i++) ds.push(i === 0 ? Math.max(140, dist * 0.5) : Math.max(240, dist) + (i - 1) * A.jumpSpacing);
       ds.forEach((d, i) => {
         const c = { x: gx + nx * d, y: gy + ny * d };
         this.clampToArena(c, A.jumpRadius * 0.5);

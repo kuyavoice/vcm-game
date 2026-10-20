@@ -17,29 +17,37 @@ export const ARENA = {
   defaultSupports: ['route', 'patisserie'],
   /** 床のアーツ（チャーハンの帯・柵など）の濃さ。予兆と重なって見づらくならないように薄くする */
   zoneAlpha: 0.4,
+  /** 闘技場だけ：必殺ゲージが時間でも溜まる（この秒数で満タン。撃破分は従来どおり足す。2026-10-20 ユーザー案） */
+  specialChargeSec: 45,
   /** 最初の敵が出るまで・倒してから次が出るまでの秒数 */
   firstDelaySec: 2.5,
   gapSec: 4,
   /** 変異体の一覧（出る順）。base の絵を scale 倍にして使う。hp は固定（Lv40・アーツ Lv8 を想定） */
   bosses: [
-    { base: 'grunt' as EnemyId, kind: 'grunt', name: '変異体・雑音級', hp: 9000, scale: 8, hitRadius: 100, contactDamage: 10 },
-    { base: 'hunter' as EnemyId, kind: 'hunter', name: '変異体・狩人級', hp: 8000, scale: 8, hitRadius: 95, contactDamage: 10 },
-    { base: 'knight' as EnemyId, kind: 'knight', name: '変異体・騎士級', hp: 11000, scale: 5, hitRadius: 110, contactDamage: 14 },
-    { base: 'bishop' as EnemyId, kind: 'bishop', name: '変異体・司祭級', hp: 9000, scale: 6, hitRadius: 100, contactDamage: 10 },
+    // HP は 2026-10-20 の試遊（雪人・大剣構成で8体を 3:14、①〜④はほぼ被弾なし）を受けて引き上げ
+    { base: 'grunt' as EnemyId, kind: 'grunt', name: '変異体・雑音級', hp: 16000, scale: 8, hitRadius: 100, contactDamage: 10 },
+    { base: 'hunter' as EnemyId, kind: 'hunter', name: '変異体・狩人級', hp: 15000, scale: 8, hitRadius: 95, contactDamage: 10 },
+    { base: 'knight' as EnemyId, kind: 'knight', name: '変異体・騎士級', hp: 20000, scale: 5, hitRadius: 110, contactDamage: 14 },
+    { base: 'bishop' as EnemyId, kind: 'bishop', name: '変異体・司祭級', hp: 16000, scale: 6, hitRadius: 100, contactDamage: 10 },
     // ⑤⑥⑦は既存のボスをそのまま（最初から後半の行動）。闘技場向けの追加：城兵級＝岩の破片が倍・壁が崩れるときも破片／女王級＝横断するツタの壁／黒騎士＝速く、悪夢の黒騎士の専用技も使う
     { base: 'rook' as EnemyId, kind: 'rook', name: '城兵級', hp: 0, scale: 2, hitRadius: 110, contactDamage: 20, native: true, hpMul: 0.6 },
     { base: 'queen' as EnemyId, kind: 'queen', name: '女王級', hp: 0, scale: 2, hitRadius: 110, contactDamage: 20, native: true, hpMul: 0.7 },
     { base: 'blackknight' as EnemyId, kind: 'blackknight', name: '黒騎士', hp: 0, scale: 2, hitRadius: 130, contactDamage: 20, native: true, hpMul: 0.9 },
-    { base: 'redknight' as EnemyId, kind: 'redknight', name: '悪夢の黒騎士・変異体', hp: 14000, scale: 2, hitRadius: 130, contactDamage: 20 },
+    { base: 'redknight' as EnemyId, kind: 'redknight', name: '悪夢の黒騎士・変異体', hp: 18000, scale: 2, hitRadius: 130, contactDamage: 20 },
   ] as ArenaBossEntry[],
   /** ①変異体・雑音級：突進／飛び跳ね3連／全体ばらまき */
   grunt: {
     walkSpeed: 90,
     keepDistance: 140,
     /** 出現してから最初の行動までと、行動のあとの間 */
-    firstActDelaySec: 2.0,
-    idleSec: 1.4,
-    weights: { charge: 3, jump: 3, scatter: 2 } as Readonly<Record<string, number>>,
+    firstActDelaySec: 1.5,
+    idleSec: 0.9,
+    weights: { charge: 3, jump: 3, scatter: 2, stomp: 2 } as Readonly<Record<string, number>>,
+    /** 踏み鳴らし：自分の周りの円（近づきすぎを罰する） */
+    stompWindupSec: 0.75,
+    stompRadius: 270,
+    /** 激昂：飛び跳ねが5連、突進は狙い直して2本目 */
+    jumpCountEnraged: 5,
     /** 突進：帯の予兆 → ダッシュ */
     chargeWindupSec: 0.9,
     chargeLength: 760,
@@ -68,9 +76,12 @@ export const ARENA = {
   hunter: {
     walkSpeed: 150,
     keepDistance: 170,
-    firstActDelaySec: 2.0,
-    idleSec: 1.2,
+    firstActDelaySec: 1.5,
+    idleSec: 0.8,
     weights: { vanish: 3, crescent: 3, wave: 2 } as Readonly<Record<string, number>>,
+    weightsEnraged: { vanish: 3, crescent: 2, wave: 4 } as Readonly<Record<string, number>>,
+    /** 激昂：姿を消している時間が短い */
+    lineGapEnragedSec: 0.25,
     /** 姿消し：直線は1回の行動で lines 本（1本ずつ）。帯はプレイヤーの位置を通って闘技場を横断する。HP半分以下（激昂）で3本（2026-10-20 ユーザー指定） */
     vanishLines: 2,
     vanishLinesEnraged: 3,
@@ -96,9 +107,16 @@ export const ARENA = {
   knight: {
     walkSpeed: 70,
     keepDistance: 150,
-    firstActDelaySec: 2.0,
-    idleSec: 1.5,
-    weights: { baum: 3, lance: 3 } as Readonly<Record<string, number>>,
+    firstActDelaySec: 1.5,
+    idleSec: 1.0,
+    weights: { baum: 3, lance: 3, sweep: 2 } as Readonly<Record<string, number>>,
+    /** 薙ぎ払い：正面の半円 → 背面の半円 */
+    sweepWindupSec: 0.9,
+    sweepSecondWindupSec: 0.6,
+    sweepRadius: 340,
+    sweepHalfDeg: 90,
+    /** 激昂：ランスは3本（狙い直し） */
+    lanceCountEnraged: 3,
     /** バームクーヘン：内側の円 → 外側の輪の順に、段階的に発動（外へ逃げるか、発動済みの内側へ入るかの読み合い）。激昂で1段増える */
     baumWindupSec: 0.9,
     baumGapSec: 0.45,
@@ -114,9 +132,14 @@ export const ARENA = {
   bishop: {
     walkSpeed: 80,
     keepDistance: 260,
-    firstActDelaySec: 2.0,
-    idleSec: 1.4,
-    weights: { shadows: 3, rain: 3 } as Readonly<Record<string, number>>,
+    firstActDelaySec: 1.5,
+    idleSec: 0.9,
+    weights: { shadows: 3, rain: 3, beam: 2 } as Readonly<Record<string, number>>,
+    /** 光線：自分からプレイヤーを通って闘技場の端まで。激昂では90°回して2本目 */
+    beamWindupSec: 1.0,
+    beamLength: 1300,
+    beamHalfWidth: 60,
+    beamSecondWindupSec: 0.5,
     /** 影：左右 shadowOffset の位置に出る。倒せる（HP）。寿命が来ると消える。プレイヤーへ3連の扇で連射 */
     shadowOffset: 190,
     shadowHp: 600,
