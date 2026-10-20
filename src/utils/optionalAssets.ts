@@ -56,6 +56,13 @@ export const OPTIONAL_IMAGES: Record<string, string> = {
   relax_ritsuka_smile: 'assets/images/room/ritsuka_relax_smile.webp',
   relax_shion: 'assets/images/room/shion_relax.webp',
   relax_shion_smile: 'assets/images/room/shion_relax_smile.webp',
+  // ランクのエンブレム（2026-10-20。GPT image の 3×2 シートを make_rank.py で分割・透過。約390×280・各10〜23KB）。無ければ文字のスタンプ
+  rank_sss: 'assets/images/rank/rank_sss.webp',
+  rank_ss: 'assets/images/rank/rank_ss.webp',
+  rank_s: 'assets/images/rank/rank_s.webp',
+  rank_a: 'assets/images/rank/rank_a.webp',
+  rank_b: 'assets/images/rank/rank_b.webp',
+  rank_c: 'assets/images/rank/rank_c.webp',
 };
 
 // ギャラリーの絵（存在確認だけ。読み込みはギャラリー画面で、解放済みのものだけ）

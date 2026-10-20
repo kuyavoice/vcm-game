@@ -9,7 +9,7 @@ import { RUSH_STAGE } from '../data/rush';
 import { unlockSecret } from '../utils/unlock';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, isStageUnlocked } from '../utils/storage';
-import { rankName } from '../data/ranks';
+import { rankName, rankImageKey, type RankName } from '../data/ranks';
 import { SelectGuard } from '../ui/SelectGuard';
 import { makeButton } from '../ui/Button';
 import { go, wipeIn, panel } from '../ui/theme';
@@ -127,10 +127,18 @@ export class StageSelectScene extends Phaser.Scene {
       if (best) {
         const mm = Math.floor(best.timeSec / 60).toString().padStart(2, '0');
         const ss = Math.floor(best.timeSec % 60).toString().padStart(2, '0');
-        const bestText = this.add.text(cardW / 2 - 20, cardH / 2 - (tight ? 8 : 16), (best.rank ? `RANK ${best.rank}   ` : '') + (best.rush ? `BEST  ${mm}:${ss}   MAX  ${best.loop} LOOP` : best.loop !== undefined ? `BEST  ${mm}:${ss}  LOOP ${best.loop}` : best.score !== undefined ? `BEST  ${best.score.toLocaleString()} pt  ${mm}:${ss}` : `BEST  ✕ ${best.kills}  ${mm}:${ss}${best.cleared ? '  CLEAR' : ''}`), {
+        const rkKey = best.rank ? rankImageKey(best.rank as RankName) : '';
+        const useImg = !!rkKey && this.textures.exists(rkKey);
+        const bestText = this.add.text(cardW / 2 - 20, cardH / 2 - (tight ? 8 : 16), (best.rank && !useImg ? `RANK ${best.rank}   ` : '') + (best.rush ? `BEST  ${mm}:${ss}   MAX  ${best.loop} LOOP` : best.loop !== undefined ? `BEST  ${mm}:${ss}  LOOP ${best.loop}` : best.score !== undefined ? `BEST  ${best.score.toLocaleString()} pt  ${mm}:${ss}` : `BEST  ✕ ${best.kills}  ${mm}:${ss}${best.cleared ? '  CLEAR' : ''}`), {
           fontFamily: FONT_EN, fontSize: '16px', color: best.cleared ? COLOR_HEX.gold : COLOR_HEX.accent, fontStyle: '700',
         }).setOrigin(1, 1);
         cont.add(bestText);
+        if (useImg) {
+          // ランクのエンブレム（2026-10-20）：BEST の左に小さく
+          const img = this.add.image(bestText.x - bestText.width - 10, bestText.y + 3, rkKey).setOrigin(1, 1);
+          img.setScale((tight ? 24 : 28) / img.height);
+          cont.add(img);
+        }
       }
     } else {
       const lock = this.add.text(-cardW / 2 + 32, -cardH / 2 + (tight ? 82 : 100), st.scoreMode && !st.endless ? '全ステージをクリアで解放' : st.unlockAfter === SCORE_STAGE.id ? 'スコアアタックをクリアで解放' : `STAGE ${st.unlockAfter} をクリアで解放`, {

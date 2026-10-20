@@ -6,7 +6,9 @@ export const RANK_NAMES = ['SSS', 'SS', 'S', 'A', 'B', 'C'] as const;
 export type RankName = (typeof RANK_NAMES)[number];
 
 /** スタンプの地色（文字は暗色） */
-export const RANK_COLORS: Record<RankName, string> = { SSS: '#FFD700', SS: '#C8D0E0', S: '#87CEEB', A: '#FFFFFF', B: '#FFFFFF', C: '#9AA3B8' };
+export const RANK_COLORS: Record<RankName, string> = { SSS: '#E6B3FF', SS: '#E8EEF8', S: '#FFD700', A: '#C0C8D0', B: '#C8865A', C: '#8A9099' };
+/** エンブレム画像のテクスチャキー（utils/optionalAssets.ts。無いときは文字のスタンプ） */
+export const rankImageKey = (name: RankName) => `rank_${name.toLowerCase()}`;
 
 /** セーブ・集計で持つ数（大きいほど上）：SSS=6 … C=1、無し=0 */
 export function rankValue(name: RankName | null): number {

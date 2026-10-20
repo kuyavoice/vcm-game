@@ -17,7 +17,7 @@ import { GALLERY, galleryKey } from '../data/gallery';
 import { ENDLESS, ENDLESS_STAGE, endlessTitle, endlessLoop } from '../data/endless';
 import { RUSH, RUSH_STAGE, rushTitle, fmtTime } from '../data/rush';
 import { addRunStats } from '../utils/stats';
-import { rankOf, rankValue, RANK_COLORS } from '../data/ranks';
+import { rankOf, rankValue, RANK_COLORS, rankImageKey } from '../data/ranks';
 
 export interface RunResult {
   characterId: string;
@@ -336,10 +336,19 @@ export class ResultScene extends Phaser.Scene {
     }
     // ランクのスタンプ（パネル左上。NEW BEST と対）。2026-10-19
     if (rankMark) {
-      const rs = this.add.text(panel.x + 14, py - 14, `RANK ${rankMark}`, {
-        fontFamily: FONT_EN, fontSize: '22px', color: '#060913', backgroundColor: RANK_COLORS[rankMark], fontStyle: '700', padding: { x: 10, y: 2 }, letterSpacing: 2,
-      }).setOrigin(0, 1).setAngle(-4).setScale(2.2).setAlpha(0);
-      this.tweens.add({ targets: rs, scale: 1, alpha: 1, duration: 200, delay: isBest ? 1400 : 1000, ease: 'Quad.in' });
+      const rkKey = rankImageKey(rankMark);
+      if (this.textures.exists(rkKey)) {
+        // エンブレム画像（2026-10-20）。パネルの左上に、少し重ねて置く
+        const img = this.add.image(panel.x + 8, py - 4, rkKey).setOrigin(0, 1).setAlpha(0);
+        const sc = 84 / img.height;
+        img.setScale(sc * 2.2);
+        this.tweens.add({ targets: img, scale: sc, alpha: 1, duration: 200, delay: isBest ? 1400 : 1000, ease: 'Quad.in' });
+      } else {
+        const rs = this.add.text(panel.x + 14, py - 14, `RANK ${rankMark}`, {
+          fontFamily: FONT_EN, fontSize: '22px', color: '#060913', backgroundColor: RANK_COLORS[rankMark], fontStyle: '700', padding: { x: 10, y: 2 }, letterSpacing: 2,
+        }).setOrigin(0, 1).setAngle(-4).setScale(2.2).setAlpha(0);
+        this.tweens.add({ targets: rs, scale: 1, alpha: 1, duration: 200, delay: isBest ? 1400 : 1000, ease: 'Quad.in' });
+      }
     }
 
     // 共有：画像を保存（Web Share → ダウンロード）／Xにポスト

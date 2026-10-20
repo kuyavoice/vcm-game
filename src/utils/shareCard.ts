@@ -131,18 +131,26 @@ export async function renderShareCard(r: RunResult): Promise<Blob | null> {
   // ランクのスタンプ（パネルの左上に乗せる）。2026-10-19
   const rk = rankOf(r);
   if (rk) {
-    g.textAlign = 'left';
-    g.font = en(40);
-    const label = `RANK ${rk}`;
-    const tw = g.measureText(label).width + 40;
-    g.save();
-    g.translate(px + 8, py - 12);
-    g.rotate(-0.06);
-    g.fillStyle = RANK_COLORS[rk];
-    g.fillRect(0, -56, tw, 60);
-    g.fillStyle = '#060913';
-    g.fillText(label, 20, -50);
-    g.restore();
+    // エンブレム画像（2026-10-20）。無ければ文字のスタンプ
+    const emblem = await loadImage(`assets/images/rank/rank_${rk.toLowerCase()}.webp`);
+    if (emblem) {
+      const eh = 156;
+      const ew = emblem.width * eh / emblem.height;
+      g.drawImage(emblem, px + 2, py - 8 - eh, ew, eh);
+    } else {
+      g.textAlign = 'left';
+      g.font = en(40);
+      const label = `RANK ${rk}`;
+      const tw = g.measureText(label).width + 40;
+      g.save();
+      g.translate(px + 8, py - 12);
+      g.rotate(-0.06);
+      g.fillStyle = RANK_COLORS[rk];
+      g.fillRect(0, -56, tw, 60);
+      g.fillStyle = '#060913';
+      g.fillText(label, 20, -50);
+      g.restore();
+    }
   }
   const mm = Math.floor(r.timeSec / 60).toString().padStart(2, '0');
   const ss = Math.floor(r.timeSec % 60).toString().padStart(2, '0');
