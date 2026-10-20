@@ -258,7 +258,7 @@ export class ResultScene extends Phaser.Scene {
     const px = W * 0.58;
     const py = H * 0.27;
     // 下にビルドの一覧を置くので、行の間隔を詰める（スコアアタックは1行多い）
-    const rowCount = r.score !== undefined ? 8 : 7;
+    const rowCount = r.score !== undefined || stage.arena ? 8 : 7; // 闘技場は REACHED の行が増える
     // ボスラッシュは、下にボスごとの撃破時刻を1行足すので、行の間隔を詰める
     const pitch = rowCount >= 8 || rush ? 48 : 52;
     const panelH = 20 + rowCount * pitch;

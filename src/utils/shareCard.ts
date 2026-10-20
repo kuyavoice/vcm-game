@@ -123,8 +123,9 @@ export async function renderShareCard(r: RunResult): Promise<Blob | null> {
   const py = H * 0.34;
   const pw = W * 0.40;
   const hasScore = r.score !== undefined;
-  const pitch = hasScore ? 72 : 80;
-  const ph = 28 + (hasScore ? 8 : 7) * pitch;
+  const extraRow = hasScore || !!stage.arena; // 闘技場は REACHED の行が増える
+  const pitch = extraRow ? 72 : 80;
+  const ph = 28 + (extraRow ? 8 : 7) * pitch;
   g.fillStyle = 'rgba(11,16,38,0.88)';
   g.fillRect(px, py, pw, ph);
   g.strokeStyle = accent; g.lineWidth = 3;
