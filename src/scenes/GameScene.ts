@@ -167,6 +167,9 @@ export class GameScene extends Phaser.Scene {
   /** 予兆（systems/Telegraph.ts）。アーツより上の層（bossGfx）に描く */
   private telegraphs: Telegraph[] = [];
   private arenaGfx?: Phaser.GameObjects.Graphics;
+  /** 闘技場の女王級：次のツタまでの秒数と、縦横の交互 */
+  private arenaVineTimer = 0;
+  private arenaVineVertical = false;
   private fullMoon = false;
   private enemySpeedMul = 1;
 
@@ -236,6 +239,8 @@ export class GameScene extends Phaser.Scene {
     this.moon = undefined;
     this.arena = { cx: 0, cy: 0, r: 0, wave: 0, nextAt: 0, startSec: 0, done: false };
     this.telegraphs = [];
+    this.arenaVineTimer = 0;
+    this.arenaVineVertical = false;
   }
 
   create(): void {
@@ -944,7 +949,7 @@ export class GameScene extends Phaser.Scene {
     if (this.walls.length) this.updateWalls(now);
     this.updatePollens(dt, now);
     this.updateCage(now);
-    if (this.stage.arena) this.drawArenaEdge(now);
+    if (this.stage.arena) { this.drawArenaEdge(now); this.updateArenaVines(dt, now); }
     this.updateTelegraphs(now);
 
     for (let i = 0; i < enemies.length; i++) {
@@ -1096,6 +1101,8 @@ export class GameScene extends Phaser.Scene {
       e.kbx *= 0.82;
       e.kby *= 0.82;
       e.setFlipX(nx < 0);
+      // 闘技場：既存のボスも中に留める
+      if (this.stage.arena && def.boss) this.clampToArena(e, e.radius * 0.6);
 
       // 押し合い（同セル内のみ）
       const cell = this.hash.sameCell(e);
@@ -1128,7 +1135,7 @@ export class GameScene extends Phaser.Scene {
     const p = this.player;
     // 赤騎士：行動の間隔が短く、突進が速い。光の色は赤
     const red = e.def.id === 'redknight';
-    const tempo = (red ? CONFIG.redKnight.tempoMul : 1) / this.bossIdleMul();
+    const tempo = ((red ? CONFIG.redKnight.tempoMul : 1) * (this.stage.arena && !red ? ARENA.blackknight.tempoMul : 1)) / this.bossIdleMul();
     const glow = red ? 0xff2244 : 0x9d4dff;
     // 赤騎士の激昂（50%を切った瞬間）：短い無敵のあと、専用の技を使い始める
     if (red && !b.enraged && e.hp <= e.maxHp * CONFIG.redKnight.enrageAt) {
@@ -1210,7 +1217,7 @@ export class GameScene extends Phaser.Scene {
       return { mx: 0, my: 0, spd: 0 };
     }
     // 赤騎士の専用技（激昂後）：一定の間隔で1つ選んで使う
-    if (red && b.enraged && b.slashWindup <= 0 && b.rush === 0 && !b.rushCharge) {
+    if ((red || this.stage.arena) && b.enraged && b.slashWindup <= 0 && b.rush === 0 && !b.rushCharge) {
       b.exTimer -= dt;
       if (b.exTimer <= 0) {
         this.startKnightEx(e, now);
@@ -1294,7 +1301,7 @@ export class GameScene extends Phaser.Scene {
 
     if (now > b.animLock && e.anims.currentAnim?.key !== `anim_e_${e.def.id}`) e.play(`anim_e_${e.def.id}`, true);
     // 後半は少し速く詰める（弾幕は突進直後の追撃に移した）
-    return { mx: nx, my: ny, spd: e.def.speed * (b.phase === 2 ? CONFIG.blackKnight.phase2SpeedMul : 1) };
+    return { mx: nx, my: ny, spd: e.def.speed * (b.phase === 2 ? CONFIG.blackKnight.phase2SpeedMul : 1) * (this.stage.arena && !red ? ARENA.blackknight.speedMul : 1) };
   }
 
   /**
@@ -1816,7 +1823,7 @@ export class GameScene extends Phaser.Scene {
   // ─────────────────────────── 城兵級・女王級（追補パッチ⑪） ───────────────────────────
 
   /** 岩壁（城兵級）。線分＋半幅。敵もプレイヤーも通れない。攻撃は通る */
-  private walls: { x1: number; y1: number; x2: number; y2: number; half: number; until: number; imgs: Phaser.GameObjects.Image[] }[] = [];
+  private walls: { x1: number; y1: number; x2: number; y2: number; half: number; until: number; imgs: Phaser.GameObjects.Image[]; vine?: boolean; broken?: boolean }[] = [];
   /** 毒の粉（女王級の鱗粉）。from から効き始める */
   private pollens: { x: number; y: number; r: number; from: number; until: number }[] = [];
   /** 吹き飛ばされている速さ（城兵級の踏み鳴らし） */
@@ -1961,7 +1968,10 @@ export class GameScene extends Phaser.Scene {
     const cx = (w.x1 + w.x2) / 2;
     const cy = (w.y1 + w.y2) / 2;
     const spin = Math.random() * Math.PI * 2;
-    for (let k = 0; k < R.shardCount; k++) this.fireEnemyBullet(cx, cy - 10, spin + (k / R.shardCount) * Math.PI * 2, R.shardSpeed, R.shardLifeSec, R.shardDamage, 0x40e0ff);
+    // 闘技場では破片が倍（2026-10-20 ユーザー案）
+    const n = this.stage.arena ? R.shardCount * ARENA.rook.shardMul : R.shardCount;
+    for (let k = 0; k < n; k++) this.fireEnemyBullet(cx, cy - 10, spin + (k / n) * Math.PI * 2, R.shardSpeed, R.shardLifeSec, R.shardDamage, 0x40e0ff);
+    w.broken = true;
     this.fxRing(cx, cy, 90, 0x40e0ff, 6);
     AudioBus.play('se_rook_wall_break', 120, 'se_break');
     this.cameras.main.shake(140, 0.007);
@@ -2103,17 +2113,88 @@ export class GameScene extends Phaser.Scene {
     o.y = cy + (dy / d) * max - oy;
   }
 
+  /** 闘技場の女王級：一定間隔で、プレイヤーの位置を通って横断するツタの壁。帯の予兆 → 発動で壁になる（通れない）。描画もここ */
+  private updateArenaVines(dt: number, now: number): void {
+    const g = this.bossGfx;
+    // 描画（通れないツタ。崩れる前は点滅）
+    for (const w of this.walls) {
+      if (!w.vine) continue;
+      const left = w.until - now;
+      const blink = left < 1000 && Math.floor(now / 90) % 2 === 0 ? 0.45 : 1;
+      g.lineStyle(w.half * 2, 0x1f4a1f, 0.85 * blink);
+      g.lineBetween(w.x1, w.y1, w.x2, w.y2);
+      g.lineStyle(w.half, 0x3cb043, 0.8 * blink);
+      g.lineBetween(w.x1, w.y1, w.x2, w.y2);
+      // 棘
+      const dx = w.x2 - w.x1;
+      const dy = w.y2 - w.y1;
+      const len = Math.hypot(dx, dy) || 1;
+      const px = (-dy / len) * (w.half + 10);
+      const py = (dx / len) * (w.half + 10);
+      g.lineStyle(3, 0x7cff8a, 0.7 * blink);
+      for (let t = 0.04; t < 1; t += 0.08) {
+        const x = w.x1 + dx * t;
+        const y = w.y1 + dy * t;
+        const s = Math.floor(t * 12.5) % 2 === 0 ? 1 : -1;
+        g.lineBetween(x, y, x + px * s, y + py * s);
+      }
+    }
+    const q = this.bosses.find((b) => b.active && b.def.bossKind === 'queen');
+    if (!q || q.bossState.act === 'emerge') return;
+    const Q = ARENA.queen;
+    this.arenaVineTimer -= dt;
+    if (this.arenaVineTimer > 0) return;
+    this.arenaVineTimer = Q.vineEverySec;
+    const vertical = this.arenaVineVertical;
+    this.arenaVineVertical = !vertical;
+    const p = this.player;
+    const L = this.arena.r * 1.1;
+    const x1 = vertical ? p.x : this.arena.cx - L;
+    const y1 = vertical ? this.arena.cy - L : p.y;
+    const x2 = vertical ? p.x : this.arena.cx + L;
+    const y2 = vertical ? this.arena.cy + L : p.y;
+    this.hud.banner(`${q.def.name} —— 茨の横断`, '#FFC83D', 30);
+    AudioBus.play('se_queen_thrust', 0, 'se_boss');
+    this.pushTelegraph({
+      shape: { kind: 'line', x1, y1, x2, y2, half: Q.vineHalf },
+      startAt: now, at: now + Q.vineWindupSec * 1000, damage: ARENA.telegraphDamage,
+      onFire: () => {
+        this.walls.push({ x1, y1, x2, y2, half: Q.vineHalf, until: this.gameNow + Q.vineSec * 1000, imgs: [], vine: true });
+        this.cameras.main.shake(160, 0.006);
+        // 生えた瞬間に中にいたら、外へ押し出される（pushOutOfWalls が毎フレーム行う）
+      },
+    });
+  }
+
   /** 次の変異体を出す（上の縁の近く）。HPは data/arena.ts の固定値 */
   private spawnArenaBoss(): void {
-    const def = arenaBossDef(this.arena.wave);
+    const entry = ARENA.bosses[Math.min(this.arena.wave, ARENA.bosses.length - 1)];
     const a = -Math.PI / 2 + (Math.random() - 0.5) * 0.6;
+    if (entry.native) {
+      // 既存のボスをそのまま出す（最初から後半の行動）。動かない女王級は中心の少し上
+      const nd = ENEMIES[entry.base];
+      const x = nd.fixed ? this.arena.cx : this.arena.cx + Math.cos(a) * this.arena.r * 0.7;
+      const y = nd.fixed ? this.arena.cy - this.arena.r * 0.4 : this.arena.cy + Math.sin(a) * this.arena.r * 0.7;
+      const ne = this.enemies.get(x, y) as Enemy | null;
+      if (!ne) return;
+      ne.spawn(nd, x, y, 1);
+      this.spawner.bossActive = true;
+      this.onBossSpawn(ne, entry.hpMul ?? 1, 0, 1, true);
+      // 黒騎士：悪夢の黒騎士の専用技を最初から使う
+      if (entry.base === 'blackknight') { ne.bk.enraged = true; ne.bk.exTimer = CONFIG.redKnight.exEverySec; }
+      if (entry.base === 'queen') { this.arenaVineTimer = ARENA.queen.vineEverySec * 0.6; this.arenaVineVertical = false; }
+      if (this.arena.wave === 0) this.arena.startSec = this.elapsed;
+      this.arena.nextAt = Infinity;
+      return;
+    }
+    const def = arenaBossDef(this.arena.wave);
     const x = this.arena.cx + Math.cos(a) * this.arena.r * 0.7;
     const y = this.arena.cy + Math.sin(a) * this.arena.r * 0.7;
     const e = this.enemies.get(x, y) as Enemy | null;
     if (!e) return;
     e.spawn(def, x, y, 1);
     const kind = ARENA.bosses[Math.min(this.arena.wave, ARENA.bosses.length - 1)].kind;
-    const common = kind === 'hunter' ? ARENA.hunter : kind === 'knight' ? ARENA.knight : kind === 'bishop' ? ARENA.bishop : ARENA.grunt;
+    const common = kind === 'hunter' ? ARENA.hunter : kind === 'knight' ? ARENA.knight : kind === 'bishop' ? ARENA.bishop : kind === 'redknight' ? ARENA.redknight : ARENA.grunt;
     e.arena = { kind, act: '', t: 0, timer: common.firstActDelaySec, last: '', dirX: 0, dirY: 0, tick: 0, speed: 0, n: 0, enraged: false };
     this.spawner.bossActive = true;
     this.boss = e;
@@ -2171,7 +2252,7 @@ export class GameScene extends Phaser.Scene {
     const s = e.arena!;
     const A = ARENA.grunt;
     const p = this.player;
-    const C = s.kind === 'hunter' ? ARENA.hunter : s.kind === 'knight' ? ARENA.knight : s.kind === 'bishop' ? ARENA.bishop : ARENA.grunt;
+    const C = s.kind === 'hunter' ? ARENA.hunter : s.kind === 'knight' ? ARENA.knight : s.kind === 'bishop' ? ARENA.bishop : s.kind === 'redknight' ? ARENA.redknight : ARENA.grunt;
     // 司祭級の影（砲台）：その場でプレイヤーへ連射し、寿命で消える
     if (s.kind === 'shadow') {
       const B = ARENA.bishop;
@@ -2232,7 +2313,7 @@ export class GameScene extends Phaser.Scene {
     } else if (s.act === 'shadows') {
       s.t -= dt;
       if (s.t <= 0) { s.act = ''; s.timer = C.idleSec; }
-    } else if (s.act === 'vanish' || s.act === 'crescent' || s.act === 'baum' || s.act === 'lance') {
+    } else if (s.act === 'vanish' || s.act === 'crescent' || s.act === 'baum' || s.act === 'lance' || s.act === 'fan' || s.act === 'triple') {
       // 予兆の間：止まる（発動は予兆の onFire）。姿消し中は薄い
       if (s.act === 'vanish') e.setAlpha(0.12 + Math.sin(now / 60) * 0.05);
     } else if (s.act === 'wave') {
@@ -2288,6 +2369,7 @@ export class GameScene extends Phaser.Scene {
         if (s.kind === 'hunter') this.startHunterAct(e, now, dist, nx, ny);
         else if (s.kind === 'knight') this.startKnightArenaAct(e, now, dist, nx, ny);
         else if (s.kind === 'bishop') this.startBishopArenaAct(e, now);
+        else if (s.kind === 'redknight') this.startRedKnightArenaAct(e, now, dist, nx, ny);
         else this.startArenaAct(e, now, dist, nx, ny);
       }
     }
@@ -2406,6 +2488,87 @@ export class GameScene extends Phaser.Scene {
       });
     };
     thrust(Math.atan2(ny, nx), A.lanceWindupSec, !s.enraged);
+  }
+
+  /** 悪夢の黒騎士・変異体の行動を1つ始める：扇（どこまでも）／突進／放射の線 */
+  private startRedKnightArenaAct(e: Enemy, now: number, _dist: number, nx: number, ny: number): void {
+    const A = ARENA.redknight;
+    const s = e.arena!;
+    const pick = this.pickAct(A.weights, s.last);
+    s.last = pick;
+    this.fxText(e.x, e.y - 190, '!!', '#FF4D6D');
+    const cx = e.x;
+    const cy = e.y - 40;
+    if (pick === 'fan') {
+      s.act = 'fan';
+      e.play(`anim_e_${e.def.id}_windup`, true);
+      AudioBus.play('se_redknight_moon', 0, 'se_boss');
+      const half = Phaser.Math.DegToRad(A.fanHalfDeg);
+      const swing = (angle: number, windup: number, last: boolean) => {
+        const t0 = this.gameNow;
+        this.pushTelegraph({
+          shape: { kind: 'sector', x: cx, y: cy, r: A.fanLength, angle, halfArc: half },
+          startAt: t0, at: t0 + windup * 1000, damage: ARENA.telegraphDamage,
+          onFire: () => {
+            if (!e.active) return;
+            this.fxSlash(cx, cy, 520, 0xff2244, angle, A.fanHalfDeg * 2, false);
+            AudioBus.play('se_slash_heavy', 0, 'se_slash');
+            this.cameras.main.shake(180, 0.007);
+            e.play(`anim_e_${e.def.id}_slash`, true);
+            e.setFlipX(Math.cos(angle) < 0);
+            if (last) { if (s.act === 'fan') { s.act = ''; s.timer = A.idleSec; e.playLoop(); } }
+            else swing(angle + Phaser.Math.DegToRad(A.fanSecondTurnDeg) * (Math.random() < 0.5 ? 1 : -1), A.fanSecondWindupSec, true);
+          },
+        });
+      };
+      swing(Math.atan2(ny, nx), A.fanWindupSec, !s.enraged);
+      return;
+    }
+    if (pick === 'charge') {
+      s.act = 'charge';
+      s.dirX = nx;
+      s.dirY = ny;
+      e.play(`anim_e_${e.def.id}_windup`, true);
+      AudioBus.play('se_knight_charge', 300);
+      this.pushTelegraph({
+        shape: { kind: 'line', x1: e.x, y1: e.y, x2: e.x + nx * A.chargeLength, y2: e.y + ny * A.chargeLength, half: A.chargeHalfWidth },
+        startAt: now, at: now + A.chargeWindupSec * 1000, damage: ARENA.telegraphDamage,
+        onFire: () => {
+          if (!e.active || s.act !== 'charge') return;
+          s.act = 'dash';
+          s.speed = A.chargeSpeed;
+          s.t = A.chargeDurationSec;
+          e.play(`anim_e_${e.def.id}`, true);
+          this.cameras.main.shake(120, 0.005);
+        },
+      });
+      return;
+    }
+    // 放射の線
+    s.act = 'triple';
+    e.play(`anim_e_${e.def.id}_windup`, true);
+    AudioBus.play('se_redknight_flame', 0, 'se_boss');
+    const n = s.enraged ? A.tripleLinesEnraged : A.tripleLines;
+    const base = Math.atan2(ny, nx);
+    for (let i = 0; i < n; i++) {
+      const a = base + (i / n) * Math.PI * 2;
+      const x2 = cx + Math.cos(a) * A.tripleLength;
+      const y2 = cy + Math.sin(a) * A.tripleLength;
+      this.pushTelegraph({
+        shape: { kind: 'line', x1: cx, y1: cy, x2, y2, half: A.tripleHalfWidth },
+        startAt: now, at: now + A.tripleWindupSec * 1000, damage: ARENA.telegraphDamage,
+        onFire: () => {
+          if (!e.active) return;
+          this.fxLine(cx, cy, x2, y2, A.tripleHalfWidth * 1.4, 0xff2244);
+          if (i === 0) {
+            AudioBus.play('se_slash_heavy', 0, 'se_slash');
+            this.cameras.main.shake(180, 0.007);
+            e.play(`anim_e_${e.def.id}_slash`, true);
+          }
+          if (i === n - 1 && s.act === 'triple') { s.act = ''; s.timer = A.idleSec; e.playLoop(); }
+        },
+      });
+    }
   }
 
   /** 変異体・司祭級の行動を1つ始める：影の砲台（左右）／小円の散布 */
@@ -2619,6 +2782,15 @@ export class GameScene extends Phaser.Scene {
         this.particles.setParticleTint(0x3d4256);
         this.particles.explode(5, img.x, img.y - 24);
         this.tweens.add({ targets: img, alpha: 0, scaleY: 0.3, duration: 220, onComplete: () => img.destroy() });
+      }
+      // 闘技場：岩壁が時間で崩れるときも破片が飛ぶ（壊した分は breakWall が出している）
+      if (this.stage.arena && ARENA.rook.expireShards && !all && !w.vine && !w.broken) {
+        const R = CONFIG.rook;
+        const cx = (w.x1 + w.x2) / 2;
+        const cy = (w.y1 + w.y2) / 2;
+        const spin = Math.random() * Math.PI * 2;
+        for (let k = 0; k < R.shardCount; k++) this.fireEnemyBullet(cx, cy - 10, spin + (k / R.shardCount) * Math.PI * 2, R.shardSpeed, R.shardLifeSec, R.shardDamage, 0x40e0ff);
+        this.fxRing(cx, cy, 70, 0x40e0ff, 5);
       }
       this.walls.splice(i, 1);
     }
@@ -3908,8 +4080,12 @@ export class GameScene extends Phaser.Scene {
       if (this.stage.arena) {
         this.bosses = this.bosses.filter((b) => b !== e);
         this.telegraphs.length = 0;
-        // 影（司祭級の砲台）も消す
+        // 影（司祭級の砲台）も消す。既存のボスの場（岩壁・ツタ・粉・檻・蕾）も片付ける
         for (const o of this.enemies.getChildren() as Enemy[]) if (o.active && o.arena && o.arena.kind === 'shadow') o.despawn();
+        this.clearBossField(def.bossKind);
+        this.updateWalls(this.gameNow, true);
+        this.hazards.length = 0;
+        this.cavalryWarnings.length = 0;
         this.arena.wave++;
         if (this.arena.wave < ARENA.bosses.length) {
           this.spawner.bossActive = false;

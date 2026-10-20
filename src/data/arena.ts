@@ -5,6 +5,9 @@ import { ENEMIES, type EnemyDef, type EnemyId } from './enemies';
 import type { StageDef } from './stages';
 import type { WaveBand } from './waves';
 
+/** 変異体の1体ぶん。native＝既存のボスの行動をそのまま使う（城兵級・女王級・黒騎士。闘技場向けの追加は GameScene 側で stage.arena を見て足す）。hpMul は (3000 + 400×Lv40) に掛ける */
+export interface ArenaBossEntry { base: EnemyId; kind: string; name: string; hp: number; scale: number; hitRadius: number; contactDamage: number; native?: boolean; hpMul?: number }
+
 export const ARENA = {
   /** 闘技場の半径（px）。縦 1280 の画面に収まる大きさ */
   radius: 560,
@@ -23,7 +26,12 @@ export const ARENA = {
     { base: 'hunter' as EnemyId, kind: 'hunter', name: '変異体・狩人級', hp: 8000, scale: 8, hitRadius: 95, contactDamage: 10 },
     { base: 'knight' as EnemyId, kind: 'knight', name: '変異体・騎士級', hp: 11000, scale: 5, hitRadius: 110, contactDamage: 14 },
     { base: 'bishop' as EnemyId, kind: 'bishop', name: '変異体・司祭級', hp: 9000, scale: 6, hitRadius: 100, contactDamage: 10 },
-  ],
+    // ⑤⑥⑦は既存のボスをそのまま（最初から後半の行動）。闘技場向けの追加：城兵級＝岩の破片が倍・壁が崩れるときも破片／女王級＝横断するツタの壁／黒騎士＝速く、悪夢の黒騎士の専用技も使う
+    { base: 'rook' as EnemyId, kind: 'rook', name: '城兵級', hp: 0, scale: 2, hitRadius: 110, contactDamage: 20, native: true, hpMul: 0.6 },
+    { base: 'queen' as EnemyId, kind: 'queen', name: '女王級', hp: 0, scale: 2, hitRadius: 110, contactDamage: 20, native: true, hpMul: 0.7 },
+    { base: 'blackknight' as EnemyId, kind: 'blackknight', name: '黒騎士', hp: 0, scale: 2, hitRadius: 130, contactDamage: 20, native: true, hpMul: 0.9 },
+    { base: 'redknight' as EnemyId, kind: 'redknight', name: '悪夢の黒騎士・変異体', hp: 14000, scale: 2, hitRadius: 130, contactDamage: 20 },
+  ] as ArenaBossEntry[],
   /** ①変異体・雑音級：突進／飛び跳ね3連／全体ばらまき */
   grunt: {
     walkSpeed: 90,
@@ -127,6 +135,38 @@ export const ARENA = {
     rainWindupSec: 0.8,
     rainRadius: 90,
   },
+  /** ⑧悪夢の黒騎士・変異体（2026-10-20 ユーザー案）：自分を始点に扇状にどこまでも広がる斬撃／突進／放射状の3本の線 */
+  redknight: {
+    walkSpeed: 110,
+    keepDistance: 170,
+    firstActDelaySec: 2.5,
+    idleSec: 1.3,
+    weights: { fan: 3, charge: 2, triple: 2 } as Readonly<Record<string, number>>,
+    /** 扇：闘技場の端まで届く（長さは半径より長い）。激昂では向きを変えて2回目 */
+    fanWindupSec: 1.1,
+    fanHalfDeg: 38,
+    fanLength: 1400,
+    fanSecondWindupSec: 0.7,
+    fanSecondTurnDeg: 100,
+    /** 突進（雑音級より速く長い） */
+    chargeWindupSec: 0.8,
+    chargeLength: 820,
+    chargeHalfWidth: 90,
+    chargeDurationSec: 0.55,
+    chargeSpeed: 1500,
+    /** 放射：自分を中心に等間隔の線。激昂で4本 */
+    tripleWindupSec: 1.0,
+    tripleLength: 1300,
+    tripleHalfWidth: 60,
+    tripleLines: 3,
+    tripleLinesEnraged: 4,
+  },
+  /** ⑤城兵級（既存の行動）：岩の破片の倍率と、壁が時間で崩れるときにも破片を出す */
+  rook: { shardMul: 2, expireShards: true },
+  /** ⑥女王級（既存の行動）：一定間隔で、プレイヤーの位置を通って闘技場を横断するツタの壁（通れない）。縦横交互 */
+  queen: { vineEverySec: 8, vineWindupSec: 1.2, vineHalf: 30, vineSec: 7 },
+  /** ⑦黒騎士（既存の行動）：速く、行動の間隔も短く。悪夢の黒騎士の専用技（新月／半月／漆黒の牙／漆黒の檻／闇の炎）も最初から使う */
+  blackknight: { speedMul: 1.4, tempoMul: 1.3 },
 };
 
 /** 司祭級の影（砲台）の定義。小さく・倒せる・触れない */
