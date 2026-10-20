@@ -2200,7 +2200,7 @@ export class GameScene extends Phaser.Scene {
         if (s.tick <= 0) {
           s.tick = A.scatterTickSec;
           for (let i = 0; i < A.scatterPerTick; i++) {
-            this.fireEnemyBullet(e.x, e.y - 30, Math.random() * Math.PI * 2, Phaser.Math.Between(A.scatterSpeedMin, A.scatterSpeedMax), 4, A.scatterDamage, TELEGRAPH_COLOR);
+            this.fireEnemyBullet(e.x, e.y - 30, Math.random() * Math.PI * 2, Phaser.Math.Between(A.scatterSpeedMin, A.scatterSpeedMax), 4, A.scatterDamage, A.scatterTint);
           }
         }
       }
@@ -2232,7 +2232,8 @@ export class GameScene extends Phaser.Scene {
       s.dirX = nx;
       s.dirY = ny;
       this.fxText(e.x, e.y - 160, '!!', '#FF4D6D');
-      AudioBus.play('se_knight_charge', 300);
+      // 突進の音は城兵級のもの（騎兵の音は合わない。2026-10-20 ユーザー指摘）
+      AudioBus.play('se_rook_charge', 300, 'se_knight_charge');
       e.pose('hit', 0.3);
       this.pushTelegraph({
         shape: { kind: 'line', x1: gx, y1: gy, x2: gx + nx * A.chargeLength, y2: gy + ny * A.chargeLength, half: A.chargeHalfWidth },
