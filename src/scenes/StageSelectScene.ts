@@ -6,7 +6,7 @@ import { SCORE_STAGE } from '../data/score';
 import { NIGHTMARE_STAGE, NIGHTMARE_AVAILABLE } from '../data/nightmare';
 import { ENDLESS_STAGE, isEndlessShown, endlessLoop } from '../data/endless';
 import { RUSH_STAGE } from '../data/rush';
-import { ARENA_STAGE } from '../data/arena';
+import { ARENA_STAGE, ARENA } from '../data/arena';
 import { unlockSecret } from '../utils/unlock';
 import { FONT_EN, FONT_JP, COLOR_HEX } from '../utils/fonts';
 import { loadSave, isStageUnlocked } from '../utils/storage';
@@ -18,8 +18,25 @@ import { t } from '../utils/lang';
 import { isJudge } from '../utils/unlock';
 import { AudioBus } from '../utils/audio';
 
+/** 1枚のカード（アコーディオン）。gfx は高さが変わるたびに描き直す */
+interface StageCard {
+  cont: Phaser.GameObjects.Container;
+  st: StageDef;
+  unlocked: boolean;
+  gfx: Phaser.GameObjects.Graphics;
+  hit: Phaser.GameObjects.Rectangle;
+  desc?: Phaser.GameObjects.Text;
+  hint?: Phaser.GameObjects.Text;
+  best?: Phaser.GameObjects.Text;
+  emblem?: Phaser.GameObjects.Image;
+  lock?: Phaser.GameObjects.Text;
+}
+
 /** ステージ選択（タイトル → ここ → ゲーム）。前ステージのクリアで解放 */
 export class StageSelectScene extends Phaser.Scene {
+  /** 前回選んだカード（同じ起動の間だけ覚える） */
+  static lastIndex = 0;
+
   constructor() {
     super('StageSelect');
   }
@@ -56,107 +73,156 @@ export class StageSelectScene extends Phaser.Scene {
     const debug = /[?&]debug(?:[&=]|$)/.test(location.search);
     // 審査モード（?judge）は全部開く（記録は保存しない。GameScene 側）
     const isOpen = (st: StageDef) => isJudge() || (st.endless && debug) || (st.scoreMode && !st.endless ? STAGES.every((x) => save.cleared.includes(x.id)) : isStageUnlocked(save, st.unlockAfter));
-    // 5枚のときは、見出しと下のボタンの間に収まる高さに詰める
-    const compact = allStages.length > 4;
-    const gap = allStages.length >= 7 ? 10 : compact ? 12 : 16;
+    // アコーディオン（2026-10-21 ユーザー承認）：8枚になって説明文が入らなくなったので、選んだ1枚だけ広がって説明と記録を見せる。もう一度タップで出撃
+    const n = allStages.length;
+    const gap = 8;
     const areaTop = H * 0.11 + 104;
-    const areaBottom = H - Math.max(90, H * 0.08) - 44;
-    const cardH = compact ? Math.min(176, Math.floor((areaBottom - areaTop - gap * (allStages.length - 1)) / allStages.length)) : 176;
-    const total = allStages.length * cardH + (allStages.length - 1) * gap;
-    let y = compact ? (areaTop + areaBottom) / 2 - total / 2 + cardH / 2 : H / 2 - total / 2 + cardH / 2 - 10;
-
-    allStages.forEach((st, i) => {
-      const unlocked = isOpen(st);
+    const areaBottom = H - Math.max(90, H * 0.08) - 40;
+    const extra = 100;
+    const hC = Phaser.Math.Clamp(Math.floor((areaBottom - areaTop - gap * (n - 1) - extra) / n), 64, 96);
+    const hE = hC + extra;
+    const cards: StageCard[] = [];
+    let selected = -1;
+    const bestOf = (st: StageDef) => {
       const top = save.endlessRanking[0];
       const rb = save.rushRanking[0];
       const best = st.rush ? (rb ? { kills: 0, timeSec: rb.timeSec, cleared: true, loop: save.rushMaxLoops?.loops ?? rb.loops, rush: true } : undefined) : st.endless ? (top ? { kills: top.kills, timeSec: top.timeSec, cleared: true, loop: endlessLoop(top.timeSec) } : undefined) : st.scoreMode ? (save.scoreRanking[0] ? { kills: save.scoreRanking[0].kills, timeSec: save.scoreRanking[0].timeSec, cleared: save.scoreRanking[0].cleared, score: save.scoreRanking[0].score } : undefined) : save.bests[String(st.id)];
       // 最高ランク（2026-10-19）
       const rk = rankName(save.ranks[String(st.id)]);
-      const cont = this.buildCard(st, unlocked, best ? { ...best, rank: rk } : undefined, cardW, cardH);
-      cont.setPosition(W / 2 + 40, y).setAlpha(0);
-      this.tweens.add({ targets: cont, alpha: 1, x: W / 2, duration: 220, delay: 60 * i, ease: 'Cubic.out' });
-
+      return best ? { ...best, rank: rk } : undefined;
+    };
+    const start = (st: StageDef) => {
+      // ボスラッシュと闘技場は、アーツを選ぶ画面を挟む
+      if (st.rush) go(this, 'RushSetup', { characterId });
+      else if (st.arena) go(this, 'RushSetup', { characterId, arena: true });
+      else go(this, 'Game', { characterId, stageId: st.id });
+    };
+    const layout = (animate: boolean) => {
+      const total = hC * (n - 1) + hE + gap * (n - 1);
+      let y = areaTop + Math.max(0, (areaBottom - areaTop - total) / 2);
+      cards.forEach((c, i) => {
+        const h = i === selected ? hE : hC;
+        this.redrawCard(c, h, i === selected, cardW);
+        if (animate) this.tweens.add({ targets: c.cont, y, duration: 180, ease: 'Cubic.out' });
+        else c.cont.y = y;
+        y += h + gap;
+      });
+    };
+    const select = (i: number) => {
+      if (selected === i || !cards[i]?.unlocked) return;
+      selected = i;
+      StageSelectScene.lastIndex = i;
+      layout(true);
+    };
+    allStages.forEach((st, i) => {
+      const unlocked = isOpen(st);
+      const c = this.buildCard(st, unlocked, bestOf(st), cardW, hC);
+      c.cont.setPosition(W / 2 + 40, 0).setAlpha(0);
+      cards.push(c);
       if (unlocked) {
-        const hit = cont.getByName('hit') as Phaser.GameObjects.Rectangle;
-        hit.on('pointerdown', () => { guard.press(hit); if (guard.armed) cont.setScale(0.98); });
-        hit.on('pointerup', () => {
-          cont.setScale(1);
-          if (!guard.release(hit)) return;
-          // ボスラッシュと闘技場は、アーツを選ぶ画面を挟む
-          if (st.rush) go(this, 'RushSetup', { characterId });
-          else if (st.arena) go(this, 'RushSetup', { characterId, arena: true });
-          else go(this, 'Game', { characterId, stageId: st.id });
+        c.hit.on('pointerdown', () => { guard.press(c.hit); if (guard.armed) c.cont.setScale(0.98); });
+        c.hit.on('pointerup', () => {
+          c.cont.setScale(1);
+          if (!guard.release(c.hit)) return;
+          // 1回目のタップは選ぶだけ。release() は一度きりなので reset で次のタップを受け付ける（キャラ選択と同じ）
+          if (selected !== i) { AudioBus.play('se_item', 60); select(i); guard.reset(); }
+          else start(st);
         });
       }
-      y += cardH + gap;
     });
+    // 最初に開くのは、前回選んだもの（解放済みに限る）
+    const remembered = cards[StageSelectScene.lastIndex]?.unlocked ? StageSelectScene.lastIndex : Math.max(0, cards.findIndex((c) => c.unlocked));
+    selected = remembered;
+    layout(false);
+    cards.forEach((c, i) => this.tweens.add({ targets: c.cont, alpha: 1, x: W / 2, duration: 220, delay: 50 * i, ease: 'Cubic.out' }));
 
     makeButton(this, W / 2, H - Math.max(90, H * 0.08), 'CHARACTER', () => go(this, 'CharaSelect'), { width: 260, height: 60, fontSize: 24 });
     this.add.text(W / 2, H * 0.11 + 78, `${CHARACTERS[characterId].name}`, { fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.accent, fontStyle: '700' }).setOrigin(0.5);
 
-    // PC：1〜3キー
+    // PC：数字キー（1回目で選択、もう一度で出撃）
     this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
-      const n = parseInt(ev.key, 10);
-      const st = allStages[n - 1];
+      const k = parseInt(ev.key, 10);
+      const st = allStages[k - 1];
       const ok = st && isOpen(st);
       if (!ok || !guard.confirm()) return;
-      if (st.rush) go(this, 'RushSetup', { characterId });
-      else if (st.arena) go(this, 'RushSetup', { characterId, arena: true });
-      else go(this, 'Game', { characterId, stageId: st.id });
+      if (selected !== k - 1) { select(k - 1); guard.reset(); }
+      else start(st);
     });
   }
 
-  private buildCard(st: StageDef, unlocked: boolean, best: { kills: number; timeSec: number; cleared: boolean; score?: number; loop?: number; rush?: boolean; rank?: string | null } | undefined, cardW: number, cardH: number): Phaser.GameObjects.Container {
-    // 6枚のときは、さらに詰める
-    const tight = cardH < 150;
+  /** カードの枠を今の高さで描き直し、広げた中身（説明・案内）の表示を切り替える */
+  private redrawCard(c: StageCard, h: number, selected: boolean, cardW: number): void {
+    c.gfx.destroy();
+    c.gfx = panel(this, -cardW / 2, 0, cardW, h, {
+      color: c.unlocked ? c.st.color : 0x3a4a8a, alpha: 1, stroke: selected ? 0xffd700 : undefined, strokeAlpha: selected ? 1 : c.unlocked ? 0.6 : 0.4, stripe: 10, shadow: true,
+    }).gfx;
+    c.cont.addAt(c.gfx, 0);
+    c.hit.setSize(cardW, h).setPosition(0, h / 2);
+    c.hit.input?.hitArea.setSize(cardW, h);
+    if (c.desc) {
+      c.desc.setVisible(selected);
+      if (selected) { c.desc.setAlpha(0); this.tweens.add({ targets: c.desc, alpha: 1, duration: 200, delay: 80 }); }
+    }
+    if (c.hint) {
+      c.hint.setVisible(selected).setY(h - 26);
+      if (selected) { c.hint.setAlpha(0); this.tweens.add({ targets: c.hint, alpha: 1, duration: 200, delay: 120 }); }
+    }
+    if (c.best) c.best.setY(h - 9);
+    if (c.emblem && c.best) c.emblem.setPosition(c.best.x - c.best.width - 10, c.best.y + 3);
+    if (c.lock) c.lock.setY(h - 9);
+  }
+
+  private buildCard(st: StageDef, unlocked: boolean, best: { kills: number; timeSec: number; cleared: boolean; score?: number; loop?: number; rush?: boolean; rank?: string | null } | undefined, cardW: number, h: number): StageCard {
     const cont = this.add.container(0, 0);
-    const card = panel(this, -cardW / 2, -cardH / 2, cardW, cardH, { color: unlocked ? st.color : 0x3a4a8a, alpha: 1, strokeAlpha: unlocked ? 0.9 : 0.5, stripe: 10, shadow: true }).gfx;
-    const nameEn = this.add.text(-cardW / 2 + 32, -cardH / 2 + (tight ? 10 : 18), st.nameEn, {
-      fontFamily: FONT_EN, fontSize: tight ? '17px' : '20px', color: unlocked ? Phaser.Display.Color.IntegerToColor(st.color).rgba : COLOR_HEX.dim, fontStyle: '700', letterSpacing: 4,
+    const gfx = panel(this, -cardW / 2, 0, cardW, h, { color: unlocked ? st.color : 0x3a4a8a, alpha: 1, strokeAlpha: unlocked ? 0.6 : 0.4, stripe: 10, shadow: true }).gfx;
+    const nameEn = this.add.text(-cardW / 2 + 30, 9, st.nameEn, {
+      fontFamily: FONT_EN, fontSize: '15px', color: unlocked ? Phaser.Display.Color.IntegerToColor(st.color).rgba : COLOR_HEX.dim, fontStyle: '700', letterSpacing: 3,
     });
-    const name = this.add.text(-cardW / 2 + 32, -cardH / 2 + (tight ? 32 : 44), st.name, {
-      fontFamily: FONT_JP, fontSize: tight ? '28px' : '34px', color: unlocked ? COLOR_HEX.white : '#5A6488', fontStyle: '700',
+    const name = this.add.text(-cardW / 2 + 30, 30, st.name, {
+      fontFamily: FONT_JP, fontSize: '26px', color: unlocked ? COLOR_HEX.white : '#5A6488', fontStyle: '700',
     });
-    cont.add([card, nameEn, name]);
+    cont.add([gfx, nameEn, name]);
+    const c: StageCard = { cont, st, unlocked, gfx, hit: this.add.rectangle(0, h / 2, cardW, h, 0xffffff, 0.001).setName('hit') };
 
     if (unlocked) {
-      const desc = this.add.text(-cardW / 2 + 32, -cardH / 2 + (tight ? 72 : 96), st.desc, {
-        fontFamily: FONT_JP, fontSize: tight ? '17px' : '19px', color: COLOR_HEX.white, wordWrap: { width: cardW - 64, useAdvancedWrap: true },
-      });
-      const mods = this.add.text(cardW / 2 - 20, -cardH / 2 + (tight ? 10 : 18), `HP ×${st.enemyHpMul}　SPD ×${st.enemySpeedMul}　NUM ×${st.spawnMul}${st.enemyDamageMul ? `　ATK ×${st.enemyDamageMul}` : ''}`, {
-        fontFamily: FONT_EN, fontSize: '16px', color: COLOR_HEX.dim, fontStyle: '700',
+      const mods = this.add.text(cardW / 2 - 18, 9, st.arena ? `${ARENA.bosses.length} BOSSES` : `HP ×${st.enemyHpMul}　SPD ×${st.enemySpeedMul}　NUM ×${st.spawnMul}${st.enemyDamageMul ? `　ATK ×${st.enemyDamageMul}` : ''}`, {
+        fontFamily: FONT_EN, fontSize: '13px', color: COLOR_HEX.dim, fontStyle: '700',
       }).setOrigin(1, 0);
-      cont.add([desc, mods]);
+      c.desc = this.add.text(-cardW / 2 + 30, 70, st.desc, {
+        fontFamily: FONT_JP, fontSize: '17px', color: COLOR_HEX.white, lineSpacing: 4, wordWrap: { width: cardW - 60, useAdvancedWrap: true },
+      }).setVisible(false);
+      c.hint = this.add.text(-cardW / 2 + 30, h - 26, t('もう一度タップで出撃', 'TAP AGAIN TO START'), {
+        fontFamily: FONT_JP, fontSize: '13px', color: COLOR_HEX.accent, fontStyle: '700',
+      }).setVisible(false);
+      cont.add([mods, c.desc, c.hint]);
       if (best) {
         const mm = Math.floor(best.timeSec / 60).toString().padStart(2, '0');
         const ss = Math.floor(best.timeSec % 60).toString().padStart(2, '0');
         const rkKey = best.rank ? rankImageKey(best.rank as RankName) : '';
         const useImg = !!rkKey && this.textures.exists(rkKey);
-        const bestText = this.add.text(cardW / 2 - 20, cardH / 2 - (tight ? 8 : 16), (best.rank && !useImg ? `RANK ${best.rank}   ` : '') + (best.rush ? `BEST  ${mm}:${ss}   MAX  ${best.loop} LOOP` : best.loop !== undefined ? `BEST  ${mm}:${ss}  LOOP ${best.loop}` : best.score !== undefined ? `BEST  ${best.score.toLocaleString()} pt  ${mm}:${ss}` : `BEST  ✕ ${best.kills}  ${mm}:${ss}${best.cleared ? '  CLEAR' : ''}`), {
-          fontFamily: FONT_EN, fontSize: '16px', color: best.cleared ? COLOR_HEX.gold : COLOR_HEX.accent, fontStyle: '700',
+        c.best = this.add.text(cardW / 2 - 18, h - 9, (best.rank && !useImg ? `RANK ${best.rank}   ` : '') + (best.rush ? `BEST  ${mm}:${ss}   MAX  ${best.loop} LOOP` : best.loop !== undefined ? `BEST  ${mm}:${ss}  LOOP ${best.loop}` : best.score !== undefined ? `BEST  ${best.score.toLocaleString()} pt  ${mm}:${ss}` : `BEST  ✕ ${best.kills}  ${mm}:${ss}${best.cleared ? '  CLEAR' : ''}`), {
+          fontFamily: FONT_EN, fontSize: '15px', color: best.cleared ? COLOR_HEX.gold : COLOR_HEX.accent, fontStyle: '700',
         }).setOrigin(1, 1);
-        cont.add(bestText);
+        cont.add(c.best);
         if (useImg) {
           // ランクのエンブレム（2026-10-20）：BEST の左に小さく
-          const img = this.add.image(bestText.x - bestText.width - 10, bestText.y + 3, rkKey).setOrigin(1, 1);
-          img.setScale((tight ? 24 : 28) / img.height);
-          cont.add(img);
+          c.emblem = this.add.image(c.best.x - c.best.width - 10, c.best.y + 3, rkKey).setOrigin(1, 1);
+          c.emblem.setScale(22 / c.emblem.height);
+          cont.add(c.emblem);
         }
       }
+      c.hit.setInteractive({ useHandCursor: true });
     } else {
-      const lock = this.add.text(-cardW / 2 + 32, -cardH / 2 + (tight ? 82 : 100), st.scoreMode && !st.endless ? '全ステージをクリアで解放' : st.unlockAfter === SCORE_STAGE.id ? 'スコアアタックをクリアで解放' : `STAGE ${st.unlockAfter} をクリアで解放`, {
-        fontFamily: FONT_JP, fontSize: '20px', color: COLOR_HEX.dim,
-      });
-      const icon = this.add.text(cardW / 2 - 24, -cardH / 2 + 14, 'LOCKED', {
-        fontFamily: FONT_EN, fontSize: '18px', color: '#5A6488', fontStyle: '700', letterSpacing: 3,
+      c.lock = this.add.text(cardW / 2 - 18, h - 9, st.scoreMode && !st.endless ? '全ステージをクリアで解放' : st.unlockAfter === SCORE_STAGE.id ? 'スコアアタックをクリアで解放' : `STAGE ${st.unlockAfter} をクリアで解放`, {
+        fontFamily: FONT_JP, fontSize: '13px', color: COLOR_HEX.dim,
+      }).setOrigin(1, 1);
+      const icon = this.add.text(cardW / 2 - 18, 9, 'LOCKED', {
+        fontFamily: FONT_EN, fontSize: '14px', color: '#5A6488', fontStyle: '700', letterSpacing: 3,
       }).setOrigin(1, 0);
-      cont.add([lock, icon]);
+      cont.add([c.lock, icon]);
       cont.setAlpha(0.75);
     }
-
-    const hit = this.add.rectangle(0, 0, cardW, cardH, 0xffffff, 0.001).setName('hit');
-    if (unlocked) hit.setInteractive({ useHandCursor: true });
-    cont.add(hit);
-    return cont;
+    cont.add(c.hit);
+    return c;
   }
 }
