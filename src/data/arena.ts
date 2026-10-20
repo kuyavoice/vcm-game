@@ -22,6 +22,7 @@ export const ARENA = {
     { base: 'grunt' as EnemyId, kind: 'grunt', name: '変異体・雑音級', hp: 9000, scale: 8, hitRadius: 100, contactDamage: 10 },
     { base: 'hunter' as EnemyId, kind: 'hunter', name: '変異体・狩人級', hp: 8000, scale: 8, hitRadius: 95, contactDamage: 10 },
     { base: 'knight' as EnemyId, kind: 'knight', name: '変異体・騎士級', hp: 11000, scale: 5, hitRadius: 110, contactDamage: 14 },
+    { base: 'bishop' as EnemyId, kind: 'bishop', name: '変異体・司祭級', hp: 9000, scale: 6, hitRadius: 100, contactDamage: 10 },
   ],
   /** ①変異体・雑音級：突進／飛び跳ね3連／全体ばらまき */
   grunt: {
@@ -101,7 +102,38 @@ export const ARENA = {
     lanceHalfWidth: 55,
     lanceSecondWindupSec: 0.5,
   },
+  /** ④変異体・司祭級（2026-10-20 ユーザー案）：本体の左右に影（砲台）を作って弾を連射／闘技場のランダムな位置に小円の範囲攻撃を散らす */
+  bishop: {
+    walkSpeed: 80,
+    keepDistance: 260,
+    firstActDelaySec: 2.0,
+    idleSec: 1.4,
+    weights: { shadows: 3, rain: 3 } as Readonly<Record<string, number>>,
+    /** 影：左右 shadowOffset の位置に出る。倒せる（HP）。寿命が来ると消える。プレイヤーへ3連の扇で連射 */
+    shadowOffset: 190,
+    shadowHp: 600,
+    shadowLifeSec: 6,
+    shadowIntervalSec: 0.5,
+    shadowIntervalEnragedSec: 0.32,
+    shadowBulletSpeed: 260,
+    shadowBulletDamage: 10,
+    shadowFanSpread: 0.2,
+    /** 本体が影を出している間（立ち止まる時間） */
+    shadowsCastSec: 1.2,
+    /** 小円の散布：ランダムな位置に小さな円の予兆を次々と */
+    rainCount: 10,
+    rainCountEnraged: 16,
+    rainIntervalSec: 0.12,
+    rainWindupSec: 0.8,
+    rainRadius: 90,
+  },
 };
+
+/** 司祭級の影（砲台）の定義。小さく・倒せる・触れない */
+export function arenaShadowDef(): EnemyDef {
+  const base = ENEMIES.bishop;
+  return { ...base, name: '影', hp: ARENA.bishop.shadowHp, hitRadius: 50, scale: 3, contactDamage: 0, speed: 0, knockbackResist: 1, xp: 0, boss: false, ranged: undefined };
+}
 
 /** i 番目の変異体の定義（元の敵の定義を複製して、ボス扱い・巨大・固定HPにする） */
 export function arenaBossDef(i: number): EnemyDef {

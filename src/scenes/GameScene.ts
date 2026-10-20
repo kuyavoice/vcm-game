@@ -6,7 +6,7 @@ import { stageById, type StageDef } from '../data/stages';
 import { SCORE } from '../data/score';
 import { ENDLESS } from '../data/endless';
 import { RUSH, rushWaves, rushTempo, rushDamageMul, fmtTime } from '../data/rush';
-import { ARENA, arenaBossDef } from '../data/arena';
+import { ARENA, arenaBossDef, arenaShadowDef } from '../data/arena';
 import { drawTelegraph, telegraphHit, TELEGRAPH_COLOR, type Telegraph } from '../systems/Telegraph';
 import { isHeld } from '../utils/heldKeys';
 import { screenFlash } from '../utils/screenFlash';
@@ -2113,7 +2113,7 @@ export class GameScene extends Phaser.Scene {
     if (!e) return;
     e.spawn(def, x, y, 1);
     const kind = ARENA.bosses[Math.min(this.arena.wave, ARENA.bosses.length - 1)].kind;
-    const common = kind === 'hunter' ? ARENA.hunter : kind === 'knight' ? ARENA.knight : ARENA.grunt;
+    const common = kind === 'hunter' ? ARENA.hunter : kind === 'knight' ? ARENA.knight : kind === 'bishop' ? ARENA.bishop : ARENA.grunt;
     e.arena = { kind, act: '', t: 0, timer: common.firstActDelaySec, last: '', dirX: 0, dirY: 0, tick: 0, speed: 0, n: 0, enraged: false };
     this.spawner.bossActive = true;
     this.boss = e;
@@ -2170,8 +2170,23 @@ export class GameScene extends Phaser.Scene {
   private updateArenaBoss(e: Enemy, dt: number, now: number, dist: number, nx: number, ny: number): void {
     const s = e.arena!;
     const A = ARENA.grunt;
-    const C = s.kind === 'hunter' ? ARENA.hunter : s.kind === 'knight' ? ARENA.knight : ARENA.grunt;
     const p = this.player;
+    const C = s.kind === 'hunter' ? ARENA.hunter : s.kind === 'knight' ? ARENA.knight : s.kind === 'bishop' ? ARENA.bishop : ARENA.grunt;
+    // 司祭級の影（砲台）：その場でプレイヤーへ連射し、寿命で消える
+    if (s.kind === 'shadow') {
+      const B = ARENA.bishop;
+      s.t -= dt;
+      s.tick -= dt;
+      if (s.tick <= 0) {
+        s.tick = s.enraged ? B.shadowIntervalEnragedSec : B.shadowIntervalSec;
+        const a = Math.atan2(p.y - 12 - (e.y - 20), p.x - e.x);
+        for (const off of [-B.shadowFanSpread, 0, B.shadowFanSpread]) this.fireEnemyBullet(e.x, e.y - 20, a + off, B.shadowBulletSpeed, 4, B.shadowBulletDamage, 0xd0a0ff, 1.2);
+        e.pose('cast', 0.3);
+      }
+      e.setAlpha(Math.min(0.85, s.t / 0.5));
+      if (s.t <= 0) { this.hitSpark(e.x, e.y - 20, 0x9d4dff, 6); e.despawn(); }
+      return;
+    }
     const def = e.def;
     const g = this.bossGfx;
     let mx = 0;
@@ -2195,6 +2210,28 @@ export class GameScene extends Phaser.Scene {
         if (s.kind === 'hunter' && s.tick > 0) { s.tick--; this.hunterVanish(e, now); }
         else { s.act = ''; s.timer = C.idleSec; e.setAlpha(1); }
       }
+    } else if (s.act === 'rain') {
+      // 小円の散布：立ち止まって、ランダムな位置に小さな円を次々と
+      const B = ARENA.bishop;
+      s.t -= dt;
+      s.tick -= dt;
+      if (s.n > 0 && s.tick <= 0) {
+        s.tick = B.rainIntervalSec;
+        s.n--;
+        const ang = Math.random() * Math.PI * 2;
+        const rr = this.arena.r * 0.92 * Math.sqrt(Math.random());
+        const wx = this.arena.cx + Math.cos(ang) * rr;
+        const wy = this.arena.cy + Math.sin(ang) * rr;
+        this.pushTelegraph({
+          shape: { kind: 'circle', x: wx, y: wy, r: B.rainRadius },
+          startAt: now, at: now + B.rainWindupSec * 1000, damage: ARENA.telegraphDamage,
+          onFire: () => this.fxRing(wx, wy, B.rainRadius, TELEGRAPH_COLOR, 6),
+        });
+      }
+      if (s.t <= 0) { s.act = ''; s.timer = C.idleSec; }
+    } else if (s.act === 'shadows') {
+      s.t -= dt;
+      if (s.t <= 0) { s.act = ''; s.timer = C.idleSec; }
     } else if (s.act === 'vanish' || s.act === 'crescent' || s.act === 'baum' || s.act === 'lance') {
       // 予兆の間：止まる（発動は予兆の onFire）。姿消し中は薄い
       if (s.act === 'vanish') e.setAlpha(0.12 + Math.sin(now / 60) * 0.05);
@@ -2250,6 +2287,7 @@ export class GameScene extends Phaser.Scene {
       if (s.timer <= 0) {
         if (s.kind === 'hunter') this.startHunterAct(e, now, dist, nx, ny);
         else if (s.kind === 'knight') this.startKnightArenaAct(e, now, dist, nx, ny);
+        else if (s.kind === 'bishop') this.startBishopArenaAct(e, now);
         else this.startArenaAct(e, now, dist, nx, ny);
       }
     }
@@ -2368,6 +2406,40 @@ export class GameScene extends Phaser.Scene {
       });
     };
     thrust(Math.atan2(ny, nx), A.lanceWindupSec, !s.enraged);
+  }
+
+  /** 変異体・司祭級の行動を1つ始める：影の砲台（左右）／小円の散布 */
+  private startBishopArenaAct(e: Enemy, now: number): void {
+    const A = ARENA.bishop;
+    const s = e.arena!;
+    const pick = this.pickAct(A.weights, s.last);
+    s.last = pick;
+    this.fxText(e.x, e.y - 170, '!!', '#FF4D6D');
+    if (pick === 'shadows') {
+      s.act = 'shadows';
+      s.t = A.shadowsCastSec;
+      e.pose('cast', A.shadowsCastSec);
+      AudioBus.play('se_queen_summon', 0, 'se_boss');
+      for (const side of [-1, 1]) {
+        const x = e.x + side * A.shadowOffset;
+        const y = e.y;
+        const c = { x, y };
+        this.clampToArena(c, 60);
+        const sh = this.enemies.get(c.x, c.y) as Enemy | null;
+        if (!sh) continue;
+        sh.spawn(arenaShadowDef(), c.x, c.y, 1);
+        sh.arena = { kind: 'shadow', act: 'fire', t: A.shadowLifeSec, timer: 0, last: '', dirX: 0, dirY: 0, tick: 0.6, speed: 0, n: 0, enraged: s.enraged };
+        sh.setTint(0x6a4a9a);
+        sh.setFlipX(side < 0);
+        this.fxRing(c.x, c.y - 20, 60, 0x9d4dff, 6);
+      }
+      return;
+    }
+    s.act = 'rain';
+    s.n = s.enraged ? A.rainCountEnraged : A.rainCount;
+    s.tick = 0;
+    s.t = s.n * A.rainIntervalSec + A.rainWindupSec + 0.3;
+    e.pose('cast', 0.6);
   }
 
   /** 狩人級：姿を消し、プレイヤーの今の位置を通る直線（向きはランダム）を予兆してから駆け抜ける */
@@ -3820,7 +3892,7 @@ export class GameScene extends Phaser.Scene {
     if (!this.stage.rush && !this.stage.arena) this.xp.drop(e.x, e.y, def.xp, this.ctx.now, this.up.stats.luckMul);
     // 『運命のチャーハン』：スパイスの帯の中で倒した敵が、まれにミニチャーハンを落とす
     if (e.bandDrop > 0 && this.gameNow < e.vulnUntil && Math.random() < e.bandDrop) this.xp.spawn(e.x, e.y, 'chahan', 1, this.ctx.now);
-    if (!this.stage.rush && def.tier >= 2 && !def.boss && Math.random() < ITEMS.chest.dropChance * this.up.stats.luckMul) {
+    if (!this.stage.rush && !this.stage.arena && def.tier >= 2 && !def.boss && Math.random() < ITEMS.chest.dropChance * this.up.stats.luckMul) {
       this.xp.spawn(e.x, e.y, 'chest', 1, this.ctx.now);
     }
     AudioBus.play('se_kill', 40);
@@ -3836,6 +3908,8 @@ export class GameScene extends Phaser.Scene {
       if (this.stage.arena) {
         this.bosses = this.bosses.filter((b) => b !== e);
         this.telegraphs.length = 0;
+        // 影（司祭級の砲台）も消す
+        for (const o of this.enemies.getChildren() as Enemy[]) if (o.active && o.arena && o.arena.kind === 'shadow') o.despawn();
         this.arena.wave++;
         if (this.arena.wave < ARENA.bosses.length) {
           this.spawner.bossActive = false;
