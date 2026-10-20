@@ -19,7 +19,8 @@ export const ARENA = {
   gapSec: 4,
   /** 変異体の一覧（出る順）。base の絵を scale 倍にして使う。hp は固定（Lv40・アーツ Lv8 を想定） */
   bosses: [
-    { base: 'grunt' as EnemyId, name: '変異体・雑音級', hp: 9000, scale: 8, hitRadius: 100, contactDamage: 10 },
+    { base: 'grunt' as EnemyId, kind: 'grunt', name: '変異体・雑音級', hp: 9000, scale: 8, hitRadius: 100, contactDamage: 10 },
+    { base: 'hunter' as EnemyId, kind: 'hunter', name: '変異体・狩人級', hp: 8000, scale: 8, hitRadius: 95, contactDamage: 10 },
   ],
   /** ①変異体・雑音級：突進／飛び跳ね3連／全体ばらまき */
   grunt: {
@@ -52,6 +53,26 @@ export const ARENA = {
     /** ばらまきの弾：色は付けない（弾の絵は明るい緑。赤で染めると暗い床で見づらい。2026-10-20 ユーザー指摘）、大きさ 1.5 倍 */
     scatterTint: 0xffffff,
     scatterScale: 1.5,
+  },
+  /** ②変異体・狩人級（2026-10-20 ユーザー案）：姿を消して、プレイヤーの位置を通る直線をランダムな向きから駆け抜ける／正面に三日月の斬撃（→背面） */
+  hunter: {
+    walkSpeed: 150,
+    keepDistance: 170,
+    firstActDelaySec: 2.0,
+    idleSec: 1.2,
+    weights: { vanish: 3, crescent: 3 } as Readonly<Record<string, number>>,
+    /** 姿消し：直線は1回の行動で lines 本（1本ずつ）。帯はプレイヤーの位置を通って闘技場を横断する */
+    vanishLines: 2,
+    lineWindupSec: 1.0,
+    lineHalfWidth: 70,
+    lineSpeed: 1700,
+    /** 2本目までの間（姿を消している時間） */
+    lineGapSec: 0.5,
+    /** 三日月：正面の扇（半径・片側の角度）→ 続けて背面 */
+    crescentWindupSec: 0.8,
+    crescentSecondWindupSec: 0.6,
+    crescentRadius: 300,
+    crescentHalfDeg: 55,
   },
 };
 

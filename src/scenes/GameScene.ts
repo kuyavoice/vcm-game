@@ -2112,7 +2112,9 @@ export class GameScene extends Phaser.Scene {
     const e = this.enemies.get(x, y) as Enemy | null;
     if (!e) return;
     e.spawn(def, x, y, 1);
-    e.arena = { act: '', t: 0, timer: ARENA.grunt.firstActDelaySec, last: '', dirX: 0, dirY: 0, tick: 0 };
+    const kind = ARENA.bosses[Math.min(this.arena.wave, ARENA.bosses.length - 1)].kind;
+    const common = kind === 'hunter' ? ARENA.hunter : ARENA.grunt;
+    e.arena = { kind, act: '', t: 0, timer: common.firstActDelaySec, last: '', dirX: 0, dirY: 0, tick: 0, speed: 0 };
     this.spawner.bossActive = true;
     this.boss = e;
     this.bosses.push(e);
@@ -2166,8 +2168,9 @@ export class GameScene extends Phaser.Scene {
    * 予兆は共通の仕組み（pushTelegraph）。移動・接触もここで。
    */
   private updateArenaBoss(e: Enemy, dt: number, now: number, dist: number, nx: number, ny: number): void {
-    const A = ARENA.grunt;
     const s = e.arena!;
+    const A = ARENA.grunt;
+    const C = s.kind === 'hunter' ? ARENA.hunter : ARENA.grunt;
     const p = this.player;
     const def = e.def;
     const g = this.bossGfx;
@@ -2178,8 +2181,16 @@ export class GameScene extends Phaser.Scene {
       s.t -= dt;
       mx = s.dirX;
       my = s.dirY;
-      spd = A.chargeSpeed;
-      if (s.t <= 0) { s.act = ''; s.timer = A.idleSec; e.playLoop(); }
+      spd = s.speed;
+      if (s.t <= 0) {
+        e.playLoop();
+        // 狩人級：直線がまだ残っていれば、また姿を消して次の線
+        if (s.kind === 'hunter' && s.tick > 0) { s.tick--; this.hunterVanish(e, now); }
+        else { s.act = ''; s.timer = C.idleSec; e.setAlpha(1); }
+      }
+    } else if (s.act === 'vanish' || s.act === 'crescent') {
+      // 予兆の間：止まる（発動は予兆の onFire）。姿消し中は薄い
+      if (s.act === 'vanish') e.setAlpha(0.12 + Math.sin(now / 60) * 0.05);
     } else if (s.act === 'charge') {
       // 予兆の間：身震いして止まる（発動は予兆の onFire）
       e.x += (Math.random() - 0.5) * 5;
@@ -2208,15 +2219,97 @@ export class GameScene extends Phaser.Scene {
     } else {
       // 歩いて近づく（近すぎれば止まる）。間が空いたら行動
       s.timer -= dt;
-      if (dist > A.keepDistance) { mx = nx; my = ny; spd = A.walkSpeed * e.chillFactor(now); }
-      if (s.timer <= 0) this.startArenaAct(e, now, dist, nx, ny);
+      if (dist > C.keepDistance) { mx = nx; my = ny; spd = C.walkSpeed * e.chillFactor(now); }
+      if (s.timer <= 0) {
+        if (s.kind === 'hunter') this.startHunterAct(e, now, dist, nx, ny);
+        else this.startArenaAct(e, now, dist, nx, ny);
+      }
     }
     e.x += mx * spd * dt;
     e.y += my * spd * dt;
     if (s.act === 'dash') e.setFlipX(s.dirX < 0);
     else e.setFlipX(nx < 0);
     this.clampToArena(e, e.radius * 0.6);
-    if (def.contactDamage > 0 && dist < e.radius + p.def.hitRadius) this.hurt(def.contactDamage, now, true);
+    // 姿を消している間は触れない
+    if (def.contactDamage > 0 && s.act !== 'vanish' && dist < e.radius + p.def.hitRadius) this.hurt(def.contactDamage, now, true);
+  }
+
+  /** 変異体・狩人級の行動を1つ始める */
+  private startHunterAct(e: Enemy, now: number, _dist: number, nx: number, ny: number): void {
+    const A = ARENA.hunter;
+    const s = e.arena!;
+    const pick = this.pickAct(A.weights, s.last);
+    s.last = pick;
+    this.fxText(e.x, e.y - 160, '!!', '#FF4D6D');
+    if (pick === 'vanish') {
+      s.tick = A.vanishLines - 1;
+      this.hunterVanish(e, now);
+      return;
+    }
+    // 三日月：正面の扇 → 発動したら背面の扇
+    s.act = 'crescent';
+    const cx = e.x;
+    const cy = e.y - 30;
+    const a = Math.atan2(ny, nx);
+    const half = Phaser.Math.DegToRad(A.crescentHalfDeg);
+    const slash = (angle: number) => {
+      this.fxSlash(cx, cy, A.crescentRadius, TELEGRAPH_COLOR, angle, A.crescentHalfDeg * 2, false);
+      AudioBus.play('se_slash_heavy', 0, 'se_slash');
+      this.cameras.main.shake(120, 0.005);
+    };
+    this.pushTelegraph({
+      shape: { kind: 'sector', x: cx, y: cy, r: A.crescentRadius, angle: a, halfArc: half },
+      startAt: now, at: now + A.crescentWindupSec * 1000, damage: ARENA.telegraphDamage,
+      onFire: () => {
+        if (!e.active) return;
+        slash(a);
+        const t2 = this.gameNow;
+        this.pushTelegraph({
+          shape: { kind: 'sector', x: cx, y: cy, r: A.crescentRadius, angle: a + Math.PI, halfArc: half },
+          startAt: t2, at: t2 + A.crescentSecondWindupSec * 1000, damage: ARENA.telegraphDamage,
+          onFire: () => {
+            if (!e.active) return;
+            slash(a + Math.PI);
+            if (s.act === 'crescent') { s.act = ''; s.timer = A.idleSec; }
+          },
+        });
+      },
+    });
+  }
+
+  /** 狩人級：姿を消し、プレイヤーの今の位置を通る直線（向きはランダム）を予兆してから駆け抜ける */
+  private hunterVanish(e: Enemy, now: number): void {
+    const A = ARENA.hunter;
+    const s = e.arena!;
+    const p = this.player;
+    s.act = 'vanish';
+    e.setAlpha(0.12);
+    const a = Math.random() * Math.PI * 2;
+    const L = this.arena.r * 1.15;
+    const px = p.x;
+    const py = p.y - 12;
+    const x1 = px - Math.cos(a) * L;
+    const y1 = py - Math.sin(a) * L;
+    const x2 = px + Math.cos(a) * L;
+    const y2 = py + Math.sin(a) * L;
+    const at = now + (A.lineGapSec + A.lineWindupSec) * 1000;
+    this.pushTelegraph({
+      shape: { kind: 'line', x1, y1, x2, y2, half: A.lineHalfWidth },
+      startAt: now + A.lineGapSec * 1000, at, damage: ARENA.telegraphDamage,
+      onFire: () => {
+        if (!e.active || s.act !== 'vanish') return;
+        // 線の始点に現れて、終点まで駆け抜ける
+        e.setPosition(x1, y1 + 30);
+        e.setAlpha(1);
+        s.act = 'dash';
+        s.dirX = Math.cos(a);
+        s.dirY = Math.sin(a);
+        s.speed = A.lineSpeed;
+        s.t = (L * 2) / A.lineSpeed;
+        AudioBus.play('se_rook_charge', 0, 'se_knight_charge');
+        this.cameras.main.shake(120, 0.005);
+      },
+    });
   }
 
   /** 変異体・雑音級の行動を1つ始める */
@@ -2241,6 +2334,7 @@ export class GameScene extends Phaser.Scene {
         onFire: () => {
           if (!e.active || s.act !== 'charge') return;
           s.act = 'dash';
+          s.speed = A.chargeSpeed;
           s.t = A.chargeDurationSec;
           this.cameras.main.shake(120, 0.005);
         },
@@ -3548,6 +3642,8 @@ export class GameScene extends Phaser.Scene {
   private damageEnemy(e: Enemy, dmg: number, kx: number, ky: number): void {
     if (!e.active) return;
     if ((e.def.knight || e.def.bossKind) && this.gameNow < e.bk.invulnUntil) return;
+    // 闘技場の狩人級：姿を消している間は当たらない
+    if (e.arena && e.arena.act === 'vanish') return;
     // スパイスの帯（『貫通チャーハン』）の中の敵は、全ての攻撃で受けるダメージが増える
     if (this.gameNow < e.vulnUntil) dmg *= 1 + e.vuln;
     if (this.debug) this.dmgLog.push({ t: this.gameNow, d: Math.min(dmg, e.hp) });
