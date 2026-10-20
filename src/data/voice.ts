@@ -62,16 +62,24 @@ export const VOICE_DUCK = 0.5;
 /** キャラごとの音量の微調整（瑞穂は人の収録で、聴感が違うことがある。初期値1.0） */
 export const VOICE_GAIN: Record<string, number> = {};
 
-/** そのキャラ・種類の差分ファイル（例：kuya_start_1.mp3, kuya_start_2.mp3。番号なしは1つ） */
+/**
+ * 封印するボイス（2026-10-20 ユーザー指定）：被弾ボイスが「色気がありすぎてセンシティブ」との声があり、コンテストの一般審査に備えて念のため外す。
+ * 元ファイル（kuya damage2／yukihito damage）は _src_assets に残し、配信フォルダと一覧（voiceIndex）からは除いてある。make_voice.py も同じ名前を飛ばす。
+ * 戻すときは、このリストから外して make_voice.py を回す。
+ */
+export const SEALED_VOICES: string[] = ['kuya_hit_2.mp3', 'yukihito_hit_1.mp3'];
+const available = (f: string) => !SEALED_VOICES.includes(f);
+
+/** そのキャラ・種類の差分ファイル（例：kuya_start_1.mp3, kuya_start_2.mp3。番号なしは1つ）。封印したものは含めない */
 export function voiceFiles(characterId: string, kind: VoiceKind): string[] {
   const one = `${characterId}_${kind}.mp3`;
   const re = new RegExp(`^${characterId}_${kind}_\\d+\\.mp3$`);
-  return VOICE_FILES.filter((f) => f === one || re.test(f));
+  return VOICE_FILES.filter((f) => (f === one || re.test(f)) && available(f));
 }
 
-/** そのキャラのボイスの全ファイル */
+/** そのキャラのボイスの全ファイル（封印したものは含めない） */
 export function voiceFilesOf(characterId: string): string[] {
-  return VOICE_FILES.filter((f) => f.startsWith(`${characterId}_`));
+  return VOICE_FILES.filter((f) => f.startsWith(`${characterId}_`) && available(f));
 }
 
 export const voiceKey = (file: string) => `vo_${file.replace(/\.mp3$/, '')}`;
