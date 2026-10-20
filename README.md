@@ -18,12 +18,12 @@ A fan game of *Voice Connect Memorial*. A survivors-style action game you can pl
 - 倒した敵が落とす「声の欠片」でレベルアップし、仲間の共鳴アーツやサポートを選ぶ。
 - 敵を倒すとゲージが溜まり、満タンで必殺（右下のボタン／PC はスペース）。
 - アーツを Lv8 まで育て、対応するサポートを持って宝石箱を開けると進化。決まった2つを揃えると合体。
-- 5人の操作キャラ、3つのステージ＋スコアアタック＋EX「悪夢」、エンドレス、ボスラッシュ。
+- 5人の操作キャラ、3つのステージ＋スコアアタック＋EX「悪夢」、エンドレス、ボスラッシュ、闘技場（狭い円形の場で、予兆攻撃をしてくる巨大な変異体8体と一対一。クリアタイムでランク）。
 - タイトルの EXTRA は拠点「作戦室」。図鑑（共鳴アーツ・キャラ・敵・実績）、ギャラリー、ミュージック（キャラ曲と仲間の曲）、ボイス鑑賞、プレイの集計。
 - 作戦室では好きなキャラにエールを贈れます。絆が上がると特別ボイス、くつろぎの立ち絵、戦闘中のオーラ（色を選べる）、タイトルコールが解放されます。
 - オプションの LANGUAGE で主要な画面を英語にできます。PC では画面が縮小表示されるときに文字と絵を滑らかにします。
 
-Drag to move (PC: WASD / arrow keys). Attacks are automatic. Collect Voice Shards to level up and pick Resonance Arts and Supports. Fill the gauge to unleash a Special. Raise an Art to Lv8 with its matching Support and open a Jewel Box to evolve it; pair two specific Arts to fuse them. Five playable characters, three stages plus Score Attack and the EX stage "Nightmare", Endless and Boss Rush modes. EXTRA on the title opens the operations room: codex (arts, characters, enemies, achievements), gallery, music player, voice gallery and play statistics. There you can also send yells to your favourite character; as the bond grows you unlock special voice lines, a relaxed portrait, a battle aura with selectable colours and their title call. OPTION → LANGUAGE switches the main screens to English.
+Drag to move (PC: WASD / arrow keys). Attacks are automatic. Collect Voice Shards to level up and pick Resonance Arts and Supports. Fill the gauge to unleash a Special. Raise an Art to Lv8 with its matching Support and open a Jewel Box to evolve it; pair two specific Arts to fuse them. Five playable characters, three stages plus Score Attack and the EX stage "Nightmare", Endless, Boss Rush and Arena (a small circular arena where you face eight giant mutants one at a time, dodging telegraphed attacks; ranked by clear time). EXTRA on the title opens the operations room: codex (arts, characters, enemies, achievements), gallery, music player, voice gallery and play statistics. There you can also send yells to your favourite character; as the bond grows you unlock special voice lines, a relaxed portrait, a battle aura with selectable colours and their title call. OPTION → LANGUAGE switches the main screens to English.
 
 審査・試遊用：**https://kuyavoice.github.io/vcm-game/?judge** で全ステージ・全キャラを解放した状態で遊べます（記録は保存されません）。
 For reviewers: **https://kuyavoice.github.io/vcm-game/?judge** opens every stage and character (nothing is saved).
