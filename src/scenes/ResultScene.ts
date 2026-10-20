@@ -18,6 +18,7 @@ import { ENDLESS, ENDLESS_STAGE, endlessTitle, endlessLoop } from '../data/endle
 import { RUSH, RUSH_STAGE, rushTitle, fmtTime } from '../data/rush';
 import { addRunStats } from '../utils/stats';
 import { rankOf, rankValue, RANK_COLORS, rankImageKey } from '../data/ranks';
+import { ARENA } from '../data/arena';
 
 export interface RunResult {
   characterId: string;
@@ -46,6 +47,8 @@ export interface RunResult {
   chests?: number;
   /** ボスラッシュ：周ごとのクリア時間・到達した周・ボスごとの撃破時刻・倒したボスの数・選んだアーツ */
   rush?: { loopTimes: number[]; loop: number; bossTimes: { name: string; sec: number; loop: number }[]; bossesDefeated: number; arts: string[]; supports?: string[] };
+  /** 闘技場：到達した変異体の番号（1〜8。制覇は 8） */
+  arenaReached?: number;
 }
 
 export class ResultScene extends Phaser.Scene {
@@ -155,6 +158,17 @@ export class ResultScene extends Phaser.Scene {
       save.scoreRanking.sort((a, b) => b.score - a.score);
       save.scoreRanking = save.scoreRanking.slice(0, SCORE.rankingSize);
       rank = save.scoreRanking.indexOf(entry) + 1;
+    } else if (stage.arena && !r.debug) {
+      // 闘技場の記録（2026-10-21）：最速クリア／最高到達／直近5回。クリアの最速更新か、未クリアでの到達更新で NEW BEST
+      const a = save.arena;
+      const reached = r.arenaReached ?? 0;
+      const betterTime = r.cleared && (a.bestTimeSec === null || r.timeSec < a.bestTimeSec);
+      const betterReach = reached > a.reached;
+      if (r.cleared) { a.clears++; if (betterTime) a.bestTimeSec = r.timeSec; }
+      if (betterReach) a.reached = reached;
+      a.history.unshift({ timeSec: r.timeSec, reached, cleared: r.cleared, character: r.characterId, date: new Date().toISOString().slice(0, 10) });
+      a.history = a.history.slice(0, 5);
+      isBest = betterTime || (!r.cleared && betterReach);
     }
     // モード別ランク（data/ranks.ts）。最高だけ保存（ステージ選択・実績・集計に使う）
     const rankMark = rankOf(r);
@@ -275,6 +289,7 @@ export class ResultScene extends Phaser.Scene {
       ['STAGE', stage.scoreMode ? stage.nameEn : `${stage.nameEn}  ${stage.name}`],
       ['CHARACTER', chara?.name ?? r.characterId],
       ['TIME', `${mm}:${ss}`],
+      ...(stage.arena ? [['REACHED', `${r.arenaReached ?? 0} / ${ARENA.bosses.length}`] as [string, string]] : []),
       ['DEFEATED', `${r.kills}`],
       ['LEVEL', `${r.level}`],
       ['YELL', `★ ${r.yell}`],

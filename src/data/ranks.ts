@@ -19,14 +19,16 @@ export function rankName(v: number | undefined | null): RankName | null {
 }
 
 /** モードの stageId（data/rush.ts 96・endless.ts 97・nightmare.ts 98・score.ts 99 と同じ値） */
-export const RANK_MODE_IDS = { stages: [1, 2, 3], rush: 96, endless: 97, nightmare: 98, score: 99 } as const;
-/** 実績「全モードで S 以上」の対象 */
-export const ALL_RANK_MODE_IDS: number[] = [1, 2, 3, 99, 98, 97, 96];
+export const RANK_MODE_IDS = { stages: [1, 2, 3], arena: 95, rush: 96, endless: 97, nightmare: 98, score: 99 } as const;
+/** 実績「全モードで S 以上」の対象（2026-10-21 闘技場を追加） */
+export const ALL_RANK_MODE_IDS: number[] = [1, 2, 3, 99, 98, 97, 96, 95];
 
 /** 通常ステージ（黒騎士は 10:00 に出る）：クリアタイム（秒）がこの値以下なら上から SSS・SS・S・A・B。クリアしていれば最低 C */
 const STAGE_CLEAR_SEC = [620, 640, 660, 690, 750];
 /** 悪夢（黒騎士は 15:00 に出る）：15:30 以内＝30秒で瞬殺＝SSS（ユーザー指定） */
 const NIGHTMARE_CLEAR_SEC = [930, 960, 1020, 1110, 1200];
+/** 闘技場：8体のクリアタイム（秒）。熟練者の 3:45〜4:05 を SSS〜SS の境目に（2026-10-21 ユーザー承認：4:00／4:30／5:15／6:30／8:30） */
+const ARENA_CLEAR_SEC = [240, 270, 315, 390, 510];
 /** スコアアタック：スコアがこの値以上なら上から SSS〜B。倒れても付く。実データが少ない（32分で約152,000＝B）ので仮の値 */
 const SCORE_PT = [260000, 230000, 200000, 170000, 130000];
 /** エンドレス：生存秒数がこの値以上。称号と同じ境目（120分「すべてを超えし者」＝SSS はユーザー指定） */
@@ -52,6 +54,7 @@ export function rankOfRush(firstLoopSec: number): RankName {
 /** 通常・悪夢：クリアしたときのタイム（秒）から。対象外のステージは null */
 export function rankOfClear(stageId: number, clearSec: number): RankName | null {
   if (stageId === RANK_MODE_IDS.nightmare) return atMost(NIGHTMARE_CLEAR_SEC, clearSec);
+  if (stageId === RANK_MODE_IDS.arena) return atMost(ARENA_CLEAR_SEC, clearSec);
   if ((RANK_MODE_IDS.stages as readonly number[]).includes(stageId)) return atMost(STAGE_CLEAR_SEC, clearSec);
   return null;
 }

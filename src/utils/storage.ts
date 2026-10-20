@@ -40,6 +40,8 @@ export interface SaveData {
   rushMaxLoops: { loops: number; timeSec: number; character: string; date: string } | null;
   /** モード別の最高ランク（stageId → 数。data/ranks.ts の rankValue。2026-10-19） */
   ranks: Record<string, number>;
+  /** 闘技場の記録（2026-10-21）：最速クリア・最高到達（倒した数+1。制覇は8）・制覇回数・直近5回 */
+  arena: { bestTimeSec: number | null; reached: number; clears: number; history: { timeSec: number; reached: number; cleared: boolean; character: string; date: string }[] };
   /** ボスラッシュで前回選んだアーツとサポート */
   lastRushArts: string[];
   lastRushSupports: string[];
@@ -82,6 +84,7 @@ const DEFAULT: SaveData = {
   rushRanking: [],
   rushMaxLoops: null,
   ranks: {},
+  arena: { bestTimeSec: null, reached: 0, clears: 0, history: [] },
   lastRushArts: [],
   lastRushSupports: [],
   secretNew: {},
@@ -118,6 +121,7 @@ export function loadSave(): SaveData {
       rushRanking: [...(parsed.rushRanking ?? [])],
       rushMaxLoops: parsed.rushMaxLoops ? { ...parsed.rushMaxLoops } : null,
       ranks: { ...(parsed.ranks ?? {}) },
+      arena: parsed.arena ? { ...parsed.arena, history: [...(parsed.arena.history ?? [])] } : { bestTimeSec: null, reached: 0, clears: 0, history: [] },
       lastRushArts: [...(parsed.lastRushArts ?? [])],
       lastRushSupports: [...(parsed.lastRushSupports ?? [])],
       secretNew: { ...(parsed.secretNew ?? {}) },

@@ -30,6 +30,8 @@ interface StageCard {
   best?: Phaser.GameObjects.Text;
   emblem?: Phaser.GameObjects.Image;
   lock?: Phaser.GameObjects.Text;
+  /** 闘技場の直近の記録（広げたときだけ） */
+  history?: Phaser.GameObjects.Text;
 }
 
 /** ステージ選択（タイトル → ここ → ゲーム）。前ステージのクリアで解放 */
@@ -86,7 +88,8 @@ export class StageSelectScene extends Phaser.Scene {
     const bestOf = (st: StageDef) => {
       const top = save.endlessRanking[0];
       const rb = save.rushRanking[0];
-      const best = st.rush ? (rb ? { kills: 0, timeSec: rb.timeSec, cleared: true, loop: save.rushMaxLoops?.loops ?? rb.loops, rush: true } : undefined) : st.endless ? (top ? { kills: top.kills, timeSec: top.timeSec, cleared: true, loop: endlessLoop(top.timeSec) } : undefined) : st.scoreMode ? (save.scoreRanking[0] ? { kills: save.scoreRanking[0].kills, timeSec: save.scoreRanking[0].timeSec, cleared: save.scoreRanking[0].cleared, score: save.scoreRanking[0].score } : undefined) : save.bests[String(st.id)];
+      const ar = save.arena;
+      const best = st.arena ? (ar.history.length > 0 ? { kills: 0, timeSec: ar.bestTimeSec ?? 0, cleared: ar.bestTimeSec !== null, arena: true, reached: ar.reached } : undefined) : st.rush ? (rb ? { kills: 0, timeSec: rb.timeSec, cleared: true, loop: save.rushMaxLoops?.loops ?? rb.loops, rush: true } : undefined) : st.endless ? (top ? { kills: top.kills, timeSec: top.timeSec, cleared: true, loop: endlessLoop(top.timeSec) } : undefined) : st.scoreMode ? (save.scoreRanking[0] ? { kills: save.scoreRanking[0].kills, timeSec: save.scoreRanking[0].timeSec, cleared: save.scoreRanking[0].cleared, score: save.scoreRanking[0].score } : undefined) : save.bests[String(st.id)];
       // 最高ランク（2026-10-19）
       const rk = rankName(save.ranks[String(st.id)]);
       return best ? { ...best, rank: rk } : undefined;
@@ -163,6 +166,10 @@ export class StageSelectScene extends Phaser.Scene {
       c.desc.setVisible(selected);
       if (selected) { c.desc.setAlpha(0); this.tweens.add({ targets: c.desc, alpha: 1, duration: 200, delay: 80 }); }
     }
+    if (c.history) {
+      c.history.setVisible(selected);
+      if (selected) { c.history.setAlpha(0); this.tweens.add({ targets: c.history, alpha: 1, duration: 200, delay: 100 }); }
+    }
     if (c.hint) {
       c.hint.setVisible(selected).setY(h - 26);
       if (selected) { c.hint.setAlpha(0); this.tweens.add({ targets: c.hint, alpha: 1, duration: 200, delay: 120 }); }
@@ -172,7 +179,7 @@ export class StageSelectScene extends Phaser.Scene {
     if (c.lock) c.lock.setY(h - 9);
   }
 
-  private buildCard(st: StageDef, unlocked: boolean, best: { kills: number; timeSec: number; cleared: boolean; score?: number; loop?: number; rush?: boolean; rank?: string | null } | undefined, cardW: number, h: number): StageCard {
+  private buildCard(st: StageDef, unlocked: boolean, best: { kills: number; timeSec: number; cleared: boolean; score?: number; loop?: number; rush?: boolean; arena?: boolean; reached?: number; rank?: string | null } | undefined, cardW: number, h: number): StageCard {
     const cont = this.add.container(0, 0);
     const gfx = panel(this, -cardW / 2, 0, cardW, h, { color: unlocked ? st.color : 0x3a4a8a, alpha: 1, strokeAlpha: unlocked ? 0.6 : 0.4, stripe: 10, shadow: true }).gfx;
     const nameEn = this.add.text(-cardW / 2 + 30, 9, st.nameEn, {
@@ -195,12 +202,20 @@ export class StageSelectScene extends Phaser.Scene {
         fontFamily: FONT_JP, fontSize: '13px', color: COLOR_HEX.accent, fontStyle: '700',
       }).setVisible(false);
       cont.add([mods, c.desc, c.hint]);
+      // 闘技場：直近の記録を1行（広げたときだけ）
+      if (st.arena) {
+        const hs = loadSave().arena.history.slice(0, 3).map((e) => (e.cleared ? `${Math.floor(e.timeSec / 60).toString().padStart(2, '0')}:${Math.floor(e.timeSec % 60).toString().padStart(2, '0')}` : `到達 ${e.reached}/${ARENA.bosses.length}`));
+        if (hs.length > 0) {
+          c.history = this.add.text(-cardW / 2 + 30, 122, `直近　${hs.join('　／　')}`, { fontFamily: FONT_JP, fontSize: '13px', color: COLOR_HEX.dim }).setVisible(false);
+          cont.add(c.history);
+        }
+      }
       if (best) {
         const mm = Math.floor(best.timeSec / 60).toString().padStart(2, '0');
         const ss = Math.floor(best.timeSec % 60).toString().padStart(2, '0');
         const rkKey = best.rank ? rankImageKey(best.rank as RankName) : '';
         const useImg = !!rkKey && this.textures.exists(rkKey);
-        c.best = this.add.text(cardW / 2 - 18, h - 9, (best.rank && !useImg ? `RANK ${best.rank}   ` : '') + (best.rush ? `BEST  ${mm}:${ss}   MAX  ${best.loop} LOOP` : best.loop !== undefined ? `BEST  ${mm}:${ss}  LOOP ${best.loop}` : best.score !== undefined ? `BEST  ${best.score.toLocaleString()} pt  ${mm}:${ss}` : `BEST  ✕ ${best.kills}  ${mm}:${ss}${best.cleared ? '  CLEAR' : ''}`), {
+        c.best = this.add.text(cardW / 2 - 18, h - 9, (best.rank && !useImg ? `RANK ${best.rank}   ` : '') + (best.arena ? (best.cleared ? `BEST  ${mm}:${ss}  CLEAR` : `REACHED  ${best.reached ?? 0} / ${ARENA.bosses.length}`) : best.rush ? `BEST  ${mm}:${ss}   MAX  ${best.loop} LOOP` : best.loop !== undefined ? `BEST  ${mm}:${ss}  LOOP ${best.loop}` : best.score !== undefined ? `BEST  ${best.score.toLocaleString()} pt  ${mm}:${ss}` : `BEST  ✕ ${best.kills}  ${mm}:${ss}${best.cleared ? '  CLEAR' : ''}`), {
           fontFamily: FONT_EN, fontSize: '15px', color: best.cleared ? COLOR_HEX.gold : COLOR_HEX.accent, fontStyle: '700',
         }).setOrigin(1, 1);
         cont.add(c.best);

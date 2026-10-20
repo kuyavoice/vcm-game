@@ -4755,6 +4755,8 @@ export class GameScene extends Phaser.Scene {
       specials: this.runSpecials,
       chests: this.runChests,
       rush: this.stage.rush ? { loopTimes: this.rush.loopTimes, loop: this.rush.loop, bossTimes: this.rush.bossTimes, bossesDefeated: this.rush.bossesDefeated, arts: this.rushArts, supports: this.rushSupports } : undefined,
+      // 闘技場：到達した変異体の番号（倒れたときは戦っていた相手。制覇なら全数）
+      arenaReached: this.stage.arena ? Math.min(ARENA.bosses.length, this.arena.wave + (cleared ? 0 : 1)) : undefined,
     };
     if (!cleared) {
       this.player.play(`${this.player.spriteKey}_hit`);

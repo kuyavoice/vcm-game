@@ -6,6 +6,7 @@ import { stageById } from '../data/stages';
 import { endlessTitle, endlessLoop } from '../data/endless';
 import { rushTitle, fmtTime } from '../data/rush';
 import { rankOf, RANK_COLORS } from '../data/ranks';
+import { ARENA } from '../data/arena';
 
 export const SHARE_URL = 'https://kuyavoice.github.io/vcm-game/';
 export const SHARE_TAG = '#DSTAGESURVIVORS';
@@ -176,6 +177,7 @@ export async function renderShareCard(r: RunResult): Promise<Blob | null> {
     ['CHARACTER', chara?.name ?? r.characterId, true],
     ['STAGE', stage.scoreMode ? stage.nameEn : `${stage.nameEn}  ${stage.name}`, true],
     ['TIME', `${mm}:${ss}`, false],
+    ...(stage.arena ? [['REACHED', `${r.arenaReached ?? 0} / ${ARENA.bosses.length}`, false] as [string, string, boolean]] : []),
     ['DEFEATED', `${r.kills}`, false],
     ['LEVEL', `${r.level}`, false],
     ['YELL', `★ ${r.yell}`, false],
@@ -278,7 +280,7 @@ export function buildPostText(r: RunResult, opts: { best?: boolean } = {}): stri
   const fusions = (r.arts ?? []).filter((a) => a.fusion).length;
   const lines = [
     `${GAME_TITLE}｜${chara?.name ?? ''}で ${stage.nameEn}「${stage.name}」`,
-    stage.rush ? (r.rush && r.rush.loopTimes.length > 0 ? `1周 ${fmtTime(r.rush.loopTimes[0])}（${r.rush.loopTimes.length}周クリア）—— 称号「${rushTitle(r.rush.loopTimes[0])}」` : 'ボスに届かなかった……') : stage.endless ? `称号「${endlessTitle(r.timeSec).name}」—— ${endlessLoop(r.timeSec)}周目` : r.cleared ? 'SIGNAL CLEAR —— 声は、届いた。' : 'SIGNAL LOST —— 声が、途切れた……',
+    stage.arena ? (r.cleared ? `ARENA 制覇 ${mm}:${ss} —— 8体の変異体を越えた` : `ARENA 到達 ${r.arenaReached ?? 0} / ${ARENA.bosses.length} —— 声が、途切れた……`) : stage.rush ? (r.rush && r.rush.loopTimes.length > 0 ? `1周 ${fmtTime(r.rush.loopTimes[0])}（${r.rush.loopTimes.length}周クリア）—— 称号「${rushTitle(r.rush.loopTimes[0])}」` : 'ボスに届かなかった……') : stage.endless ? `称号「${endlessTitle(r.timeSec).name}」—— ${endlessLoop(r.timeSec)}周目` : r.cleared ? 'SIGNAL CLEAR —— 声は、届いた。' : 'SIGNAL LOST —— 声が、途切れた……',
     `生存 ${mm}:${ss}／撃破 ${r.kills}／Lv${r.level}${fusions ? `／合体技 ${fusions}` : ''}${r.score !== undefined && !stage.endless ? `／スコア ${r.score.toLocaleString()}` : ''}${rankOf(r) ? `／ランク ${rankOf(r)}` : ''}${opts.best ? '　★NEW BEST' : ''}`,
     SHARE_URL,
     SHARE_TAG,
