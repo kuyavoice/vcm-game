@@ -19,6 +19,8 @@ export const ARENA = {
   zoneAlpha: 0.4,
   /** 闘技場だけ：必殺ゲージが時間でも溜まる（この秒数で満タン。撃破分は従来どおり足す。2026-10-20 ユーザー案） */
   specialChargeSec: 45,
+  /** 撃破後の報酬（ボスラッシュと同じ画面）。キーは倒した変異体の番号（0始まり）：②狩人級→サポート3択／④司祭級→アーツ3択（Lv8）／⑥女王級→宝箱（2026-10-21 ユーザー承認。運は宝箱1回だけ） */
+  rewards: { 1: 'support', 3: 'art', 5: 'chest' } as Readonly<Record<number, 'support' | 'art' | 'chest'>>,
   /** 最初の敵が出るまで・倒してから次が出るまでの秒数 */
   firstDelaySec: 2.5,
   gapSec: 4,
@@ -32,8 +34,9 @@ export const ARENA = {
     // ⑤⑥⑦は既存のボスをそのまま（最初から後半の行動）。闘技場向けの追加：城兵級＝岩の破片が倍・壁が崩れるときも破片／女王級＝横断するツタの壁／黒騎士＝速く、悪夢の黒騎士の専用技も使う
     { base: 'rook' as EnemyId, kind: 'rook', name: '城兵級', hp: 0, scale: 2, hitRadius: 110, contactDamage: 20, native: true, hpMul: 0.6 },
     { base: 'queen' as EnemyId, kind: 'queen', name: '女王級', hp: 0, scale: 2, hitRadius: 110, contactDamage: 20, native: true, hpMul: 0.9 },
-    { base: 'blackknight' as EnemyId, kind: 'blackknight', name: '黒騎士', hp: 0, scale: 2, hitRadius: 130, contactDamage: 20, native: true, hpMul: 0.9 },
-    { base: 'redknight' as EnemyId, kind: 'redknight', name: '悪夢の黒騎士・変異体', hp: 18000, scale: 2, hitRadius: 130, contactDamage: 20 },
+    // ⑦⑧は報酬で手札が増えるぶん硬く（2026-10-21）
+    { base: 'blackknight' as EnemyId, kind: 'blackknight', name: '黒騎士', hp: 0, scale: 2, hitRadius: 130, contactDamage: 20, native: true, hpMul: 1.15 },
+    { base: 'redknight' as EnemyId, kind: 'redknight', name: '悪夢の黒騎士・変異体', hp: 23000, scale: 2, hitRadius: 130, contactDamage: 20 },
   ] as ArenaBossEntry[],
   /** ①変異体・雑音級：突進／飛び跳ね3連／全体ばらまき */
   grunt: {

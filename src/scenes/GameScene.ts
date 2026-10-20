@@ -906,7 +906,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // 闘技場：変異体を順に出す。倒したら少し間を置いて次
-    if (this.stage.arena && !this.overlayActive() && !this.arena.done && this.bosses.every((b) => !b.active)) {
+    if (this.stage.arena && !this.overlayActive() && this.rush.rewards.length === 0 && !this.arena.done && this.bosses.every((b) => !b.active)) {
       if (this.arena.nextAt === 0) this.arena.nextAt = now + ARENA.firstDelaySec * 1000;
       if (now >= this.arena.nextAt) this.spawnArenaBoss();
     }
@@ -4216,6 +4216,9 @@ export class GameScene extends Phaser.Scene {
         this.hazards.length = 0;
         this.cavalryWarnings.length = 0;
         this.arena.wave++;
+        // 撃破後の報酬（決まった番号だけ。画面はボスラッシュと同じ）
+        const reward = ARENA.rewards[this.arena.wave - 1];
+        if (reward) this.rush.rewards.push(reward);
         if (this.arena.wave < ARENA.bosses.length) {
           this.spawner.bossActive = false;
           this.hitStopMs = CONFIG.bossDefeat.hitStopMs;
