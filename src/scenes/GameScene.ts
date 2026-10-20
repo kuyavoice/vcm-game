@@ -170,6 +170,9 @@ export class GameScene extends Phaser.Scene {
   /** 闘技場の女王級：次のツタまでの秒数と、縦横の交互 */
   private arenaVineTimer = 0;
   private arenaVineVertical = false;
+  private arenaVineCount = 0;
+  /** 闘技場の城兵級：次の踏み鳴らしまでの秒数 */
+  private arenaStompTimer = 0;
   private fullMoon = false;
   private enemySpeedMul = 1;
 
@@ -241,6 +244,8 @@ export class GameScene extends Phaser.Scene {
     this.telegraphs = [];
     this.arenaVineTimer = 0;
     this.arenaVineVertical = false;
+    this.arenaVineCount = 0;
+    this.arenaStompTimer = 0;
   }
 
   create(): void {
@@ -1988,6 +1993,11 @@ export class GameScene extends Phaser.Scene {
     return this.stage.rush ? rushTempo(this.rush.loop) : 1;
   }
 
+  /** 闘技場の既存ボス（城兵級・女王級）の行動の間隔の倍率（黒騎士は updateBlackKnight 側） */
+  private arenaTempo(kind: 'rook' | 'queen'): number {
+    return this.stage.arena ? ARENA[kind].tempoMul : 1;
+  }
+
   /** いまの周の、次のボスの組を出す（全部、最初から後半の行動） */
   private spawnRushWave(): void {
     const waves = rushWaves(this.rush.loop);
@@ -2141,6 +2151,26 @@ export class GameScene extends Phaser.Scene {
         g.lineBetween(x, y, x + px * s, y + py * s);
       }
     }
+    // 城兵級：踏み鳴らしの衝撃輪（自分の周り）
+    const rk = this.bosses.find((b) => b.active && b.def.bossKind === 'rook');
+    if (rk) {
+      const R = ARENA.rook;
+      this.arenaStompTimer -= dt;
+      if (this.arenaStompTimer <= 0) {
+        this.arenaStompTimer = R.stompEverySec;
+        const sx = rk.x;
+        const sy = rk.y - 20;
+        AudioBus.play('se_rook_stomp', 0, 'se_boss');
+        this.pushTelegraph({
+          shape: { kind: 'circle', x: sx, y: sy, r: R.stompRadius },
+          startAt: now, at: now + R.stompWindupSec * 1000, damage: ARENA.telegraphDamage,
+          onFire: () => {
+            this.fxRing(sx, sy, R.stompRadius, 0x40e0ff, 10);
+            this.cameras.main.shake(200, 0.009);
+          },
+        });
+      }
+    }
     const q = this.bosses.find((b) => b.active && b.def.bossKind === 'queen');
     if (!q || q.bossState.act === 'emerge') return;
     const Q = ARENA.queen;
@@ -2149,23 +2179,29 @@ export class GameScene extends Phaser.Scene {
     this.arenaVineTimer = Q.vineEverySec;
     const vertical = this.arenaVineVertical;
     this.arenaVineVertical = !vertical;
+    // 2回に1回は十字（縦横を同時に）
+    const cross = this.arenaVineCount % 2 === 1;
+    this.arenaVineCount++;
     const p = this.player;
     const L = this.arena.r * 1.1;
-    const x1 = vertical ? p.x : this.arena.cx - L;
-    const y1 = vertical ? this.arena.cy - L : p.y;
-    const x2 = vertical ? p.x : this.arena.cx + L;
-    const y2 = vertical ? this.arena.cy + L : p.y;
-    this.hud.banner(`${q.def.name} —— 茨の横断`, '#FFC83D', 30);
+    const px = p.x;
+    const py = p.y;
+    this.hud.banner(`${q.def.name} —— ${cross ? '茨の十字' : '茨の横断'}`, '#FFC83D', 30);
     AudioBus.play('se_queen_thrust', 0, 'se_boss');
-    this.pushTelegraph({
-      shape: { kind: 'line', x1, y1, x2, y2, half: Q.vineHalf },
-      startAt: now, at: now + Q.vineWindupSec * 1000, damage: ARENA.telegraphDamage,
-      onFire: () => {
-        this.walls.push({ x1, y1, x2, y2, half: Q.vineHalf, until: this.gameNow + Q.vineSec * 1000, imgs: [], vine: true });
-        this.cameras.main.shake(160, 0.006);
-        // 生えた瞬間に中にいたら、外へ押し出される（pushOutOfWalls が毎フレーム行う）
-      },
-    });
+    const lines: [number, number, number, number][] = [];
+    if (cross || vertical) lines.push([px, this.arena.cy - L, px, this.arena.cy + L]);
+    if (cross || !vertical) lines.push([this.arena.cx - L, py, this.arena.cx + L, py]);
+    for (const [x1, y1, x2, y2] of lines) {
+      this.pushTelegraph({
+        shape: { kind: 'line', x1, y1, x2, y2, half: Q.vineHalf },
+        startAt: now, at: now + Q.vineWindupSec * 1000, damage: ARENA.telegraphDamage,
+        onFire: () => {
+          this.walls.push({ x1, y1, x2, y2, half: Q.vineHalf, until: this.gameNow + Q.vineSec * 1000, imgs: [], vine: true });
+          this.cameras.main.shake(160, 0.006);
+          // 生えた瞬間に中にいたら、外へ押し出される（pushOutOfWalls が毎フレーム行う）
+        },
+      });
+    }
   }
 
   /** 次の変異体を出す（上の縁の近く）。HPは data/arena.ts の固定値 */
@@ -2184,7 +2220,8 @@ export class GameScene extends Phaser.Scene {
       this.onBossSpawn(ne, entry.hpMul ?? 1, 0, 1, true);
       // 黒騎士：悪夢の黒騎士の専用技を最初から使う
       if (entry.base === 'blackknight') { ne.bk.enraged = true; ne.bk.exTimer = CONFIG.redKnight.exEverySec; }
-      if (entry.base === 'queen') { this.arenaVineTimer = ARENA.queen.vineEverySec * 0.6; this.arenaVineVertical = false; }
+      if (entry.base === 'queen') { this.arenaVineTimer = ARENA.queen.vineEverySec * 0.6; this.arenaVineVertical = false; this.arenaVineCount = 0; }
+      if (entry.base === 'rook') this.arenaStompTimer = ARENA.rook.stompEverySec * 0.7;
       if (this.arena.wave === 0) this.arena.startSec = this.elapsed;
       this.arena.nextAt = Infinity;
       return;
@@ -3203,7 +3240,7 @@ export class GameScene extends Phaser.Scene {
       e.bk.exForce = '';
       b.lastAct = act;
       // 行動の途中は数えないので、岩壁のあとの待ち時間は「壁がせり上がってから」になる
-      b.actTimer = (act === 'wall' ? R.wallChargeDelaySec : R.attackEverySec) * this.bossIdleMul();
+      b.actTimer = (act === 'wall' ? R.wallChargeDelaySec : R.attackEverySec) * this.bossIdleMul() * this.arenaTempo('rook');
       e.aim.length = 0;
       if (act === 'charge') {
         b.windup = B.kingChargeTrackSec + B.kingChargeLockSec;
@@ -3223,7 +3260,8 @@ export class GameScene extends Phaser.Scene {
         AudioBus.play('se_rook_cannon', 120, 'se_break');
       } else if (act === 'cannon') {
         const range = p2 ? R.cannonPointsPhase2 : R.cannonPoints;
-        const n = Phaser.Math.Between(range[0], range[1]);
+        // 闘技場では着弾点が倍（2026-10-21）
+        const n = Phaser.Math.Between(range[0], range[1]) * (this.stage.arena ? ARENA.rook.cannonPointsMul : 1);
         // 1発目はプレイヤーの位置。残りは周りに散らす（近すぎる点は選び直す）
         e.aim.push({ x: p.x, y: p.y - 12, a: 0 });
         for (let i = 1; i < n; i++) {
@@ -3424,7 +3462,7 @@ export class GameScene extends Phaser.Scene {
     // 召喚：体の周りに蕾を産み落とす（ほかの行動とは別の間隔）
     b.ringTimer -= dt;
     if (b.ringTimer <= 0) {
-      b.ringTimer = (p2 ? Q.summonEverySecBloom : Q.summonEverySec) * this.bossIdleMul();
+      b.ringTimer = (p2 ? Q.summonEverySecBloom : Q.summonEverySec) * this.bossIdleMul() * this.arenaTempo('queen');
       let alive = 0;
       for (const o of this.enemies.getChildren() as Enemy[]) if (o.active && o.def.bud) alive++;
       const n = Math.min(p2 ? Q.budsBloom : Q.buds, Q.maxBuds - alive);
@@ -3462,7 +3500,7 @@ export class GameScene extends Phaser.Scene {
       const act = e.bk.exForce || (far ? 'thrust' : '') || this.pickAct(table, b.lastAct, skip) || this.pickAct(table, '', skip);
       e.bk.exForce = '';
       b.lastAct = act;
-      b.actTimer = Q.attackEverySec * this.bossIdleMul();
+      b.actTimer = Q.attackEverySec * this.bossIdleMul() * this.arenaTempo('queen');
       e.aim.length = 0;
       if (act === 'cage') {
         const from = now + Q.cageWindupSec * 1000;

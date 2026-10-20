@@ -31,7 +31,7 @@ export const ARENA = {
     { base: 'bishop' as EnemyId, kind: 'bishop', name: '変異体・司祭級', hp: 16000, scale: 6, hitRadius: 100, contactDamage: 10 },
     // ⑤⑥⑦は既存のボスをそのまま（最初から後半の行動）。闘技場向けの追加：城兵級＝岩の破片が倍・壁が崩れるときも破片／女王級＝横断するツタの壁／黒騎士＝速く、悪夢の黒騎士の専用技も使う
     { base: 'rook' as EnemyId, kind: 'rook', name: '城兵級', hp: 0, scale: 2, hitRadius: 110, contactDamage: 20, native: true, hpMul: 0.6 },
-    { base: 'queen' as EnemyId, kind: 'queen', name: '女王級', hp: 0, scale: 2, hitRadius: 110, contactDamage: 20, native: true, hpMul: 0.7 },
+    { base: 'queen' as EnemyId, kind: 'queen', name: '女王級', hp: 0, scale: 2, hitRadius: 110, contactDamage: 20, native: true, hpMul: 0.9 },
     { base: 'blackknight' as EnemyId, kind: 'blackknight', name: '黒騎士', hp: 0, scale: 2, hitRadius: 130, contactDamage: 20, native: true, hpMul: 0.9 },
     { base: 'redknight' as EnemyId, kind: 'redknight', name: '悪夢の黒騎士・変異体', hp: 18000, scale: 2, hitRadius: 130, contactDamage: 20 },
   ] as ArenaBossEntry[],
@@ -184,10 +184,10 @@ export const ARENA = {
     tripleLines: 3,
     tripleLinesEnraged: 4,
   },
-  /** ⑤城兵級（既存の行動）：岩の破片の倍率と、壁が時間で崩れるときにも破片を出す */
-  rook: { shardMul: 2, expireShards: true },
-  /** ⑥女王級（既存の行動）：一定間隔で、プレイヤーの位置を通って闘技場を横断するツタの壁（通れない）。縦横交互 */
-  queen: { vineEverySec: 8, vineWindupSec: 1.2, vineHalf: 30, vineSec: 7 },
+  /** ⑤城兵級（既存の行動）：岩の破片の倍率・壁が時間で崩れるときにも破片・砲撃の着弾点が倍・行動の間隔（tempoMul）・踏み鳴らしの衝撃輪（自分の周り。stompEverySec ごと）。2026-10-21 試遊で唯一被弾なしだったため */
+  rook: { shardMul: 2, expireShards: true, cannonPointsMul: 2, tempoMul: 0.8, stompEverySec: 6, stompWindupSec: 0.8, stompRadius: 320 },
+  /** ⑥女王級（既存の行動）：一定間隔で、プレイヤーの位置を通って闘技場を横断するツタの壁（通れない）。縦横交互で、2回に1回は十字。行動と召喚の間隔は tempoMul。2026-10-21「弱すぎる」で強化 */
+  queen: { vineEverySec: 5, vineWindupSec: 1.2, vineHalf: 30, vineSec: 7, tempoMul: 0.65 },
   /** ⑦黒騎士（既存の行動）：速く、行動の間隔も短く。悪夢の黒騎士の専用技（新月／半月／漆黒の牙／漆黒の檻／闇の炎）も最初から使う */
   blackknight: { speedMul: 1.4, tempoMul: 1.3 },
 };
