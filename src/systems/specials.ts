@@ -148,8 +148,8 @@ const starPrayer: SpecialBehavior = {
       timer -= 0.3;
       left--;
       for (const e of ctx.onScreenEnemies()) {
-        // ボスには倍率（闘技場でも詩音の必殺が意味を持つように。2026-10-21）
-        ctx.damage(e, 25 * ctx.stats.damageMul * (e.def.boss ? CONFIG.starPrayerBossMul : 1), 0, 0);
+        // 闘技場のボスには倍率（詩音の必殺が闘技場でも意味を持つように。他のモードは従来どおり。2026-10-21）
+        ctx.damage(e, 25 * ctx.stats.damageMul * (ctx.arena && e.def.boss ? CONFIG.starPrayerArenaBossMul : 1), 0, 0);
         if (Math.random() < 0.35) ctx.fx.cross(e.x, e.y - 10, 26, 0xfff3a0);
       }
     }

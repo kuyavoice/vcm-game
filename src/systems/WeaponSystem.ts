@@ -37,6 +37,8 @@ export interface ZoneOpts {
 /** 武器から見た戦場の情報・操作 */
 export interface BattleContext {
   scene: Phaser.Scene;
+  /** 闘技場か（詩音の必殺のボス倍率など、闘技場だけの調整に使う。2026-10-21） */
+  arena?: boolean;
   player: Player;
   enemies: Phaser.GameObjects.Group;
   hash: SpatialHash<Enemy>;

@@ -389,6 +389,7 @@ export class GameScene extends Phaser.Scene {
 
     this.ctx = {
       scene: this,
+      arena: !!this.stage.arena,
       player: this.player,
       enemies: this.enemies,
       hash: this.hash,
