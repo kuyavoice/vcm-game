@@ -2049,7 +2049,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const pool = this.up.buildChoices(40).filter((c) => (kind === 'support' ? c.kind === 'passive' : c.kind === 'weapon' && c.tag === 'NEW'));
-    const choices = pool.slice(0, 3);
+    // 詩音の固有パッシブ『脚本』：ボスラッシュ・闘技場の報酬も4択（2026-10-21 ユーザー承認）
+    const choices = pool.slice(0, this.player.def.uniquePassive.id === 'scenario' ? 4 : 3);
     if (choices.length === 0) {
       // 選べるものが無い（枠が埋まっているなど）：代わりに宝箱
       this.openChest();

@@ -3,6 +3,7 @@ import { AudioBus } from '../utils/audio';
 import { screenFlash } from '../utils/screenFlash';
 import type { SpecialId } from '../data/characters';
 import type { Enemy } from '../entities/Enemy';
+import { CONFIG } from '../data/config';
 import type { BattleContext } from './WeaponSystem';
 
 /** 必殺の挙動。GameScene が activate → 毎ステップ update → 終了時 end を呼ぶ */
@@ -147,7 +148,8 @@ const starPrayer: SpecialBehavior = {
       timer -= 0.3;
       left--;
       for (const e of ctx.onScreenEnemies()) {
-        ctx.damage(e, 25 * ctx.stats.damageMul, 0, 0);
+        // ボスには倍率（闘技場でも詩音の必殺が意味を持つように。2026-10-21）
+        ctx.damage(e, 25 * ctx.stats.damageMul * (e.def.boss ? CONFIG.starPrayerBossMul : 1), 0, 0);
         if (Math.random() < 0.35) ctx.fx.cross(e.x, e.y - 10, 26, 0xfff3a0);
       }
     }
