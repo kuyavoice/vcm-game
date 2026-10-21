@@ -71,7 +71,9 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'codex_full', name: '声の記録者', desc: '図鑑の共鳴アーツとサポートを全部登録', check: (_r, s) => codexFound(s) >= codexTotal(s) },
   // ランク（2026-10-19）：ランクは data/ranks.ts。SSS=6、S=4
   { id: 'rank_sss', name: '極光', desc: 'どれかのモードでランク SSS', check: (_r, s) => Object.values(s.ranks ?? {}).some((v) => v >= 6) },
-  { id: 'rank_s_all', name: '全天の星図', desc: '全モードでランク S 以上（STAGE 1〜3・スコアアタック・悪夢・エンドレス・ボスラッシュ）', check: (_r, s) => ALL_RANK_MODE_IDS.every((id) => (s.ranks?.[String(id)] ?? 0) >= 4) },
+  { id: 'rank_s_all', name: '全天の星図', desc: '全モードでランク S 以上（STAGE 1〜3・スコアアタック・悪夢・エンドレス・ボスラッシュ・闘技場）', check: (_r, s) => ALL_RANK_MODE_IDS.every((id) => (s.ranks?.[String(id)] ?? 0) >= 4) },
+  // 最上位（2026-10-21 ユーザー命名）。報酬：ギャラリーの絵と、作戦室の特別ボイス
+  { id: 'rank_sss_all', name: '極光の冠', desc: '八つの夜、すべてに極光を灯した（全モードでランク SSS）', check: (_r, s) => ALL_RANK_MODE_IDS.every((id) => (s.ranks?.[String(id)] ?? 0) >= 6) },
 ];
 
 /**

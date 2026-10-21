@@ -10,6 +10,7 @@ import { AudioBus } from '../utils/audio';
 import { makeButton } from '../ui/Button';
 import { go, wipeIn, panel as uiPanel, UI } from '../ui/theme';
 import { t } from '../utils/lang';
+import { screenFlash } from '../utils/screenFlash';
 
 /** 絆の段階が上がったときの演出の長さ */
 const LEVELUP_MS = 1400;
@@ -115,6 +116,7 @@ export class YellRoomScene extends Phaser.Scene {
         this.add.image(W / 2, topY + this.chara.displayHeight * 0.28, glow).setDisplaySize(W * 1.15, (bandY - topY) * 1.1).setAlpha(0.45).setDepth(-8);
         this.chara.setAlpha(0).setY(topY + 24);
         this.tweens.add({ targets: this.chara, alpha: 1, y: topY, duration: 420, ease: 'Cubic.out' });
+        this.bindCharaTap();
       } else {
         const cx = W * 0.5;
         const bottom = bandY + 40;
@@ -125,6 +127,7 @@ export class YellRoomScene extends Phaser.Scene {
         this.chara.setScale(s);
         this.faceY = bottom - this.chara.displayHeight * 0.9;
         this.chara.setAlpha(0).setY(bottom + 24);
+        this.bindCharaTap();
         this.tweens.add({ targets: this.chara, alpha: 1, y: bottom, duration: 420, ease: 'Cubic.out' });
       }
       // 絆MAX：作戦室でもオーラを見せる（戦闘中と同じ加算合成）
@@ -266,6 +269,61 @@ export class YellRoomScene extends Phaser.Scene {
     ui.add(makeButton(this, bx, oy, `★ ${BOND_UNITS[0]}`, () => this.give(W, H, color, BOND_UNITS[0]), { width: smallW, height: 52, fontSize: 20, primary: wallet >= BOND_UNITS[0] && wallet < BOND_UNITS[1], armDelayMs: 200 }));
     bx -= smallW / 2 + 10 + closeW / 2;
     ui.add(makeButton(this, bx, oy, 'CLOSE', () => this.close(), { width: closeW, height: 52, fontSize: 18, armDelayMs: 200 }));
+  }
+
+  /** キャラをタップ：極光の冠（全モード SSS）を持っていれば特別ボイス＋オーロラの演出。持っていなければ笑顔だけ（2026-10-21） */
+  private bindCharaTap(): void {
+    if (!this.chara) return;
+    this.chara.setInteractive({ useHandCursor: true, pixelPerfect: false });
+    this.chara.on('pointerup', () => this.onCharaTap());
+  }
+
+  private onCharaTap(): void {
+    if (this.busy) return;
+    const save = loadSave();
+    const crown = voiceFiles(this.id, 'crown');
+    if (!save.achievements.includes('rank_sss_all') || crown.length === 0) {
+      this.setSmile(true);
+      return;
+    }
+    if (this.time.now - this.lastThanksAt < 1500) return;
+    this.lastThanksAt = this.time.now;
+    AudioBus.previewVoice(this.id, crown[0], this);
+    this.setSmile(true);
+    this.crownEffect();
+    if (!save.crownHeard.includes(this.id)) {
+      save.crownHeard.push(this.id);
+      writeSave(save);
+    }
+  }
+
+  /** オーロラの演出：虹色の輪が顔の高さから広がり、星がはじけ、「極光の冠」の文字 */
+  private crownEffect(): void {
+    if (!this.chara) return;
+    const cam = this.cameras.main;
+    const W = cam.width;
+    const x = this.chara.x;
+    const y = this.chara.originY === 0 ? this.faceY : this.chara.y - this.chara.displayHeight * 0.7;
+    const colors = [0xff6ec7, 0xffd166, 0x7cffb2, 0x62d8ff, 0xb28dff, 0xffffff];
+    colors.forEach((c, i) => {
+      const g = this.add.graphics().setDepth(40);
+      const ring = { r: 40, a: 0.9 };
+      this.tweens.add({
+        targets: ring, r: 300 + i * 40, a: 0, duration: 900, delay: i * 90, ease: 'Cubic.out',
+        onUpdate: () => { g.clear(); g.lineStyle(6, c, ring.a); g.strokeCircle(x, y, ring.r); },
+        onComplete: () => g.destroy(),
+      });
+    });
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * Math.PI * 2 + Math.random() * 0.3;
+      const d = 120 + Math.random() * 160;
+      const st = this.add.star(x, y, 4, 3, 9, colors[i % colors.length], 1).setDepth(41).setScale(0.6 + Math.random() * 0.8);
+      this.tweens.add({ targets: st, x: x + Math.cos(a) * d, y: y + Math.sin(a) * d - 40, alpha: 0, angle: 180, duration: 800 + Math.random() * 400, delay: 60 + Math.random() * 200, ease: 'Cubic.out', onComplete: () => st.destroy() });
+    }
+    const label = this.add.text(W / 2, y - 120, '極光の冠', { fontFamily: FONT_JP, fontSize: '34px', color: COLOR_HEX.gold, fontStyle: '700', stroke: '#060913', strokeThickness: 8 }).setOrigin(0.5).setDepth(42).setAlpha(0).setScale(1.6);
+    this.tweens.add({ targets: label, alpha: 1, scale: 1, duration: 260, ease: 'Back.out' });
+    this.tweens.add({ targets: label, alpha: 0, y: y - 150, duration: 500, delay: 1500, onComplete: () => label.destroy() });
+    screenFlash(this, 320, 200, 230, 255);
   }
 
   /** エールを贈る：財布から引いて累計へ。お礼のボイス（笑顔）。段階が上がれば演出 */

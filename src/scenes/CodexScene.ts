@@ -243,7 +243,8 @@ export class CodexScene extends Phaser.Scene {
     const top = Math.max(H * 0.06, 40);
     layer.add(this.add.text(W / 2, top, 'VOICE', { fontFamily: FONT_EN, fontSize: '40px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 6 }).setOrigin(0.5));
     layer.add(this.add.text(W / 2, top + 44, `${name}　のボイス`, { fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim }).setOrigin(0.5));
-    const kinds = VOICE_KIND_ORDER.filter((k) => k !== 'thanks' && voiceFiles(id, k).length > 0 && (k !== 'bond' || bondLevel(save.bond[id] ?? 0) > 0));
+    // 極光の冠のボイスは、作戦室で一度聞いてから（2026-10-21）
+    const kinds = VOICE_KIND_ORDER.filter((k) => k !== 'thanks' && voiceFiles(id, k).length > 0 && (k !== 'bond' || bondLevel(save.bond[id] ?? 0) > 0) && (k !== 'crown' || (save.crownHeard ?? []).includes(id)));
     const rowW = Math.min(620, W - 40);
     const left = (W - rowW) / 2;
     const bottomY = Math.min(H - 70, H * 0.9);

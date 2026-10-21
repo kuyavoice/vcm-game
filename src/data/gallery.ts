@@ -18,8 +18,8 @@ export interface GalleryDef {
   price: number;
   /** このキャラを解放するまで、枠ごと出さない */
   secretOf?: string;
-  /** クリア報酬（エールでは買えない）。手に入れるまで枠ごと出さない */
-  rewardOf?: 'nightmare';
+  /** クリア報酬（エールでは買えない）。手に入れるまで枠ごと出さない。crown＝実績「極光の冠」（全モード SSS）の報酬（2026-10-21） */
+  rewardOf?: 'nightmare' | 'crown';
   /** 横長の絵（一覧では横幅いっぱいの枠で見せる） */
   wide?: boolean;
 }
@@ -67,6 +67,8 @@ const special = (fileId: string, title: string, color: number): GalleryDef => ({
 export const GALLERY: GalleryDef[] = [
   special('stainedglass', 'VERSE', 0xffd700),
   special('congratulation', 'CONGRATULATIONS!', 0xffd700),
+  // 極光の冠（全モード SSS）の報酬。オーロラの下で5人（隠しキャラ含む）
+  { ...special('crown', '極光の冠', 0xffd700), rewardOf: 'crown' },
   kv('kuya', '宵月 空夜', 0x00bfff),
   kv('yukihito', '狐森 雪人', 0xc0c0c0),
   kv('shion', '黒崎 詩音', 0xc0c0ff, 'shion'),
