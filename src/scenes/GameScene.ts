@@ -847,7 +847,8 @@ export class GameScene extends Phaser.Scene {
     if (p.sleeping) p.heal(CONFIG.sleepRegenPerSec * dt);
 
     // 闘技場：必殺ゲージは時間でも溜まる（必殺中は溜めない）
-    if (this.stage.arena && now >= this.soulUntil) this.soulGauge = Math.min(1, this.soulGauge + dt / ARENA.specialChargeSec);
+    // 特性（詩音 +30%）と『魔力の泉』は、撃破分と同じ倍率で時間チャージにも掛ける（2026-10-21 ユーザー指摘：闘技場では効いていなかった）
+    if (this.stage.arena && now >= this.soulUntil) this.soulGauge = Math.min(1, this.soulGauge + (dt / ARENA.specialChargeSec) * this.up.stats.soulGainMul * (def.traits.soulGainMul ?? 1));
     // 時間・湧き
     this.elapsed += dt;
     if (!this.debugNoSpawn && !this.stage.arena) this.spawner.update(dt, this.elapsed);
