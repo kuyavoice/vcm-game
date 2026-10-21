@@ -382,8 +382,9 @@ export class ResultScene extends Phaser.Scene {
     const btnPost = makeButton(this, W / 2 + 150, H * 0.80, 'Xにポスト', () => openXPost(buildPostText(r, { best: isBest })), { width: 280, height: 60, fontSize: 22 });
 
     const btnRetry = makeButton(this, W / 2, H * 0.80 + 130, 'RETRY', () => {
-      // ボスラッシュは、アーツを選び直す画面へ
+      // ボスラッシュは、アーツを選び直す画面へ。闘技場は同じアーツ・サポート（準備画面が保存した直近の選択）でそのまま再戦（2026-10-21 修正：初期武器だけで始まっていた）
       if (rush) go(this, 'RushSetup', { characterId: r.characterId });
+      else if (stage.arena) { const sv = loadSave(); go(this, 'Game', { characterId: r.characterId, stageId: stage.id, rushArts: sv.lastRushArts, rushSupports: sv.lastRushSupports }); }
       else go(this, 'Game', { characterId: r.characterId, stageId: stage.id });
     }, { primary: true });
     const btnSel = makeButton(this, W / 2, H * 0.80 + 222, 'STAGE SELECT', () => go(this, 'StageSelect'));
