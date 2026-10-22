@@ -17,6 +17,7 @@ import { GALLERY, galleryKey } from '../data/gallery';
 import { ENDLESS, ENDLESS_STAGE, endlessTitle, endlessLoop } from '../data/endless';
 import { RUSH, RUSH_STAGE, rushTitle, fmtTime } from '../data/rush';
 import { addRunStats } from '../utils/stats';
+import { showRewardOverlay } from '../ui/rewardOverlay';
 import { rankOf, rankValue, RANK_COLORS, rankImageKey } from '../data/ranks';
 import { ARENA } from '../data/arena';
 
@@ -403,31 +404,15 @@ export class ResultScene extends Phaser.Scene {
     // ボタンは、数字が出そろってから順に
     stagger(this, [btnSave, btnPost, btnRetry, btnSel], { delay: 700, step: 70 });
 
-    // 悪夢をクリアしたとき：結果の前に、祝いの絵を大きく見せる（タップで閉じる）
-    if (this.congratsKey && this.textures.exists(this.congratsKey)) {
-      this.textures.get(this.congratsKey).setFilter(Phaser.Textures.FilterMode.LINEAR);
-      const shade = this.add.rectangle(0, 0, W, H, 0x020308, 0.94).setOrigin(0).setDepth(100).setInteractive();
-      const img = this.add.image(W / 2, H * 0.44, this.congratsKey).setDepth(101);
-      const fit = Math.min((W - 24) / img.width, (H * 0.6) / img.height);
-      img.setScale(fit * 0.9).setAlpha(0);
-      const frame = this.add.rectangle(W / 2, H * 0.44, img.width * fit + 8, img.height * fit + 8).setStrokeStyle(3, 0xffd700, 0.9).setDepth(101).setAlpha(0);
-      const head = this.add.text(W / 2, H * 0.44 - (img.height * fit) / 2 - 56, 'EX STAGE CLEAR', {
-        fontFamily: FONT_EN, fontSize: '44px', color: COLOR_HEX.gold, fontStyle: '700', letterSpacing: 5, stroke: '#060913', strokeThickness: 6,
-      }).setOrigin(0.5).setDepth(101).setAlpha(0);
-      const hint = this.add.text(W / 2, H * 0.44 + (img.height * fit) / 2 + 60, 'TAP TO CONTINUE', {
-        fontFamily: FONT_EN, fontSize: '24px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 4,
-      }).setOrigin(0.5).setDepth(101).setAlpha(0);
-      this.tweens.add({ targets: img, alpha: 1, scale: fit, duration: 500, ease: 'Cubic.out' });
-      this.tweens.add({ targets: [frame, head], alpha: 1, duration: 500, delay: 200 });
-      this.tweens.add({ targets: hint, alpha: 1, duration: 300, delay: 900 });
-      let ready = false;
-      this.time.delayedCall(900, () => { ready = true; });
-      shade.on('pointerup', () => {
-        if (!ready) return;
-        ready = false;
-        this.tweens.add({ targets: [shade, img, frame, head, hint], alpha: 0, duration: 260, onComplete: () => { for (const o of [shade, img, frame, head, hint]) o.destroy(); } });
-      });
-    }
+    // 全画面の祝い：悪夢の初回クリア（EX STAGE CLEAR）→ 極光の冠の解除（この順に。ui/rewardOverlay.ts）
+    const crownNow = gotAchievements.some((a) => a.id === 'rank_sss_all');
+    const showCrown = () => {
+      if (!crownNow) return;
+      const gcrown = GALLERY.find((g) => g.rewardOf === 'crown');
+      if (gcrown) showRewardOverlay(this, galleryKey(gcrown.id), { head: '極光の冠', sub: '八つの夜、すべてに極光を灯した', path: gcrown.file });
+    };
+    if (this.congratsKey && this.textures.exists(this.congratsKey)) showRewardOverlay(this, this.congratsKey, { head: 'EX STAGE CLEAR', onClose: showCrown });
+    else showCrown();
   }
 
   /**

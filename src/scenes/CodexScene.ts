@@ -19,6 +19,8 @@ import { makeButton } from '../ui/Button';
 import { voiceFiles, voiceFilesOf, VOICE_KIND_ORDER, VOICE_KIND_LABEL, UNION_FUSION } from '../data/voice';
 import { AudioBus } from '../utils/audio';
 import { ACHIEVEMENTS, unlockAchievements } from '../data/achievements';
+import { showRewardOverlay } from '../ui/rewardOverlay';
+import { GALLERY, galleryKey } from '../data/gallery';
 import { bondLevel } from '../data/bond';
 import { statsOf, ensureStats, fmtPlayTime } from '../utils/stats';
 import { rankName } from '../data/ranks';
@@ -77,9 +79,9 @@ export class CodexScene extends Phaser.Scene {
       this.tweens.add({ targets: tag, alpha: 1, x: 20, duration: 240, delay: 600 + i * 500, ease: 'Cubic.out' });
       this.tweens.add({ targets: tag, alpha: 0, duration: 400, delay: 4600 + i * 500, onComplete: () => tag.destroy() });
       if (a.id === 'rank_sss_all') {
-        const note = this.add.text(20, top + 80 + gotNow.length * 44, '極光の冠 —— 特別なイラストと、作戦室の特別ボイスが解放されました', { fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.white, backgroundColor: '#0b1026', padding: { x: 10, y: 6 } }).setDepth(90).setAlpha(0);
-        this.tweens.add({ targets: note, alpha: 1, duration: 240, delay: 1200 });
-        this.tweens.add({ targets: note, alpha: 0, duration: 400, delay: 6000, onComplete: () => note.destroy() });
+        // 全画面で報酬の絵を見せる（リザルトと同じ演出）
+        const gcrown = GALLERY.find((g) => g.rewardOf === 'crown');
+        if (gcrown) showRewardOverlay(this, galleryKey(gcrown.id), { head: '極光の冠', sub: '八つの夜、すべてに極光を灯した。特別なイラストと、作戦室の特別ボイスが解放', path: gcrown.file });
       }
     });
     this.add.text(W / 2, top, 'RESONANCE CODEX', { fontFamily: FONT_EN, fontSize: '44px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 5 }).setOrigin(0.5);
