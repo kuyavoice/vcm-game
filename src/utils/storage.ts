@@ -138,7 +138,8 @@ export function loadSave(): SaveData {
       stats: parsed.stats ? { total: { ...parsed.stats.total }, chars: Object.fromEntries(Object.entries(parsed.stats.chars ?? {}).map(([k, v]) => [k, { ...v }])) } : null,
     };
     // ランクの回収（2026-10-19）：ランキングが残っているモード（スコア・エンドレス・ボスラッシュ）はそこから最高ランクを起こす。通常・悪夢はクリアタイムを保存していないので次のクリアから
-    if (!parsed.ranks) {
+    // 毎回やる（しきい値を見直したとき、保存済みのランクが古いままにならないように。高い方を採る。2026-10-22）
+    {
       const put = (id: number, v: number) => { if (v > (data.ranks[String(id)] ?? 0)) data.ranks[String(id)] = v; };
       for (const e of data.scoreRanking) put(RANK_MODE_IDS.score, rankValue(rankOfScore(e.score)));
       for (const e of data.endlessRanking) put(RANK_MODE_IDS.endless, rankValue(rankOfEndless(e.timeSec)));
