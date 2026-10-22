@@ -11,6 +11,7 @@ import { RUSH_STAGE } from './rush';
 import { FUSIONS } from './fusions';
 import { isCharacterOwned } from '../utils/unlock';
 import { ALL_RANK_MODE_IDS } from './ranks';
+import { GALLERY } from './gallery';
 
 /**
  * 実績（2026-10-05 ユーザー承認）。図鑑の「実績」タブに一覧、解除した瞬間はリザルトに出る。
@@ -88,6 +89,8 @@ export function unlockAchievements(r: RunResult | null, save: SaveData): Achieve
     if (!a.check(r, save)) continue;
     save.achievements.push(a.id);
     got.push(a);
+    // 極光の冠：報酬の絵も同時に解放（リザルトでも、図鑑を開いて解除されたときでも。2026-10-22）
+    if (a.id === 'rank_sss_all') for (const g of GALLERY) if (g.rewardOf === 'crown' && !save.gallery.includes(g.id)) save.gallery.push(g.id);
   }
   return got;
 }

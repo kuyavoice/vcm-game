@@ -197,11 +197,8 @@ export class ResultScene extends Phaser.Scene {
       save.totalYell += r.yell;
       addRunStats(save, r);
       gotAchievements = unlockAchievements(r, save);
-      // 極光の冠：特別なイラストを解放
-      if (gotAchievements.some((a) => a.id === 'rank_sss_all')) {
-        for (const g of GALLERY) if (g.rewardOf === 'crown' && !save.gallery.includes(g.id)) save.gallery.push(g.id);
-        unlocked = '極光の冠 —— 特別なイラストが解放されました';
-      }
+      // 極光の冠：絵の解放は unlockAchievements の中。ここでは字幕だけ
+      if (gotAchievements.some((a) => a.id === 'rank_sss_all')) unlocked = '極光の冠 —— 特別なイラストが解放されました';
       writeSave(save);
       // 隠しキャラ：スコアアタックで強化版の黒騎士を倒すと解放。ここでは何も表示しない（出現はキャラ選択画面で）
       if (stage.scoreMode && r.cleared) unlockSecret('shion');

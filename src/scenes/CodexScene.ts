@@ -68,8 +68,20 @@ export class CodexScene extends Phaser.Scene {
 
     const save = loadSave();
     // プレイに依らない実績（全員解放・図鑑の登録数）は、図鑑を開いたときにも見直す
-    if (unlockAchievements(null, save).length > 0) writeSave(save);
+    const gotNow = unlockAchievements(null, save);
+    if (gotNow.length > 0) writeSave(save);
     const top = Math.max(H * 0.06, 40);
+    // 開いた瞬間に解除された実績は、左上に札を順に出す（リザルトと同じ見せ方。2026-10-22：しきい値の見直しで、プレイせずに条件を満たす人がいる）
+    gotNow.forEach((a, i) => {
+      const tag = this.add.text(20, top + 80 + i * 44, `実績解除　${a.name}`, { fontFamily: FONT_JP, fontSize: '16px', color: COLOR_HEX.gold, fontStyle: '700', backgroundColor: '#0b1026', padding: { x: 10, y: 6 } }).setDepth(90).setAlpha(0).setX(0);
+      this.tweens.add({ targets: tag, alpha: 1, x: 20, duration: 240, delay: 600 + i * 500, ease: 'Cubic.out' });
+      this.tweens.add({ targets: tag, alpha: 0, duration: 400, delay: 4600 + i * 500, onComplete: () => tag.destroy() });
+      if (a.id === 'rank_sss_all') {
+        const note = this.add.text(20, top + 80 + gotNow.length * 44, '極光の冠 —— 特別なイラストと、作戦室の特別ボイスが解放されました', { fontFamily: FONT_JP, fontSize: '14px', color: COLOR_HEX.white, backgroundColor: '#0b1026', padding: { x: 10, y: 6 } }).setDepth(90).setAlpha(0);
+        this.tweens.add({ targets: note, alpha: 1, duration: 240, delay: 1200 });
+        this.tweens.add({ targets: note, alpha: 0, duration: 400, delay: 6000, onComplete: () => note.destroy() });
+      }
+    });
     this.add.text(W / 2, top, 'RESONANCE CODEX', { fontFamily: FONT_EN, fontSize: '44px', color: COLOR_HEX.accent, fontStyle: '700', letterSpacing: 5 }).setOrigin(0.5);
     this.drawTabs(W, top + 56);
 
