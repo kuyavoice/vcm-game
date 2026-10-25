@@ -29,6 +29,10 @@ export interface FilmConfig {
   noLevelUp: boolean;
   /** HUD を消して始める */
   hudOff: boolean;
+  /** 敵が死なない（HP が 1 で止まる。2026-10-25 追加） */
+  enemyImmortal: boolean;
+  /** 自キャラの攻撃を止める（アーツが発動しない。必殺は押せば出る） */
+  noAttack: boolean;
 }
 
 /** 背景に選べるステージ（STAGE 1〜3・悪夢・闘技場） */
@@ -68,7 +72,7 @@ const KEY = 'dstage-film';
 export function defaultFilmConfig(): FilmConfig {
   return {
     characterId: 'kuya', stageId: 1, mainLevel: 1, arts: [], fusions: [], supports: [],
-    noSpawn: true, invincible: true, fullGauge: true, noLevelUp: true, hudOff: false,
+    noSpawn: true, invincible: true, fullGauge: true, noLevelUp: true, hudOff: false, enemyImmortal: false, noAttack: false,
   };
 }
 

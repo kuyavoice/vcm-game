@@ -39,7 +39,7 @@ export class FilmSetupScene extends Phaser.Scene {
     const top = Math.max(H * 0.06, 40);
     this.add.text(W / 2, top, 'FILM', { fontFamily: FONT_EN, fontSize: '44px', color: FILM_HEX, fontStyle: '700', letterSpacing: 5 }).setOrigin(0.5);
     this.add.text(W / 2, top + 44, '撮影用の自由な構成。記録・実績・エールは保存されません', { fontFamily: FONT_JP, fontSize: '18px', color: COLOR_HEX.dim }).setOrigin(0.5);
-    this.add.text(W / 2, top + 70, '戦闘中は右上の FILM（PC: F キー）で操作パネル。H=HUD／P=一時停止／O=コマ送り／Z=ズーム／1〜5=雑魚／6〜0=ボス', { fontFamily: FONT_JP, fontSize: '13px', color: COLOR_HEX.accent }).setOrigin(0.5);
+    this.add.text(W / 2, top + 70, '戦闘中は右上の FILM（PC: F キー）で操作パネル。H=HUD／P=停止／O=コマ送り／Z=ズーム／I=敵不死／X=攻撃停止／1〜5=雑魚／6〜0=ボス', { fontFamily: FONT_JP, fontSize: '13px', color: COLOR_HEX.accent }).setOrigin(0.5);
 
     const rowW = Math.min(660, W - 40);
     const left = (W - rowW) / 2;
@@ -135,6 +135,8 @@ export class FilmSetupScene extends Phaser.Scene {
       { key: 'fullGauge', on: '必殺 満タン', off: '必殺 空' },
       { key: 'noLevelUp', on: 'LvUP画面 なし', off: 'LvUP画面 あり' },
       { key: 'hudOff', on: 'HUD 非表示', off: 'HUD 表示' },
+      { key: 'enemyImmortal', on: '敵不死 ON', off: '敵不死 OFF' },
+      { key: 'noAttack', on: '攻撃停止 ON', off: '攻撃停止 OFF' },
     ];
     const togSetters = flow(toggles.map((t) => ({
       label: cfg[t.key] ? t.on : t.off, on: !!cfg[t.key],

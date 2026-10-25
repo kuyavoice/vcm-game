@@ -165,6 +165,9 @@ export class GameScene extends Phaser.Scene {
   private filmHold = false;
   private filmZoomIndex = 0;
   private filmFusionIndex = 0;
+  /** 撮影：敵が死なない（HP 1 で止まる）／自キャラの攻撃を止める */
+  private filmImmortal = false;
+  private filmNoAttack = false;
   private debugExIndex = 0;
   /** 次にゲームへ戻ったとき、少しだけ無敵にする（レベルアップ・宝箱の画面を開いたとき立てる） */
   private guardOnResume = false;
@@ -205,6 +208,8 @@ export class GameScene extends Phaser.Scene {
     this.filmStep = false;
     this.filmHold = false;
     this.filmZoomIndex = 0;
+    this.filmImmortal = false;
+    this.filmNoAttack = false;
     this.characterId = data.characterId ?? DEFAULT_CHARACTER;
     this.stage = stageById(data.stageId ?? 1);
     this.rushArts = data.rushArts ?? [];
@@ -663,6 +668,8 @@ export class GameScene extends Phaser.Scene {
     this.debugNoSpawn = f.noSpawn;
     this.debugInvincible = f.invincible;
     if (f.fullGauge) this.soulGauge = 1;
+    this.filmImmortal = !!f.enemyImmortal;
+    this.filmNoAttack = !!f.noAttack;
     if (!this.debug) this.buildDebugPanel();
     this.buildFilmPanel();
     if (f.hudOff) this.filmSetHud(false);
@@ -672,6 +679,8 @@ export class GameScene extends Phaser.Scene {
     kb?.on('keydown-P', () => this.filmTogglePause());
     kb?.on('keydown-O', () => this.filmStepFrame());
     kb?.on('keydown-Z', () => this.filmCycleZoom());
+    kb?.on('keydown-I', () => { this.filmImmortal = !this.filmImmortal; this.filmSyncLabels(); });
+    kb?.on('keydown-X', () => { this.filmNoAttack = !this.filmNoAttack; this.filmSyncLabels(); });
     const digits = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'ZERO'];
     digits.forEach((k, i) => kb?.on(`keydown-${k}`, () => {
       if (this.overlayActive()) return;
@@ -690,6 +699,8 @@ export class GameScene extends Phaser.Scene {
       { label: 'コマ送り', run: () => this.filmStepFrame() },
       { label: 'ズーム ×1', run: (set) => { this.filmCycleZoom(); set(`ズーム ×${FILM_ZOOMS[this.filmZoomIndex]}`); } },
       { label: '立ち止まり', run: (set) => { this.filmHold = !this.filmHold; set(this.filmHold ? '立ち止まり中' : '立ち止まり'); } },
+      { label: this.filmImmortal ? '敵不死 ON' : '敵不死 OFF', run: () => { this.filmImmortal = !this.filmImmortal; this.filmSyncLabels(); } },
+      { label: this.filmNoAttack ? '攻撃停止 ON' : '攻撃停止 OFF', run: () => { this.filmNoAttack = !this.filmNoAttack; this.filmSyncLabels(); } },
       { label: '必殺満タン', run: () => { this.soulGauge = 1; } },
       { label: '満月', run: () => this.startFullMoon() },
       { label: '合体の宝箱', run: (set) => set(this.filmOpenFusionChest()) },
@@ -721,6 +732,15 @@ export class GameScene extends Phaser.Scene {
     this.scale.on('resize', layout);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off('resize', layout));
     this.filmButtons = buttons;
+  }
+
+  /** キーで切り替えたときもボタンの文字を合わせる（敵不死・攻撃停止） */
+  private filmSyncLabels(): void {
+    for (const c of this.filmButtons) {
+      const t = c.list[2] as Phaser.GameObjects.Text;
+      if (t.text.startsWith('敵不死')) t.setText(this.filmImmortal ? '敵不死 ON' : '敵不死 OFF');
+      else if (t.text.startsWith('攻撃停止')) t.setText(this.filmNoAttack ? '攻撃停止 ON' : '攻撃停止 OFF');
+    }
   }
 
   private filmTogglePanel(): void {
@@ -1110,7 +1130,8 @@ export class GameScene extends Phaser.Scene {
     this.updateBullets(dt, now);
     this.updateEnemyBullets(dt, now);
 
-    for (const w of this.up.weapons) w.update(dt, ctx);
+    // 撮影：攻撃停止（アーツが発動しない。飛んでいる弾と必殺はそのまま）
+    if (!this.filmNoAttack) for (const w of this.up.weapons) w.update(dt, ctx);
 
     // 必殺の進行・終了
     if (this.specialRunning) {
@@ -4342,6 +4363,8 @@ export class GameScene extends Phaser.Scene {
     if (e.arena && e.arena.act === 'vanish') return;
     // スパイスの帯（『貫通チャーハン』）の中の敵は、全ての攻撃で受けるダメージが増える
     if (this.gameNow < e.vulnUntil) dmg *= 1 + e.vuln;
+    // 撮影：敵が死なない（HP 1 で止める。被弾の光と数字は出る）
+    if (this.filmImmortal) dmg = Math.min(dmg, Math.max(0, e.hp - 1));
     if (this.debug) this.dmgLog.push({ t: this.gameNow, d: Math.min(dmg, e.hp) });
     const dead = e.hit(dmg, this.ctx.now, kx, ky);
     if (this.showDamage && !e.def.isObject) {
