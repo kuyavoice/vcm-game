@@ -9,6 +9,8 @@ export class Joystick {
   readonly radius = 70;
   /** 正規化済みの入力（0〜1） */
   readonly value = new Phaser.Math.Vector2();
+  /** スティックの輪を描くか（撮影モードの HUD 非表示で消す。2026-10-25） */
+  showBase = true;
 
   constructor(private scene: Phaser.Scene) {
     this.base = scene.add.graphics().setDepth(90).setScrollFactor(0).setVisible(false);
@@ -20,7 +22,7 @@ export class Joystick {
       this.vec.set(0, 0);
       this.value.set(0, 0);
       this.draw();
-      this.base.setVisible(true);
+      this.base.setVisible(this.showBase);
     });
     scene.input.on('pointermove', (p: Phaser.Input.Pointer) => {
       if (p.id !== this.pointerId) return;

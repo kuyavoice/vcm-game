@@ -1,7 +1,11 @@
 import Phaser from 'phaser';
 import { CONFIG } from '../data/config';
 import { CHARACTERS, DEFAULT_CHARACTER } from '../data/characters';
-import { ENEMIES } from '../data/enemies';
+import { ENEMIES, type EnemyId } from '../data/enemies';
+import { WEAPONS } from '../data/weapons';
+import { FUSIONS } from '../data/fusions';
+import { createWeapon } from '../systems/arts';
+import { type FilmConfig, FILM_MINIONS, FILM_BOSSES, FILM_SPEEDS, FILM_ZOOMS } from '../data/film';
 import { stageById, type StageDef } from '../data/stages';
 import { SCORE } from '../data/score';
 import { ENDLESS } from '../data/endless';
@@ -150,6 +154,17 @@ export class GameScene extends Phaser.Scene {
   private seenEnemies = new Set<string>();
   private debugInvincible = false;
   private debugNoSpawn = false;
+  private debugButtons: Phaser.GameObjects.Container[] = [];
+  // 撮影モード（?film。data/film.ts）：自由な構成＋操作パネル。記録は保存しない
+  private film: FilmConfig | null = null;
+  private filmButtons: Phaser.GameObjects.Container[] = [];
+  private filmPanelOpen = true;
+  private filmHudOn = true;
+  private filmPaused = false;
+  private filmStep = false;
+  private filmHold = false;
+  private filmZoomIndex = 0;
+  private filmFusionIndex = 0;
   private debugExIndex = 0;
   /** 次にゲームへ戻ったとき、少しだけ無敵にする（レベルアップ・宝箱の画面を開いたとき立てる） */
   private guardOnResume = false;
@@ -180,7 +195,16 @@ export class GameScene extends Phaser.Scene {
     super('Game');
   }
 
-  init(data: { characterId?: string; stageId?: number; rushArts?: string[]; rushSupports?: string[] }): void {
+  init(data: { characterId?: string; stageId?: number; rushArts?: string[]; rushSupports?: string[]; film?: FilmConfig }): void {
+    this.film = data.film ?? null;
+    this.filmButtons = [];
+    this.debugButtons = [];
+    this.filmPanelOpen = true;
+    this.filmHudOn = true;
+    this.filmPaused = false;
+    this.filmStep = false;
+    this.filmHold = false;
+    this.filmZoomIndex = 0;
     this.characterId = data.characterId ?? DEFAULT_CHARACTER;
     this.stage = stageById(data.stageId ?? 1);
     this.rushArts = data.rushArts ?? [];
@@ -317,6 +341,8 @@ export class GameScene extends Phaser.Scene {
       // 闘技場：移動速度と自然回復は最初から付く（ユーザー指定）
       if (this.stage.arena) for (const id of ARENA.defaultSupports) if (PASSIVES[id]) this.up.passives.set(id, PASSIVES[id].maxLevel);
     }
+    // 撮影モード：準備画面で決めた構成
+    if (this.film) this.applyFilmLoadout(this.film);
     this.up.recompute();
     this.player.maxHp = Math.round(def.hp * def.traits.maxHpMul * this.up.stats.maxHpMul);
     this.player.hp = this.player.maxHp;
@@ -460,6 +486,7 @@ export class GameScene extends Phaser.Scene {
     this.events.on(Phaser.Scenes.Events.RESUME, guardResume);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.RESUME, guardResume));
     if (this.debug) this.buildDebugPanel();
+    if (this.film) this.setupFilm();
     // 審査モード（?judge）：全部解放して遊べるぶん、記録・エール・実績は保存しない
     if (isJudge()) this.debugUsed = true;
     // `?debug` の仮の解放で選んだキャラは、確認用のプレイとして扱う（記録・エールを保存しない）
@@ -599,11 +626,200 @@ export class GameScene extends Phaser.Scene {
     });
     const layout = () => {
       const top = Math.max(getSafeInsets(this.scale).top, 16) + 8;
-      buttons.forEach((c, i) => c.setPosition(24 + 66, top + 160 + i * 54));
+      // 縦に入りきらないとき（PC の横画面）は右隣の列へ折り返す
+      const perCol = Math.max(1, Math.floor((this.cameras.main.height - (top + 160) - 10) / 54));
+      buttons.forEach((c, i) => c.setPosition(24 + 66 + Math.floor(i / perCol) * 140, top + 160 + (i % perCol) * 54));
     };
     layout();
     this.scale.on('resize', layout);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off('resize', layout));
+    this.debugButtons = buttons;
+  }
+
+  // ─────────────────────────── 撮影モード（?film。2026-10-25） ───────────────────────────
+
+  /** 準備画面（FilmSetup）で決めた構成を手持ちに反映する。記録は保存しないので図鑑にも入れない */
+  private applyFilmLoadout(f: FilmConfig): void {
+    for (let i = 1; i < f.mainLevel && !this.up.main.isMaxLevel; i++) this.up.main.levelUp();
+    for (const a of f.arts) {
+      if (!WEAPONS[a.id] || this.up.arts.some((w) => w.def.id === a.id)) continue;
+      const w = createWeapon(a.id);
+      for (let i = 1; i < a.level && !w.isMaxLevel; i++) w.levelUp();
+      if (a.evolved && w.isMaxLevel && w.def.evolution) w.evolve();
+      this.up.arts.push(w);
+    }
+    for (const id of f.fusions) {
+      if (!WEAPONS[id] || this.up.arts.some((w) => w.def.id === id)) continue;
+      this.up.arts.push(createWeapon(id));
+    }
+    for (const sp of f.supports) if (PASSIVES[sp.id]) this.up.passives.set(sp.id, Phaser.Math.Clamp(sp.level, 1, PASSIVES[sp.id].maxLevel));
+  }
+
+  /** 撮影モードの土台：保存しない・湧き/無敵/ゲージの初期状態・操作パネル・ショートカット */
+  private setupFilm(): void {
+    const f = this.film;
+    if (!f) return;
+    this.debugUsed = true;
+    this.debugNoSpawn = f.noSpawn;
+    this.debugInvincible = f.invincible;
+    if (f.fullGauge) this.soulGauge = 1;
+    if (!this.debug) this.buildDebugPanel();
+    this.buildFilmPanel();
+    if (f.hudOff) this.filmSetHud(false);
+    const kb = this.input.keyboard;
+    kb?.on('keydown-F', () => this.filmTogglePanel());
+    kb?.on('keydown-H', () => this.filmSetHud(!this.filmHudOn));
+    kb?.on('keydown-P', () => this.filmTogglePause());
+    kb?.on('keydown-O', () => this.filmStepFrame());
+    kb?.on('keydown-Z', () => this.filmCycleZoom());
+    const digits = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'ZERO'];
+    digits.forEach((k, i) => kb?.on(`keydown-${k}`, () => {
+      if (this.overlayActive()) return;
+      if (i < FILM_MINIONS.length) this.filmSpawnMinion(FILM_MINIONS[i]);
+      else if (i - FILM_MINIONS.length < FILM_BOSSES.length) this.filmSpawnBoss(FILM_BOSSES[i - FILM_MINIONS.length].id);
+    }));
+  }
+
+  /** 撮影パネル（右の列）＋開閉の FILM ボタン。左の列はデバッグパネル（ボスの出現・技の指定など）を流用 */
+  private buildFilmPanel(): void {
+    type Item = { label: string; run: (set: (s: string) => void) => void };
+    const items: Item[] = [
+      { label: 'HUD OFF', run: (set) => { this.filmSetHud(!this.filmHudOn); set(this.filmHudOn ? 'HUD OFF' : 'HUD ON'); } },
+      { label: `速度 ×${this.speed}`, run: (set) => { this.cycleSpeed(); set(`速度 ×${this.speed}`); } },
+      { label: '一時停止', run: (set) => { this.filmTogglePause(); set(this.filmPaused ? '再開' : '一時停止'); } },
+      { label: 'コマ送り', run: () => this.filmStepFrame() },
+      { label: 'ズーム ×1', run: (set) => { this.filmCycleZoom(); set(`ズーム ×${FILM_ZOOMS[this.filmZoomIndex]}`); } },
+      { label: '立ち止まり', run: (set) => { this.filmHold = !this.filmHold; set(this.filmHold ? '立ち止まり中' : '立ち止まり'); } },
+      { label: '必殺満タン', run: () => { this.soulGauge = 1; } },
+      { label: '満月', run: () => this.startFullMoon() },
+      { label: '合体の宝箱', run: (set) => set(this.filmOpenFusionChest()) },
+      { label: '全消去', run: () => this.filmClearEnemies() },
+      ...FILM_MINIONS.map((m) => ({ label: `${m.name} ×${m.n}`, run: () => this.filmSpawnMinion(m) })),
+      { label: '王級', run: () => this.filmSpawnBoss('king') },
+      { label: 'リセット', run: () => this.filmReset() },
+    ];
+    const fix = (c: Phaser.GameObjects.Container) => {
+      c.setDepth(1000).setScrollFactor(0).setAlpha(0.85);
+      c.each((o: Phaser.GameObjects.GameObject) => (o as unknown as Phaser.GameObjects.Components.ScrollFactor).setScrollFactor(0));
+      return c;
+    };
+    const buttons = items.map((it) => {
+      const c = makeButton(this, 0, 0, it.label, () => it.run((s) => (c.list[2] as Phaser.GameObjects.Text).setText(s)), { width: 132, height: 40, fontSize: 17, armDelayMs: 0 });
+      return fix(c);
+    });
+    // 開閉ボタン（HUD を消しても残る。F キーと同じ）
+    const toggle = fix(makeButton(this, 0, 0, 'FILM', () => this.filmTogglePanel(), { width: 88, height: 36, fontSize: 16, armDelayMs: 0, primary: true }));
+    const layout = () => {
+      const cam = this.cameras.main;
+      const top = Math.max(getSafeInsets(this.scale).top, 16) + 8;
+      toggle.setPosition(cam.width - 24 - 44, top + 150);
+      const y0 = top + 196;
+      const perCol = Math.max(1, Math.floor((cam.height - y0 - 10) / 46));
+      buttons.forEach((c, i) => c.setPosition(cam.width - 24 - 66 - Math.floor(i / perCol) * 140, y0 + (i % perCol) * 46));
+    };
+    layout();
+    this.scale.on('resize', layout);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off('resize', layout));
+    this.filmButtons = buttons;
+  }
+
+  private filmTogglePanel(): void {
+    this.filmPanelOpen = !this.filmPanelOpen;
+    for (const c of [...this.debugButtons, ...this.filmButtons]) c.setVisible(this.filmPanelOpen);
+  }
+
+  private filmSetHud(on: boolean): void {
+    this.filmHudOn = on;
+    this.hud.setVisible(on);
+    this.joystick.showBase = on;
+  }
+
+  /** 一時停止：戦場の時間だけ止める（演出のトゥイーンは進む。ボタンが効くように） */
+  private filmTogglePause(): void {
+    this.filmPaused = !this.filmPaused;
+    this.anims.globalTimeScale = this.filmPaused ? 0 : this.speed;
+    if (!this.filmPaused) this.filmStep = false;
+  }
+
+  /** コマ送り：止めてから 1 フレームだけ進める */
+  private filmStepFrame(): void {
+    if (!this.filmPaused) this.filmTogglePause();
+    this.filmStep = true;
+  }
+
+  private filmCycleZoom(): void {
+    this.filmZoomIndex = (this.filmZoomIndex + 1) % FILM_ZOOMS.length;
+    this.cameras.main.setZoom(FILM_ZOOMS[this.filmZoomIndex]);
+  }
+
+  /** 雑魚をプレイヤーの周りに出す。騎兵は画面の端からまっすぐ駆け抜ける */
+  private filmSpawnMinion(m: { id: EnemyId; n: number }): void {
+    const p = this.player;
+    for (let i = 0; i < m.n; i++) {
+      if (m.id === 'cavalry') {
+        const v = this.cameras.main.worldView;
+        const fromLeft = Math.random() < 0.5;
+        const c = this.spawner.spawnOne('cavalry', fromLeft ? v.left - 150 - i * 90 : v.right + 150 + i * 90, p.y + (Math.random() - 0.5) * 320, 1);
+        if (c) c.charge = { vx: (fromLeft ? 1 : -1) * ENEMIES.cavalry.speed, vy: 0 };
+        continue;
+      }
+      const a = Math.random() * Math.PI * 2;
+      const d = 360 + Math.random() * 420;
+      this.spawner.spawnOne(m.id, p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 1);
+    }
+  }
+
+  private filmSpawnBoss(id: EnemyId): void {
+    const boss = this.spawner.spawnOne(id, this.player.x, this.player.y - 420, 1);
+    if (!boss) return;
+    this.spawner.bossActive = true;
+    this.onBossSpawn(boss, 1);
+  }
+
+  /** いる敵を全部消す（ボスも） */
+  private filmClearEnemies(): void {
+    for (const e of this.enemies.getChildren() as Enemy[]) if (e.active) e.despawn();
+    this.bosses = [];
+    this.spawner.bossActive = false;
+  }
+
+  /** 合体の宝箱：まだ持っていない合体（キャラ限定は本人のときだけ）を順に、宝箱の画面で引く */
+  private filmOpenFusionChest(): string {
+    if (this.overlayActive()) return '合体の宝箱';
+    const list = FUSIONS.filter((f) => (!f.requiredChara || f.requiredChara === this.characterId) && !this.up.arts.some((w) => w.def.id === f.id) && WEAPONS[f.id]);
+    if (list.length === 0) return '合体なし';
+    const f = list[this.filmFusionIndex++ % list.length];
+    const fused = createWeapon(f.id);
+    const a = WEAPONS[f.a];
+    const b = WEAPONS[f.b];
+    const data: ChestData = {
+      characterId: this.characterId,
+      open: () => {
+        this.up.arts.push(fused);
+        this.up.recompute();
+        return { jackpot: false, rewards: [{ kind: 'fusion', title: fused.name, sub: `『${a.name}』×『${b.name}』`, color: fused.def.color, owner: fused.def.owner, weapon: fused, owners: [a.owner, b.owner], fromNames: [a.name, b.name], desc: fused.def.desc }] };
+      },
+      onClose: (r: ChestResult) => {
+        for (const rw of r.rewards) {
+          if (!rw.owners) continue;
+          for (const o of rw.owners) this.cutIn.show({ owner: o, title: rw.title, tag: 'FUSION', color: rw.color });
+          const unionId = UNION_FUSION[this.characterId];
+          this.vo(unionId && rw.weapon?.def.id === unionId ? 'union' : 'fusion');
+        }
+      },
+    };
+    this.joystick.reset();
+    this.haltFrame = true;
+    this.guardOnResume = true;
+    this.scene.pause();
+    this.scene.launch('Chest', data);
+    return `宝箱:${fused.name}`;
+  }
+
+  /** 同じ構成で最初から（準備画面に戻らない） */
+  private filmReset(): void {
+    if (!this.film) return;
+    this.scene.restart({ characterId: this.characterId, stageId: this.stage.id, film: this.film });
   }
 
   private onResize(): void {
@@ -642,6 +858,12 @@ export class GameScene extends Phaser.Scene {
     if (this.over) return;
     this.haltFrame = false;
     this.realNow = _time;
+    // 撮影モードの一時停止：コマ送りのときだけ 1/60 秒ぶん進める
+    if (this.film && this.filmPaused) {
+      if (!this.filmStep) return;
+      this.filmStep = false;
+      deltaMs = 1000 / 60;
+    }
 
     // 入力（フレームに1回）
     this.joystick.update();
@@ -652,6 +874,9 @@ export class GameScene extends Phaser.Scene {
       dx = (isHeld('KeyD', 'ArrowRight') ? 1 : 0) - (isHeld('KeyA', 'ArrowLeft') ? 1 : 0);
       dy = (isHeld('KeyS', 'ArrowDown') ? 1 : 0) - (isHeld('KeyW', 'ArrowUp') ? 1 : 0);
     }
+
+    // 撮影モードの立ち止まり：入力を捨てる（敵だけ動く）
+    if (this.filmHold) { dx = 0; dy = 0; }
 
     // ゲーム速度：倍率分だけ内部更新を分割し、1ステップの移動量を等速時と同程度に保つ
     const steps = Math.max(1, Math.ceil(this.speed));
@@ -931,9 +1156,11 @@ export class GameScene extends Phaser.Scene {
   /** ゲーム速度を切替（×1 → ×1.5 → ×2 → ×1）。設定に保存 */
   private cycleSpeed(): void {
     if (this.over) return;
-    const modes = CONFIG.speedModes;
+    // 撮影モードはスロー（0.25・0.5）も回し、設定には保存しない
+    const modes = this.film ? FILM_SPEEDS : CONFIG.speedModes;
     const i = modes.indexOf(this.speed);
     this.setSpeed(modes[(i + 1) % modes.length]);
+    if (this.film) return;
     const save = loadSave();
     save.settings.speed = this.speed;
     writeSave(save);
@@ -4613,6 +4840,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private openLevelUp(): void {
+    // 撮影モード：選択画面を出さない設定
+    if (this.film?.noLevelUp) return;
     if (this.overlayActive()) {
       this.xp.pendingLevelUps++;
       return;

@@ -146,6 +146,11 @@ export class Hud {
   }
 
   /** 消音の表示（♪＝鳴っている／✕＝消音中） */
+  /** HUD 全体の表示（撮影モードで消す。2026-10-25） */
+  setVisible(on: boolean): void {
+    this.container.setVisible(on);
+  }
+
   setMuted(on: boolean): void {
     this.muteText.setText(on ? '✕' : '♪').setColor(on ? COLOR_HEX.danger : COLOR_HEX.white);
   }

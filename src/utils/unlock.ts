@@ -11,6 +11,9 @@ const DEBUG = typeof location !== 'undefined' && /debug/.test(location.search);
 /** URLに `?judge` が付いている（審査モード。2026-10-05）：全ステージ・隠しキャラ以外の全キャラを解放済みとして遊べる。デバッグの表示は出ない。記録・エール・実績は保存しない */
 const JUDGE = typeof location !== 'undefined' && /[?&]judge(?:[&=]|$)/.test(location.search);
 export const isJudge = () => JUDGE;
+/** URLに `?film` が付いている（撮影モード。2026-10-25）：タイトルに FILM が出て、自由な構成のサンドボックスで遊べる。記録・実績・エールは保存しない */
+const FILM = typeof location !== 'undefined' && /[?&]film(?:[&=]|$)/.test(location.search);
+export const isFilm = () => FILM;
 /** 仮の解放（?debug か ?judge） */
 export const isTrialUnlock = () => DEBUG || JUDGE;
 

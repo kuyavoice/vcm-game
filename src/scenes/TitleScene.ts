@@ -7,7 +7,7 @@ import { bondLevel, BOND_MAX } from '../data/bond';
 import { makeButton } from '../ui/Button';
 import { go, panel } from '../ui/theme';
 import { t } from '../utils/lang';
-import { visibleCharacters, isJudge } from '../utils/unlock';
+import { visibleCharacters, isJudge, isFilm } from '../utils/unlock';
 
 /** タイトルコールは起動ごとに1回 */
 let titleCalled = false;
@@ -99,6 +99,12 @@ export class TitleScene extends Phaser.Scene {
         fontFamily: FONT_JP, fontSize: '15px', color: '#00FF88', stroke: '#060913', strokeThickness: 4,
       }).setOrigin(0.5);
     }
+    if (isFilm()) {
+      // キービジュアルのときはメニューが tapY+140 から始まるので、その上（YELL の行の下）に収める
+      this.add.text(W / 2, tapY + (kv ? 100 : 112) + (isJudge() ? 22 : 0), 'FILM MODE ― 撮影用。FILM から自由な構成で始められます（記録は保存されません）', {
+        fontFamily: FONT_JP, fontSize: '15px', color: '#7CFFB2', stroke: '#060913', strokeThickness: 4,
+      }).setOrigin(0.5);
+    }
     // タイトルコール：解放済みの操作キャラからランダムで1人（隠しキャラは解放後だけ候補）
     if (!titleCalled) {
       // 絆MAX（data/bond.ts）のキャラがいれば、その中から（推しの声。2026-10-12）
@@ -127,6 +133,8 @@ export class TitleScene extends Phaser.Scene {
     const menu: { label: string; run: () => void }[] = [
       { label: 'EXTRA', run: () => go(this, 'Lobby') },
       { label: 'OPTION', run: () => this.scene.launch('Option', { from: 'Title' }) },
+      // 撮影モード（?film のときだけ。2026-10-25）
+      ...(isFilm() ? [{ label: 'FILM', run: () => go(this, 'FilmSetup') }] : []),
     ];
     const mGap = 14;
     const mW = Math.min(220, Math.floor((W - 32 - mGap * (menu.length - 1)) / menu.length));
